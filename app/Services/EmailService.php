@@ -4,7 +4,7 @@ namespace App\Services;
 
 use App\Services\Providers\BrevoProvider;
 use App\Services\Providers\LogProvider;
-use InvalidArgumentException;
+use App\Services\Providers\SmtpProvider;
 
 class EmailService
 {
@@ -17,9 +17,17 @@ class EmailService
 
     public function __construct()
     {
-        $providerName = config('services.email.provider', 'log');
+        $providerName = config('services.email.provider');
+
+        if (empty($providerName)) {
+            $providerName = config('mail.default', 'log');
+        }
 
         switch (strtolower($providerName)) {
+            case 'smtp':
+            case 'mail':
+                $this->provider = new SmtpProvider();
+                break;
             case 'brevo':
                 $this->provider = new BrevoProvider();
                 break;
@@ -27,7 +35,12 @@ class EmailService
                 $this->provider = new LogProvider();
                 break;
             default:
-                throw new InvalidArgumentException("Unsupported email provider: {$providerName}. Only Brevo is supported.");
+                if (config('mail.default') === 'smtp') {
+                    $this->provider = new SmtpProvider();
+                } else {
+                    $this->provider = new LogProvider();
+                }
+                break;
         }
     }
 
