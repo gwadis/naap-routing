@@ -1,0 +1,26 @@
+.git
+.github
+.editorconfig
+.env
+.env.*
+!.env.example
+node_modules
+vendor
+android
+native
+ngrok.exe
+check_user.php
+update_user.php
+tests
+*.md
+docker-compose*.override.yml
+
+# Storage runtime files
+storage/logs/*
+storage/framework/cache/data/*
+storage/framework/sessions/*
+storage/framework/views/*
+!storage/framework/cache/.gitignore
+!storage/framework/sessions/.gitignore
+!storage/framework/views/.gitignore
+!storage/logs/.gitignore

@@ -11,6 +11,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+        // Trust upstream reverse proxies (e.g. Coolify, Traefik, Caddy, Cloudflare)
+        $middleware->trustProxies(at: '*');
+
         // 1. Registers your Ngrok bypass header
         $middleware->append(\App\Http\Middleware\SkipNgrokWarning::class);
 
