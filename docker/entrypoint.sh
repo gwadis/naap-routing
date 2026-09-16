@@ -8,9 +8,24 @@ mkdir -p /var/www/html/storage/framework/cache/data \
          /var/www/html/storage/logs \
          /var/www/html/bootstrap/cache
 
+# If no .env file exists in the container, copy from .env.example
+if [ ! -f /var/www/html/.env ] && [ -f /var/www/html/.env.example ]; then
+    echo "Creating .env from .env.example..."
+    cp /var/www/html/.env.example /var/www/html/.env
+fi
+
 # Fix permissions
 chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
+
+# Default environment settings if not explicitly injected
+export APP_ENV="${APP_ENV:-production}"
+export DB_CONNECTION="${DB_CONNECTION:-mysql}"
+
+# Extract DB_HOST from DB_URL if DB_HOST is not set
+if [ -z "$DB_HOST" ] && [ -n "$DB_URL" ]; then
+    DB_HOST=$(echo "$DB_URL" | sed -e 's/.*@//' -e 's/:.*//' -e 's/\/.*//')
+fi
 
 # Create storage symlink if not already created
 php artisan storage:link --force || true
@@ -50,8 +65,8 @@ if [ "$APP_ENV" = "production" ]; then
     php artisan route:cache || true
     php artisan view:cache || true
 else
-    echo "Running in $APP_ENV environment (cache cleared)."
-    php artisan optimize:clear || true
+    echo "Running in $APP_ENV environment."
+    php artisan config:clear || true
 fi
 
 echo "Starting application services..."
