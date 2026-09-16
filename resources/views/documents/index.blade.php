@@ -4,29 +4,32 @@
 
 @section('content')
 <style>
-    .doc-card { position: relative; overflow: hidden; background: #1c2536; border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 20px; transition: 0.3s; }
-    .doc-card::before {
-        content: '';
-        position: absolute;
-        inset: 0;
-        background: radial-gradient(circle at 20% 20%, rgba(255,255,255,0.06), transparent 24%),
-                    linear-gradient(180deg, rgba(15, 23, 42, 0.12), rgba(15, 23, 42, 0.92));
-        pointer-events: none;
-        opacity: 0.45;
-        z-index: 0;
+    .doc-card { 
+        position: relative; 
+        overflow: hidden; 
+        background: #ffffff; 
+        border: 1px solid var(--panel-border); 
+        border-radius: 16px; 
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.03), 0 2px 4px -1px rgba(0, 0, 0, 0.01);
+        transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s; 
     }
-    .doc-card:hover { transform: translateY(-5px); border-color: #22d3ee; }
-    .doc-card.overdue { border-color: #ef4444; box-shadow: 0 0 10px rgba(239, 68, 68, 0.3); }
+    .doc-card:hover { 
+        transform: translateY(-4px); 
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.02);
+        border-color: var(--accent-cyan); 
+    }
+    .doc-card.overdue { border-color: #ef4444; box-shadow: 0 0 10px rgba(239, 68, 68, 0.15); }
     .doc-card > * { position: relative; z-index: 1; }
-    .doc-card h6 { text-shadow: 0 2px 20px rgba(0, 0, 0, 0.35); margin: 0; }
+    .doc-card h6 { margin: 0; color: #1e293b; font-weight: 700; }
     .doc-card-header { display: flex; align-items: flex-start; gap: 16px; }
     .doc-card-header > div { min-width: 0; }
     .doc-card-header .file-icon { flex-shrink: 0; }
-    .file-icon { width: auto; min-width: 45px; max-width: 110px; height: 45px; background: rgba(255, 255, 255, 0.08); border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.7rem; line-height: 1.1; color: #94a3b8; z-index: 1; padding: 0 8px; white-space: normal; word-break: break-word; text-align: center; }
-    .priority-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 8px; }
-    .priority-High { background: #ef4444; box-shadow: 0 0 8px #ef4444; }
-    .priority-Med { background: #f59e0b; }
-    .priority-Low { background: #38bdf8; }
+    .file-icon { width: auto; min-width: 45px; max-width: 110px; height: 45px; background: rgba(15, 23, 42, 0.06); border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.7rem; line-height: 1.1; color: #475569; z-index: 1; padding: 0 8px; white-space: normal; word-break: break-word; text-align: center; }
+    .priority-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 8px; }
+    .priority-Urgent, .priority-urgent { background: #ef4444; box-shadow: 0 0 8px #ef4444; }
+    .priority-High, .priority-high { background: #f59e0b; box-shadow: 0 0 8px #f59e0b; }
+    .priority-Normal, .priority-normal { background: #3b82f6; box-shadow: 0 0 8px #3b82f6; }
+    .priority-Low, .priority-low { background: #10b981; box-shadow: 0 0 8px #10b981; }
     .upload-zone { border: 2px dashed rgba(148, 163, 184, 0.2); border-radius: 16px; padding: 30px; cursor: pointer; }
     .modal-header { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-right: 4.5rem; }
     .modal-header .custom-close-btn {
@@ -64,13 +67,14 @@
     .track-step {
         position: relative;
         flex: 1;
-        background: rgba(15, 23, 42, 0.8);
-        border: 1px solid rgba(148, 163, 184, 0.16);
-        border-radius: 20px;
+        background: #ffffff;
+        border: 1px solid var(--panel-border);
+        border-radius: 12px;
         padding: 1rem 0.9rem 0.8rem;
         text-align: center;
         transition: all 0.25s ease;
         min-width: 0;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
     }
     .track-step::after {
         content: '';
@@ -79,7 +83,7 @@
         right: -0.65rem;
         width: 1.3rem;
         height: 2px;
-        background: rgba(56, 189, 248, 0.35);
+        background: rgba(59, 130, 246, 0.3);
         transform: translateY(-50%);
         z-index: 0;
     }
@@ -93,39 +97,38 @@
         margin: 0 auto 0.85rem;
         display: grid;
         place-items: center;
-        background: rgba(71, 85, 105, 0.55);
-        border: 1px solid rgba(148, 163, 184, 0.18);
-        color: #cbd5e1;
+        background: #f8fafc;
+        border: 1px solid var(--panel-border);
+        color: var(--text-dim);
         font-size: 1.1rem;
         z-index: 1;
     }
     .track-step.active {
-        background: rgba(14, 165, 233, 0.15);
-        border-color: rgba(14, 165, 233, 0.5);
-        box-shadow: 0 0 20px rgba(14, 165, 233, 0.18);
+        background: rgba(59, 130, 246, 0.08);
+        border-color: #3B82F6;
+        box-shadow: 0 0 20px rgba(59, 130, 246, 0.1);
     }
     .track-step.active .track-step-icon {
-        background: #0ea5e9;
-        border-color: #0ea5e9;
-        box-shadow: 0 0 22px rgba(14, 165, 233, 0.28);
+        background: #3B82F6;
+        border-color: #3B82F6;
         color: white;
     }
     .track-step-title {
         font-size: 0.72rem;
         letter-spacing: 0.08em;
         text-transform: uppercase;
-        color: #94a3b8;
+        color: var(--text-dim);
         margin-bottom: 0.35rem;
     }
     .track-step-name {
-        color: #ffffff;
+        color: var(--text-main);
         font-size: 0.95rem;
         font-weight: 700;
         margin-bottom: 0.2rem;
     }
     .track-step-desc {
         font-size: 0.78rem;
-        color: #94a3b8;
+        color: var(--text-dim);
     }
 
     /* --- FIX FOR BIG PAGINATION BUTTONS --- */
@@ -150,196 +153,377 @@
         border-color: #00d7ff;
         color: #0b1228;
     }
+
+    /* Form validation styling */
+    .is-invalid-field {
+        border-color: var(--danger) !important;
+        box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.1) !important;
+    }
+    .invalid-feedback-msg {
+        display: block;
+        color: var(--danger);
+        font-size: 11.5px;
+        font-weight: 500;
+        margin-top: 4px;
+    }
+
+    /* Enterprise Table and Toolbar Styles */
+    .enterprise-toolbar {
+        background: var(--panel);
+        border: 1px solid var(--panel-border);
+        border-radius: var(--radius-lg);
+        padding: 16px;
+        box-shadow: var(--shadow-sm);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .enterprise-table-container {
+        background: var(--panel);
+        border: 1px solid var(--panel-border);
+        border-radius: var(--radius-lg);
+        overflow-x: auto;
+        box-shadow: var(--shadow-sm);
+        margin-top: 16px;
+    }
+    .enterprise-table {
+        width: 100%;
+        border-collapse: collapse;
+        text-align: left;
+        min-width: 900px;
+    }
+    .enterprise-table th {
+        background: #F8FAFC;
+        padding: 12px 16px;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: #64748B;
+        border-bottom: 1px solid var(--panel-border);
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        letter-spacing: 0.05em;
+    }
+    .enterprise-table td {
+        padding: 12px 16px;
+        font-size: 13px;
+        border-bottom: 1px solid var(--panel-border);
+        color: var(--text-main);
+        vertical-align: middle;
+    }
+    .enterprise-table tbody tr:hover {
+        background: #F8FAFC;
+    }
+    .file-type-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: var(--radius-md);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-size: 10px;
+        color: #ffffff;
+        text-transform: uppercase;
+    }
+    .file-pdf { background: #EF4444; }
+    .file-docx, .file-doc { background: #2563EB; }
+    .file-xlsx, .file-xls { background: #10B981; }
+    .file-zip, .file-rar { background: #F59E0B; }
+    .file-png, .file-jpg, .file-jpeg { background: #8B5CF6; }
+    .file-default { background: #64748B; }
+
+    .sla-badge {
+        font-size: 11px;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-weight: 600;
+        display: inline-block;
+    }
+    .sla-on-track {
+        background: rgba(16, 185, 129, 0.08);
+        color: #047857;
+    }
+    .sla-overdue {
+        background: rgba(239, 68, 68, 0.08);
+        color: #B91C1C;
+    }
+
+    /* Visual Routing Timeline Builder */
+    .timeline-builder {
+        position: relative;
+        padding: 16px;
+        background: #F8FAFC;
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--panel-border);
+    }
+    .timeline-step-card {
+        background: var(--panel);
+        border: 1px solid var(--panel-border);
+        border-radius: var(--radius-md);
+        padding: 16px;
+        margin-bottom: 12px;
+        position: relative;
+        box-shadow: var(--shadow-sm);
+        transition: all var(--transition-speed) ease;
+    }
+    .timeline-step-card:hover {
+        border-color: var(--accent-cyan);
+    }
+    .timeline-connector {
+        text-align: center;
+        color: var(--text-dim);
+        margin: 8px 0;
+        font-size: 18px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+    .timeline-step-card.final-dest-card {
+        border-left: 4px solid var(--success);
+        background: rgba(16, 185, 129, 0.01);
+    }
+    .timeline-step-num {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: var(--accent-cyan);
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        font-weight: 700;
+    }
+    .timeline-card-actions {
+        display: flex;
+        gap: 6px;
+    }
 </style>
 
 <div class="container-fluid p-4">
     @if(session('success')) <div class="alert alert-success">{{ session('success') }}</div> @endif
-    @if($errors->any()) <div class="alert alert-danger">Check form for errors.</div> @endif
+    @if($errors->any())
+        <div class="alert alert-danger">
+            <strong>Please fix the following errors:</strong>
+            <ul class="mb-0 mt-1">
+                @foreach($errors->all() as $err)
+                    <li>{{ $err }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
 
-    <div class="d-flex justify-content-between align-items-center mb-5 flex-wrap gap-3">
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
         <div>
-            <h1 class="fw-800 mb-1" style="font-weight: 800;">📁 Documents</h1>
-            <p style="color:#94a3b8; margin:0;">Manage and track organization files</p>
+            <h1 class="page-title mb-1">Documents</h1>
+            <p class="text-secondary small mb-0" style="color: var(--text-dim) !important;">Manage and track organization files.</p>
         </div>
         <button class="btn btn-primary px-4 py-2 fw-bold" style="border-radius: 12px;" data-bs-toggle="modal" data-bs-target="#uploadModal">
             + Upload New
         </button>
     </div>
 
-    <div class="row g-4">
-        @forelse($documents as $doc)
-            <div class="col-12 col-md-6 col-lg-4">
-                <div class="doc-card p-4 h-100 {{ $doc->due_date && $doc->due_date->isPast() ? 'overdue' : '' }}">
-                    <div class="d-flex justify-content-between align-items-start mb-4">
-                        <div class="doc-card-header">
-                            <div class="file-icon text-uppercase">{{ $doc->type ?? 'FILE' }}</div>
-                            <div>
-                                <h6 class="mb-0 fw-bold">{{ $doc->title }}</h6>
-                                <small style="color:#94a3b8;">{{ $doc->created_at->format('M d, Y') }}</small>
+    <!-- Enterprise Toolbar -->
+    <div class="enterprise-toolbar mb-3">
+        <div class="d-flex align-items-center gap-2 flex-grow-1" style="max-width: 500px;">
+            <div class="position-relative w-100">
+                <i class="bi bi-search position-absolute text-muted" style="left: 12px; top: 50%; transform: translateY(-50%);"></i>
+                <input type="text" id="tableSearch" class="form-control" placeholder="Search by name, tracking number, or receiver..." style="height: 38px; border-radius: 8px; padding-left: 40px !important;">
+            </div>
+            <select id="statusFilter" class="form-select" style="max-width: 150px; height: 38px; border-radius: 8px;">
+                <option value="">All Statuses</option>
+                <option value="pending">Pending</option>
+                <option value="in_transit">In Transit</option>
+                <option value="completed">Completed</option>
+                <option value="rejected">Rejected</option>
+            </select>
+            <select id="priorityFilter" class="form-select" style="max-width: 150px; height: 38px; border-radius: 8px;">
+                <option value="">All Priorities</option>
+                <option value="low">Low</option>
+                <option value="normal">Normal</option>
+                <option value="high">High</option>
+                <option value="urgent">Urgent</option>
+            </select>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <button class="btn btn-outline-secondary btn-sm" id="btnBulkAction" style="height: 38px; border-radius: 8px;" disabled>
+                <i class="bi bi-box-arrow-right"></i> Bulk Actions
+            </button>
+            <div class="dropdown">
+                <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" id="columnToggleBtn" data-bs-toggle="dropdown" aria-expanded="false" style="height: 38px; border-radius: 8px;">
+                    <i class="bi bi-eye"></i> Columns
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end p-3" aria-labelledby="columnToggleBtn" style="min-width: 200px;">
+                    <li><label class="dropdown-item"><input type="checkbox" class="col-toggle-chk me-2" data-col="col-tracking" checked> Tracking Number</label></li>
+                    <li><label class="dropdown-item"><input type="checkbox" class="col-toggle-chk me-2" data-col="col-origin" checked> Origin Office</label></li>
+                    <li><label class="dropdown-item"><input type="checkbox" class="col-toggle-chk me-2" data-col="col-current" checked> Current Office</label></li>
+                    <li><label class="dropdown-item"><input type="checkbox" class="col-toggle-chk me-2" data-col="col-destination" checked> Destination</label></li>
+                    <li><label class="dropdown-item"><input type="checkbox" class="col-toggle-chk me-2" data-col="col-receiver" checked> Receiver</label></li>
+                    <li><label class="dropdown-item"><input type="checkbox" class="col-toggle-chk me-2" data-col="col-sla" checked> SLA Status</label></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enterprise Document Table -->
+    <div class="enterprise-table-container">
+        <table class="enterprise-table" id="documentsTable">
+            <thead>
+                <tr>
+                    <th style="width: 40px;"><input type="checkbox" id="selectAllDocs"></th>
+                    <th>Document Name</th>
+                    <th class="col-tracking">Tracking No.</th>
+                    <th class="col-origin">Origin</th>
+                    <th class="col-current">Current Office</th>
+                    <th class="col-destination">Final Destination</th>
+                    <th class="col-receiver">Receiver</th>
+                    <th>Status</th>
+                    <th>Priority</th>
+                    <th>Last Updated</th>
+                    <th class="col-sla">SLA Remaining</th>
+                    <th style="width: 80px; text-align: center;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @forelse($documents as $doc)
+                    @php
+                        $ext = strtolower($doc->type ?? '');
+                        $iconClass = match($ext) {
+                            'pdf' => 'file-pdf',
+                            'docx', 'doc' => 'file-docx',
+                            'xlsx', 'xls' => 'file-xlsx',
+                            'zip', 'rar' => 'file-zip',
+                            'png', 'jpg', 'jpeg' => 'file-png',
+                            default => 'file-default'
+                        };
+                        
+                        $statusKey = strtolower($doc->status);
+                        $badgeColor = match($statusKey) {
+                            'completed' => 'bg-success text-white',
+                            'pending' => 'bg-warning text-dark',
+                            'in_transit', 'in transit' => 'bg-info text-dark',
+                            default => 'bg-secondary text-white'
+                        };
+
+                        $isOverdue = $doc->due_date && $doc->due_date->isPast();
+                        $slaText = 'On Track';
+                        $slaClass = 'sla-on-track';
+                        if ($isOverdue) {
+                            $slaText = 'Overdue';
+                            $slaClass = 'sla-overdue';
+                        }
+                    @endphp
+                    <tr class="document-row" data-title="{{ strtolower($doc->title) }}" data-tracking="{{ strtolower($doc->tracking_number ?? '') }}" data-status="{{ str_replace(' ', '_', $statusKey) }}" data-priority="{{ strtolower($doc->priority) }}" data-receiver="{{ strtolower($doc->receiverUser->name ?? '') }}">
+                        <td><input type="checkbox" class="doc-select-chk" value="{{ $doc->id }}"></td>
+                        <td>
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="file-type-icon {{ $iconClass }}">{{ $ext ?: 'FILE' }}</div>
+                                <div>
+                                    <a href="{{ route('documents.show', $doc->id) }}" class="fw-bold text-dark text-decoration-none hover-cyan" style="font-size: 14px;">{{ $doc->title }}</a>
+                                    <div class="text-muted" style="font-size: 11px;">By {{ $doc->uploader->name ?? 'System' }}</div>
+                                </div>
                             </div>
-                        </div>
-                        <span class="badge bg-info rounded-pill px-3">{{ $doc->status }}</span>
-                    </div>
-                    <div class="mb-4">
-                        <small class="text-secondary d-block mb-1">Priority</small>
-                        <div class="d-flex align-items-center">
-                            <span class="priority-dot priority-{{ $doc->priority }}"></span>
-                            <span class="small fw-bold">{{ $doc->priority }}</span>
-                        </div>
-                    </div>
-                    @if($doc->qr_id)
-                        <div class="mb-4">
-                            <small class="text-secondary d-block mb-1">QR Code ID</small>
-                            <span class="small fw-bold" style="color: #22c1ff;">{{ $doc->qr_id }}</span>
-                        </div>
-                    @endif
-                    @if($doc->receiverUsers && $doc->receiverUsers->isNotEmpty())
-                        <div class="mb-4">
-                            <small class="text-secondary d-block mb-1">Receivers</small>
-                            <div class="d-flex flex-wrap gap-2">
-                                @foreach($doc->receiverUsers as $receiver)
-                                    <span class="badge bg-info text-dark">{{ $receiver->name }}</span>
-                                @endforeach
-                            </div>
-                        </div>
-                    @elseif($doc->receiverUser)
-                        <div class="mb-4">
-                            <small class="text-secondary d-block mb-1">Receiver</small>
-                            <span class="small fw-bold">{{ $doc->receiverUser->name }}</span>
-                            <div class="small text-muted">{{ $doc->receiverUser->department->name ?? 'No department' }}</div>
-                        </div>
-                    @endif
-                    @if($doc->due_date)
-                        <div class="mb-4">
-                            <small class="text-secondary d-block mb-1">Due Date</small>
-                            <span class="small fw-bold {{ $doc->due_date->isPast() ? 'text-danger' : 'text-warning' }}">
-                                {{ $doc->due_date->format('M d, Y') }}
+                        </td>
+                        <td class="col-tracking"><code style="font-size: 12px; color: #475569;">{{ $doc->tracking_number ?: 'N/A' }}</code></td>
+                        <td class="col-origin">{{ $doc->originOffice->name ?? 'N/A' }}</td>
+                        <td class="col-current"><span class="fw-600 text-dark">{{ $doc->currentOffice->name ?? 'In Transit' }}</span></td>
+                        <td class="col-destination">{{ $doc->destinationOffice->name ?? 'N/A' }}</td>
+                        <td class="col-receiver">
+                            @if($doc->receiverUser)
+                                <span class="fw-600">{{ $doc->receiverUser->name }}</span>
+                                <div class="text-muted" style="font-size: 11px;">{{ $doc->receiverUser->department->name ?? 'No Dept' }}</div>
+                            @else
+                                <span class="text-muted">Unassigned</span>
+                            @endif
+                        </td>
+                        <td>
+                            <span class="badge {{ $badgeColor }} text-uppercase" style="font-size: 10px; font-weight: 700; letter-spacing: 0.05em; padding: 5px 8px;">{{ $doc->status }}</span>
+                        </td>
+                        <td>
+                            @php
+                                $pColor = match(strtolower($doc->priority)) {
+                                    'low' => '#64748B',
+                                    'normal' => '#047857',
+                                    'high' => '#B45309',
+                                    'urgent' => '#BE123C',
+                                    default => '#64748B'
+                                };
+                            @endphp
+                            <span style="display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; color: {{ $pColor }};">
+                                <span style="width: 6px; height: 6px; border-radius: 50%; background: {{ $pColor }};"></span>
+                                {{ $doc->priority }}
                             </span>
-                        </div>
-                    @endif
-                    <div class="d-flex gap-2 flex-wrap">
-                        <a href="{{ asset('storage/' . $doc->file_path) }}" target="_blank" class="btn btn-outline-info flex-grow-1 border-0" style="background: rgba(34, 211, 238, 0.05); padding: 8px 12px; font-size: 0.85rem;">View</a>
-                        <button type="button" class="btn btn-outline-warning flex-grow-1 border-0" style="background: rgba(255, 193, 7, 0.05); padding: 8px 12px; font-size: 0.85rem;" 
-                            data-title="{{ addslashes($doc->title) }}"
-                            data-origin="{{ addslashes(optional($doc->originOffice)->name ?? 'Unknown') }}"
-                            data-current="{{ addslashes(optional($doc->currentOffice)->name ?? 'In Transit') }}"
-                            data-destination="{{ addslashes(optional($doc->destinationOffice)->name ?? 'Unknown') }}"
-                            data-status="{{ addslashes($doc->status) }}"
-                            onclick="openTrackingModal(this)">
-                            Route
-                        </button>
-                        @if($doc->qr_code)
-                        <button class="btn btn-outline-secondary flex-grow-1 border-0" style="background: rgba(255, 255, 255, 0.05); padding: 8px 12px; font-size: 0.85rem;" onclick="showQR('{{ asset('storage/' . $doc->qr_code) }}')">QR</button>
-                        @endif
-                    </div>
-                </div>
-            </div>
-        @empty
-            <div class="text-center py-5">
-                <p class="text-muted">No documents found. Upload your first one!</p>
-            </div>
-        @endforelse
+                        </td>
+                        <td style="font-size: 12px; color: #64748B;">{{ $doc->updated_at->diffForHumans() }}</td>
+                        <td class="col-sla"><span class="sla-badge {{ $slaClass }}">{{ $slaText }}</span></td>
+                        <td style="text-align: center;">
+                            <div class="dropdown">
+                                <button class="btn btn-link btn-sm text-secondary p-0" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="bi bi-three-dots-vertical" style="font-size: 18px;"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li><a class="dropdown-item" href="{{ route('documents.show', $doc->id) }}"><i class="bi bi-file-text me-2"></i> View Details</a></li>
+                                    <li><a class="dropdown-item" href="{{ route('documents.download', $doc->id) }}" target="_blank"><i class="bi bi-download me-2"></i> Download File</a></li>
+                                    @if($doc->qr_code)
+                                        @php
+                                            $qrValue = $doc->qr_code;
+                                            $qrUrl = '';
+                                            if (str_contains($qrValue, 'qr_codes/')) {
+                                                $qrUrl = asset('storage/' . $qrValue);
+                                            } else {
+                                                try {
+                                                    $qrObj = new \Endroid\QrCode\QrCode(route('documents.show', $doc->id), size: 300);
+                                                    $writer = new \Endroid\QrCode\Writer\PngWriter();
+                                                    $result = $writer->write($qrObj);
+                                                    $qrUrl = 'data:image/png;base64,' . base64_encode($result->getString());
+                                                } catch (\Exception $e) {
+                                                    $qrUrl = '';
+                                                }
+                                            }
+                                        @endphp
+                                        @if($qrUrl)
+                                            <li><button class="dropdown-item" type="button" onclick="showQR('{{ $qrUrl }}')"><i class="bi bi-qr-code me-2"></i> View QR Code</button></li>
+                                        @endif
+                                    @endif
+                                </ul>
+                            </div>
+                        </td>
+                    </tr>
+                @empty
+                    <tr>
+                        <td colspan="12" class="text-center py-5 text-muted">
+                            <div class="mb-2" style="font-size: 2.5rem;">📁</div>
+                            <h6 class="fw-bold text-dark">No Documents Found</h6>
+                            <p class="small mb-0">Upload a new document or change your search filters to get started.</p>
+                        </td>
+                    </tr>
+                @endforelse
+            </tbody>
+        </table>
     </div>
 
     @if(method_exists($documents, 'links'))
-    <div class="d-flex justify-content-center mt-4">
-        {{ $documents->links('pagination::bootstrap-4') }}
-    </div>
+        <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
+            <div class="small text-muted">
+                Showing {{ $documents->firstItem() ?? 0 }} to {{ $documents->lastItem() ?? 0 }} of {{ $documents->total() ?? 0 }} entries
+            </div>
+            <div>
+                {{ $documents->links('pagination::bootstrap-4') }}
+            </div>
+        </div>
     @endif
 </div>
 
-<div class="modal fade" id="uploadModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content" style="background:#161e31; border: 1px solid rgba(255,255,255,0.1); border-radius: 24px; color:white;">
-            <form action="{{ route('documents.store') }}" method="POST" enctype="multipart/form-data">
-                @csrf
-                <div class="modal-header border-0 p-4">
-                    <h5 class="modal-title fw-bold">Upload Document</h5>
-                    <button type="button" class="btn custom-close-btn" data-bs-dismiss="modal" aria-label="Close"><i class="bi bi-x-lg"></i></button>
-                </div>
-                <div class="modal-body p-4 pt-0">
-                    <div class="upload-zone text-center mb-4" onclick="document.getElementById('fileHidden').click()">
-                        <div style="font-size: 2rem;" class="mb-2">📤</div>
-                        <h6 class="fw-bold mb-1" id="fileNameDisplay">Drop your files here</h6>
-                        <p class="small text-secondary mb-0">or click to browse</p>
-                        <input type="file" name="file" id="fileHidden" class="d-none" required onchange="updateFileName(this)">
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label small fw-bold text-secondary">Document Title</label>
-                        <input type="text" name="title" class="form-control bg-dark border-secondary text-white py-2" required placeholder="Enter file name">
-                    </div>
-
-                    <div class="row mb-3">
-                        <div class="col-6">
-                            <label class="form-label small fw-bold text-secondary">Origin Office</label>
-                            <select name="origin_office_id" class="form-select bg-dark border-secondary text-white" required>
-                                @foreach($offices as $office)
-                                    <option value="{{ $office->id }}">{{ $office->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label small fw-bold text-secondary">Destination</label>
-                            <select name="destination_office_id" class="form-select bg-dark border-secondary text-white" required>
-                                @foreach($offices as $office)
-                                    <option value="{{ $office->id }}">{{ $office->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label small fw-bold text-secondary">Receiver Users</label>
-                        <div class="p-3 bg-dark border-secondary rounded" style="max-height: 180px; overflow-y: auto;">
-                            @php $currentUserId = session('user_id'); $firstReceiver = true; @endphp
-                            @foreach($users as $user)
-                                @if($user->id !== $currentUserId)
-                                    <label class="form-check form-check-inline d-flex align-items-center justify-content-between w-100 rounded px-2 py-2 mb-2" style="background: rgba(255,255,255,0.03);">
-                                        <span class="text-white">{{ $user->name }} @if($user->department) ({{ $user->department->name }}) @endif</span>
-                                        <input type="checkbox" name="receiver_user_ids[]" value="{{ $user->id }}" class="form-check-input ms-2" @if($firstReceiver) required @php $firstReceiver = false; @endphp @endif>
-                                    </label>
-                                @endif
-                            @endforeach
-                        </div>
-                        <small class="text-muted">Check all users who should receive this document.</small>
-                    </div>
-
-                    <label class="form-label small fw-bold text-secondary">Set Priority</label>
-                    <div class="d-flex gap-2">
-                        <input type="radio" class="btn-check" name="priority" id="low" value="Low" checked>
-                        <label class="btn btn-outline-secondary w-100" for="low">Low</label>
-                        <input type="radio" class="btn-check" name="priority" id="med" value="Medium">
-                        <label class="btn btn-outline-secondary w-100" for="med">Medium</label>
-                        <input type="radio" class="btn-check" name="priority" id="high" value="High">
-                        <label class="btn btn-outline-secondary w-100" for="high">High</label>
-                    </div>
-
-                    <div class="mb-3 mt-3">
-                        <label class="form-label small fw-bold text-secondary">SLA</label>
-                        <select name="sla" class="form-select bg-dark border-secondary text-white" required>
-                            <option value="Standard">Standard</option>
-                            <option value="Expedited">Expedited</option>
-                            <option value="Critical">Critical</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="modal-footer border-0 p-4">
-                    <button type="button" class="btn btn-link text-secondary text-decoration-none fw-bold" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary px-5 py-2 fw-bold" style="border-radius: 12px;">Confirm Upload</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
 
 <script>
-    function updateFileName(input) {
-        const display = document.getElementById('fileNameDisplay');
-        if (input.files.length > 0) {
-            display.innerText = input.files[0].name;
-            display.style.color = "#22d3ee";
-        }
+    // General helper
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
     function showQR(src) {
@@ -380,6 +564,7 @@
         new bootstrap.Modal(document.getElementById('trackModal')).show();
     }
 
+    // Recipients list logic for Route Action Modal
     const selectedRecipients = new Map();
     const autoSelectedRecipients = new Set();
 
@@ -415,6 +600,7 @@
     }
 
     const currentUserId = @json(session('user_id'));
+    const currentOfficeStaff = new Map();
 
     async function renderStaffList() {
         const officeSelect = document.getElementById('officeSelect');
@@ -431,6 +617,9 @@
             const data = await response.json();
             const staff = (data.staff || []).filter(user => user.id !== currentUserId);
 
+            currentOfficeStaff.clear();
+            staff.forEach(u => currentOfficeStaff.set(u.id, u));
+
             if (staff.length === 0) {
                 container.innerHTML = '<div class="text-muted text-center py-4"><small>No staff assigned to this office</small></div>';
                 return;
@@ -446,7 +635,7 @@
                                 <div class="d-flex align-items-center">
                                     <input type="checkbox" class="form-check-input me-3" 
                                            ${isSelected ? 'checked' : ''} 
-                                           onchange="toggleRecipient(${JSON.stringify(user)}, this.checked)"
+                                           onchange="toggleRecipient(${user.id}, this.checked)"
                                            ${isAutoSelected ? 'disabled' : ''}>
                                     <div style="flex: 1;">
                                         <div class="small fw-bold text-info">${user.name}</div>
@@ -466,12 +655,13 @@
         }
     }
 
-    function toggleRecipient(user, isChecked) {
+    function toggleRecipient(userId, isChecked) {
+        const user = currentOfficeStaff.get(userId);
         if (isChecked) {
-            addRecipient(user);
+            if (user) addRecipient(user);
         } else {
-            selectedRecipients.delete(user.id);
-            autoSelectedRecipients.delete(user.id);
+            selectedRecipients.delete(userId);
+            autoSelectedRecipients.delete(userId);
             updateRecipientDisplay();
             renderStaffList();
         }
@@ -503,16 +693,6 @@
         renderStaffList();
     }
 
-    document.getElementById('officeSelect').addEventListener('change', function() {
-        clearRecipients();
-        renderStaffList();
-    });
-
-    document.getElementById('autoAssignToggle').addEventListener('change', function() {
-        if (this.checked) autoAssignStaff();
-        else clearRecipients();
-    });
-
     function setDocId(docId) {
         document.getElementById('docId').value = docId;
         const form = document.getElementById('routeForm');
@@ -525,42 +705,128 @@
         renderStaffList();
     }
 
-    document.getElementById('routeForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        const formData = new FormData(this);
-        formData.delete('receiver_user_ids[]');
-        Array.from(selectedRecipients.keys()).forEach(id => {
-            formData.append('receiver_user_ids[]', id);
+    document.addEventListener('DOMContentLoaded', function() {
+        // Table filtering & search
+        const tableSearch = document.getElementById('tableSearch');
+        const statusFilter = document.getElementById('statusFilter');
+        const priorityFilter = document.getElementById('priorityFilter');
+        const rows = document.querySelectorAll('#documentsTable tbody .document-row');
+
+        function filterTable() {
+            const query = tableSearch ? tableSearch.value.trim().toLowerCase() : '';
+            const status = statusFilter ? statusFilter.value.toLowerCase() : '';
+            const priority = priorityFilter ? priorityFilter.value.toLowerCase() : '';
+
+            rows.forEach(row => {
+                const title = row.getAttribute('data-title') || '';
+                const tracking = row.getAttribute('data-tracking') || '';
+                const receiver = row.getAttribute('data-receiver') || '';
+                
+                const rStatus = row.getAttribute('data-status') || '';
+                const rPriority = row.getAttribute('data-priority') || '';
+
+                const matchesQuery = title.includes(query) || tracking.includes(query) || receiver.includes(query);
+                const matchesStatus = !status || rStatus === status;
+                const matchesPriority = !priority || rPriority === priority;
+
+                if (matchesQuery && matchesStatus && matchesPriority) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        }
+
+        tableSearch?.addEventListener('input', filterTable);
+        statusFilter?.addEventListener('change', filterTable);
+        priorityFilter?.addEventListener('change', filterTable);
+
+        // Column toggles
+        document.querySelectorAll('.col-toggle-chk').forEach(chk => {
+            chk.addEventListener('change', function() {
+                const colClass = this.getAttribute('data-col');
+                const show = this.checked;
+                document.querySelectorAll(`.${colClass}`).forEach(el => {
+                    el.style.display = show ? '' : 'none';
+                });
+            });
         });
 
-        fetch(this.action, {
-            method: 'POST',
-            body: formData,
-            headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '' }
-        })
-        .then(response => {
-            if (response.ok) {
-                window.location.reload();
-            }
+        // Bulk Selection Checkbox
+        const selectAllDocs = document.getElementById('selectAllDocs');
+        const docSelectChks = document.querySelectorAll('.doc-select-chk');
+        const btnBulkAction = document.getElementById('btnBulkAction');
+
+        selectAllDocs?.addEventListener('change', function() {
+            docSelectChks.forEach(chk => chk.checked = this.checked);
+            updateBulkActionState();
         });
+
+        docSelectChks.forEach(chk => {
+            chk.addEventListener('change', updateBulkActionState);
+        });
+
+        function updateBulkActionState() {
+            const selected = Array.from(docSelectChks).some(chk => chk.checked);
+            if (btnBulkAction) btnBulkAction.disabled = !selected;
+        }
+
+        const officeSelect = document.getElementById('officeSelect');
+        if (officeSelect) {
+            officeSelect.addEventListener('change', function() {
+                clearRecipients();
+                renderStaffList();
+            });
+        }
+
+        const autoAssignToggle = document.getElementById('autoAssignToggle');
+        if (autoAssignToggle) {
+            autoAssignToggle.addEventListener('change', function() {
+                if (this.checked) autoAssignStaff();
+                else clearRecipients();
+            });
+        }
+
+        const routeForm = document.getElementById('routeForm');
+        if (routeForm) {
+            routeForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const formData = new FormData(this);
+                formData.delete('receiver_user_ids[]');
+                Array.from(selectedRecipients.keys()).forEach(id => {
+                    formData.append('receiver_user_ids[]', id);
+                });
+
+                fetch(this.action, {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '' }
+                })
+                .then(response => {
+                    if (response.ok) {
+                        window.location.reload();
+                    }
+                });
+            });
+        }
     });
 </script>
 
 <div class="modal fade" id="routeModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered modal-lg">
-        <div class="modal-content" style="background:#161e31; border: 1px solid rgba(255,255,255,0.1); border-radius: 24px; color:white;">
+        <div class="modal-content" style="background:#FFFFFF; border: 1px solid var(--panel-border); border-radius: 12px; color: var(--text-main);">
             <form action="/routing/update/0" method="POST" id="routeForm">
                 @csrf
                 <div class="modal-header border-0 p-4">
-                    <h5 class="modal-title fw-bold">📤 Route Document</h5>
-                    <button type="button" class="btn custom-close-btn" data-bs-dismiss="modal" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+                    <h5 class="modal-title fw-bold" style="color: var(--accent-navy);">📤 Route Document</h5>
+                    <button type="button" class="btn custom-close-btn" data-bs-dismiss="modal" aria-label="Close" style="color: var(--text-main);"><i class="bi bi-x-lg"></i></button>
                 </div>
                 <div class="modal-body p-4 pt-0" style="max-height: 500px; overflow-y: auto;">
                     <input type="hidden" id="docId" name="doc_id">
                     
-                    <div class="mb-4">
-                        <label class="form-label fw-bold text-info">📍 Send To Office</label>
-                        <select name="office_id" id="officeSelect" class="form-select bg-dark border-secondary text-white" required>
+                    <div class="mb-4 text-start">
+                        <label class="form-label fw-bold text-uppercase" style="font-weight: 700; color: var(--accent-navy);">📍 Send To Office</label>
+                        <select name="office_id" id="officeSelect" class="form-select" required>
                             <option value="">-- Select office --</option>
                             @foreach($offices as $office)
                                 <option value="{{ $office->id }}">{{ $office->name }} ({{ $office->department }})</option>
@@ -568,36 +834,36 @@
                         </select>
                     </div>
 
-                    <div class="mb-4 p-3" style="background: rgba(0,215,255,0.08); border-radius: 10px; border: 1px solid rgba(0,215,255,0.2);">
-                        <div class="form-check form-switch">
+                    <div class="mb-4 p-3 border rounded" style="background: var(--bg);">
+                        <div class="form-check form-switch text-start">
                             <input class="form-check-input" type="checkbox" id="autoAssignToggle">
-                            <label class="form-check-label fw-bold text-info" for="autoAssignToggle">⚡ Auto-assign all staff</label>
+                            <label class="form-check-label fw-bold" for="autoAssignToggle" style="color: var(--accent-navy);">⚡ Auto-assign all staff</label>
                         </div>
                     </div>
 
-                    <div class="mb-4">
-                        <label class="form-label fw-bold text-info">👥 Recipients</label>
-                        <div id="staffContainer" class="p-3" style="background: rgba(255,255,255,0.04); border-radius: 10px; min-height: 120px; border: 1px solid rgba(255,255,255,0.08);">
+                    <div class="mb-4 text-start">
+                        <label class="form-label fw-bold text-uppercase" style="font-weight: 700; color: var(--accent-navy);">👥 Recipients</label>
+                        <div id="staffContainer" class="p-3 border rounded" style="background: #FFFFFF; min-height: 120px;">
                             <div class="text-muted text-center py-4"><small>Select an office first</small></div>
                         </div>
                     </div>
 
-                    <div class="mb-4">
-                        <label class="form-label fw-bold text-success">✅ Selected Recipients</label>
+                    <div class="mb-4 text-start">
+                        <label class="form-label fw-bold text-uppercase" style="font-weight: 700; color: var(--success);">✅ Selected Recipients</label>
                         <div id="selectedRecipients" class="d-flex flex-wrap gap-2">
                             <small class="text-muted w-100">No recipients selected</small>
                         </div>
                         <input type="hidden" name="receiver_user_ids[]" id="selectedIds" value="">
                     </div>
 
-                    <div class="mb-3">
-                        <label class="form-label fw-bold text-info">📝 Notes (Optional)</label>
-                        <textarea name="notes" class="form-control bg-dark border-secondary text-white" rows="2"></textarea>
+                    <div class="mb-3 text-start">
+                        <label class="form-label fw-bold text-uppercase" style="font-weight: 700; color: var(--accent-navy);">📝 Notes (Optional)</label>
+                        <textarea name="notes" class="form-control" rows="2"></textarea>
                     </div>
                 </div>
-                <div class="modal-footer border-top p-4" style="border-color: rgba(255,255,255,0.1);">
+                <div class="modal-footer border-top p-4" style="border-color: var(--panel-border);">
                     <button type="button" class="btn btn-secondary fw-bold" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-warning fw-bold px-5" style="border-radius: 8px; color: #000;">✓ Route Document</button>
+                    <button type="submit" class="btn btn-primary fw-bold px-5" style="border-radius: 8px;">✓ Route Document</button>
                 </div>
             </form>
         </div>
@@ -606,13 +872,13 @@
 
 <div class="modal fade" id="qrModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content bg-dark text-white">
+        <div class="modal-content" style="background:#FFFFFF; border: 1px solid var(--panel-border); border-radius: 12px; color: var(--text-main);">
             <div class="modal-header">
-                <h5 class="modal-title">Document QR Code</h5>
-                <button type="button" class="btn custom-close-btn" data-bs-dismiss="modal" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+                <h5 class="modal-title fw-bold" style="color: var(--accent-navy);">Document QR Code</h5>
+                <button type="button" class="btn custom-close-btn" data-bs-dismiss="modal" aria-label="Close" style="color: var(--text-main);"><i class="bi bi-x-lg"></i></button>
             </div>
             <div class="modal-body text-center">
-                <img id="qrImage" src="" alt="QR Code" class="img-fluid">
+                <img id="qrImage" src="" alt="QR Code" class="img-fluid" style="border: 1px solid var(--panel-border); border-radius: 8px; padding: 12px; background: #FFFFFF;">
             </div>
         </div>
     </div>
@@ -620,13 +886,13 @@
 
 <div class="modal fade" id="trackModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content bg-dark text-white border-secondary">
+        <div class="modal-content" style="background:#FFFFFF; border: 1px solid var(--panel-border); border-radius: 12px; color: var(--text-main);">
             <div class="modal-header border-0">
-                <div>
-                    <h5 class="modal-title" id="trackModalTitle">Document Route</h5>
-                    <p class="text-muted mb-0" id="trackModalStatus"></p>
+                <div class="text-start">
+                    <h5 class="modal-title fw-bold" id="trackModalTitle" style="color: var(--accent-navy);">Document Route</h5>
+                    <p class="text-secondary small mb-0" id="trackModalStatus"></p>
                 </div>
-                <button type="button" class="btn custom-close-btn" data-bs-dismiss="modal" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+                <button type="button" class="btn custom-close-btn" data-bs-dismiss="modal" aria-label="Close" style="color: var(--text-main);"><i class="bi bi-x-lg"></i></button>
             </div>
             <div class="modal-body">
                 <div class="track-steps">

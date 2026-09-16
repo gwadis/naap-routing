@@ -27,6 +27,15 @@ class Document extends Model
         'receiver_user_id',
         'uploaded_by',
         'file_path',
+        'file_size',
+        'mime_type',
+        'file_hash',
+        'version',
+        'tracking_number',
+        'is_confidential',
+        'uuid',
+        'category',
+        'tags',
         'status',
         'qr_code',
         'qr_id',
@@ -34,17 +43,56 @@ class Document extends Model
         'receiver_signature',
         'qr_scanned_at',
         'received_at',
+        'forwarded_at',
+        'approved_at',
+        'completed_at',
+        'archived_at',
+        'rejected_at',
+        'uploaded_at',
+        'processed_at',
         'routing_notes',
         'routing_history',
+        'access_pin',
+        'qr_status',
     ];
 
     protected $casts = [
         'due_date' => 'datetime',
         'qr_scanned_at' => 'datetime',
         'received_at' => 'datetime',
+        'forwarded_at' => 'datetime',
+        'approved_at' => 'datetime',
+        'completed_at' => 'datetime',
+        'archived_at' => 'datetime',
+        'rejected_at' => 'datetime',
+        'uploaded_at' => 'datetime',
+        'processed_at' => 'datetime',
         'destination_offices' => 'array',
         'routing_history' => 'array',
+        'is_confidential' => 'boolean',
+        'qr_status' => 'string',
     ];
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::saving(function ($document) {
+            if ($document->due_date) {
+                $days = now()->startOfDay()->diffInDays($document->due_date->startOfDay(), false);
+                
+                if ($days <= 1 || $document->sla === 'Critical') {
+                    $document->priority = 'Urgent';
+                } elseif ($days <= 3 || $document->sla === 'Expedited') {
+                    $document->priority = 'High';
+                } elseif ($days <= 7) {
+                    $document->priority = 'Normal';
+                } else {
+                    $document->priority = 'Low';
+                }
+            }
+        });
+    }
 
     /**
      * Relationship: The office where the document is currently located.
@@ -147,6 +195,12 @@ class Document extends Model
     }
 
     
+    public function isActiveReceiver($user)
+    {
+        if (!$user) return false;
+        return (int) $this->receiver_user_id === (int) $user->id;
+    }
+
     public function isDelivered()
     {
         return $this->status === 'Completed' && $this->receiver_signature !== null;
@@ -196,5 +250,10 @@ class Document extends Model
                 $uploader->notify(new \App\Notifications\DocumentSignedNotification($this, $signerName));
             }
         }
+    }
+
+    public function views()
+    {
+        return $this->hasMany(DocumentView::class);
     }
 }

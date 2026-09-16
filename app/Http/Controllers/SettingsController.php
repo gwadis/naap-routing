@@ -25,7 +25,7 @@ class SettingsController extends Controller
 
         $settingKeys = [
             '2fa_enabled', 'min_password', 'session_timeout', 
-            'auto_qr', 'qr_size', 'email_notif', 'log_retention'
+            'auto_qr', 'qr_size', 'email_notif', 'log_retention', 'otp_expiry'
         ];
 
         foreach ($settingKeys as $key) {
@@ -45,7 +45,7 @@ class SettingsController extends Controller
             'user' => session('user_name') ?? 'Admin User',
             'action' => 'System settings updated',
             'document_id' => null,
-            'ip' => $request->ip(),
+            'ip' => 'REDACTED',
             'meta' => json_encode($request->only($settingKeys)),
         ]);
 

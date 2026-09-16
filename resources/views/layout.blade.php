@@ -41,7 +41,7 @@
             border-right: 1px solid var(--panel-border);
             display: flex;
             flex-direction: column;
-            padding: 25px 20px;
+            padding: 10px 12px;
             position: fixed; 
             height: 100vh; 
             z-index: 2000;
@@ -60,7 +60,7 @@
         /* --- BRANDING --- */
         .brand-section {
             display: flex; align-items: center; justify-content: space-between;
-            margin-bottom: 35px; padding-left: 10px;
+            margin-bottom: 12px; padding-left: 10px;
         }
 
         .logo-box {
@@ -176,6 +176,38 @@
             </button>
         </div>
 
+        @php
+            $currentUser = \App\Models\User::find(session('user_id'));
+            $roleLabel = match(session('user_role')) {
+                'ADMIN' => 'Admin',
+                'Super Admin' => 'Super Admin',
+                'Sender' => 'Sender',
+                'Receiver' => 'Receiver',
+                default => session('user_role') ?? 'User'
+            };
+        @endphp
+
+        <!-- Sidebar Profile Card -->
+        <div class="px-2 py-2 border-bottom border-slate-800 mb-1">
+            <div class="d-flex align-items-center gap-3 mb-0 p-2 rounded" style="background: rgba(30, 41, 59, 0.4); border: 1px solid rgba(255,255,255,0.05);">
+                <div class="position-relative" style="flex-shrink: 0;">
+                    @if($currentUser && $currentUser->avatar)
+                        <img src="{{ asset('storage/' . $currentUser->avatar) }}" alt="Avatar" class="rounded-circle" style="width: 42px; height: 42px; object-fit: cover; border: 2px solid var(--accent-cyan);">
+                    @else
+                        <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold text-white" style="width: 42px; height: 42px; background: var(--accent-navy); border: 2px solid var(--accent-cyan); font-size: 16px;">
+                            {{ substr(session('user_name', 'A'), 0, 1) }}
+                        </div>
+                    @endif
+                    <!-- Online Status Indicator -->
+                    <span class="position-absolute bottom-0 end-0 bg-success border border-white rounded-circle" style="width: 11px; height: 11px; border-width: 2px !important;"></span>
+                </div>
+                <div class="overflow-hidden" style="flex: 1;">
+                    <div class="fw-bold text-white text-truncate small" style="line-height: 1.2;">{{ session('user_name') }}</div>
+                    <small class="text-slate-400 text-truncate d-block" style="font-size: 10.5px;">{{ $roleLabel }}</small>
+                </div>
+            </div>
+        </div>
+
         <nav>
             <a href="{{ route('dashboard') }}" class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}">
                 <i class="bi bi-grid-fill"></i> Dashboard
@@ -189,36 +221,37 @@
             <a href="{{ route('track.index') }}" class="nav-link {{ request()->routeIs('track.*') ? 'active' : '' }}">
                 <i class="bi bi-geo-alt-fill"></i> Tracking
             </a>
-            <a href="{{ route('activity.index') }}" class="nav-link {{ request()->routeIs('activity.*') ? 'active' : '' }}">
-                <i class="bi bi-clock-history"></i> Activity
-            </a>
 
-            @if(session('user_role') === 'ADMIN')
-                <a href="{{ route('users.index') }}" class="nav-link {{ request()->routeIs('users.*') ? 'active' : '' }}">
-                    <i class="bi bi-people-fill"></i> Users
-                </a>
-                <a href="{{ route('register') }}" class="nav-link {{ request()->routeIs('register') ? 'active' : '' }}">
-                    <i class="bi bi-person-plus-fill"></i> Register User
-                </a>
+            @if(session('user_role') === 'ADMIN' || session('user_role') === 'Administrator' || session('user_role') === 'Super Administrator')
+                <div class="text-uppercase text-slate-500 fw-bold mt-2 mb-1 px-3" style="font-size: 10px; letter-spacing: 0.8px; opacity: 0.6;">Management</div>
                 <a href="{{ route('offices.index') }}" class="nav-link {{ request()->routeIs('offices.*') ? 'active' : '' }}">
                     <i class="bi bi-building"></i> Offices
                 </a>
+                <a href="{{ route('users.index') }}" class="nav-link {{ request()->routeIs('users.*') ? 'active' : '' }}">
+                    <i class="bi bi-people-fill"></i> User Accounts
+                </a>
+                <a href="{{ route('reports.index') }}" class="nav-link {{ request()->routeIs('reports.*') ? 'active' : '' }}">
+                    <i class="bi bi-graph-up-arrow"></i> Reports
+                </a>
+                <a href="{{ route('security.dashboard') }}" class="nav-link {{ request()->routeIs('security.dashboard') ? 'active' : '' }}">
+                    <i class="bi bi-shield-fill-check"></i> Security Console
+                </a>
+                <a href="{{ route('activity.index') }}" class="nav-link {{ request()->routeIs('activity.*') ? 'active' : '' }}">
+                    <i class="bi bi-clock-history"></i> Audit Logs
+                </a>
+                <a href="{{ route('settings.index') }}" class="nav-link {{ request()->routeIs('settings.*') ? 'active' : '' }}">
+                    <i class="bi bi-gear-fill"></i> System Settings
+                </a>
             @endif
-        </nav>
 
-        <div class="mt-auto pt-3">
-            <div class="user-profile-card">
-                <div class="avatar">{{ substr(session('user_email', 'A'), 0, 1) }}</div>
-                <div style="overflow: hidden;">
-                    <div class="small fw-bold text-truncate text-white">{{ session('user_name', 'Admin User') }}</div>
-                    <small class="text-muted text-truncate d-block" style="font-size: 0.7rem;">{{ session('user_email', 'admin@naap.edu') }}</small>
-                    <small class="text-info text-truncate d-block" style="font-size: 0.65rem;">{{ strtoupper(session('user_role', 'ADMIN')) }}</small>
-                </div>
-            </div>
-            <a href="{{ route('logout') }}" class="logout-link">
-                <i class="bi bi-box-arrow-left"></i> Logout System
+            <div class="text-uppercase text-slate-500 fw-bold mt-2 mb-1 px-3" style="font-size: 10px; letter-spacing: 0.8px; opacity: 0.6;">Profile</div>
+            <a href="{{ route('profile') }}" class="nav-link {{ request()->routeIs('profile') ? 'active' : '' }}">
+                <i class="bi bi-person-circle"></i> My Profile
             </a>
-        </div>
+            <a href="{{ route('logout') }}" class="nav-link logout-link" style="color: #fb7185 !important;">
+                <i class="bi bi-box-arrow-left"></i> Sign Out
+            </a>
+        </nav>
     </aside>
 
     <div class="main-container">

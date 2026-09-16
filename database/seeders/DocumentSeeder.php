@@ -44,12 +44,17 @@ class DocumentSeeder extends Seeder
             ['title' => 'Academic Transcript', 'description' => 'Official academic transcript request', 'type' => 'certificate', 'priority' => 'high'],
         ];
 
+        $users = \App\Models\User::all();
+
         foreach ($documents as $docData) {
             $originOffice = $offices->random();
             $destinationOffice = $offices->where('id', '!=', $originOffice->id)->random();
 
             $createdAt = now()->subDays(rand(0, 30));
             $status = $statuses[array_rand($statuses)];
+            
+            // Assign a random receiver user
+            $receiverUser = $users->where('id', '!=', $user->id)->random();
 
             $doc = Document::create([
                 'title' => $docData['title'],
@@ -59,12 +64,27 @@ class DocumentSeeder extends Seeder
                 'origin_office_id' => $originOffice->id,
                 'current_office_id' => $status === 'completed' ? $destinationOffice->id : $originOffice->id,
                 'destination_office_id' => $destinationOffice->id,
+                'receiver_user_id' => $receiverUser->id,
                 'uploaded_by' => $user->id,
                 'file_path' => 'documents/sample_' . uniqid() . '.pdf',
                 'status' => $status,
                 'qr_code' => 'NAAP-' . strtoupper(substr(md5($docData['title']), 0, 8)),
                 'created_at' => $createdAt,
-                'updated_at' => $status === 'completed' ? $createdAt->addDays(rand(1, 7)) : $createdAt,
+                'updated_at' => $status === 'completed' ? $createdAt->copy()->addDays(rand(1, 7)) : $createdAt,
+            ]);
+
+            // Create corresponding DocumentRouting record
+            \App\Models\DocumentRouting::create([
+                'document_id' => $doc->id,
+                'from_office_id' => $originOffice->id,
+                'to_office_id' => $destinationOffice->id,
+                'receiver_user_id' => $receiverUser->id,
+                'status' => $status === 'completed' ? 'Completed' : 'Pending',
+                'notes' => 'Seeded document routing progression step.',
+                'scanned_at' => $status === 'completed' ? $doc->created_at->copy()->addMinutes(15) : null,
+                'received_at' => $status === 'completed' ? $doc->updated_at : null,
+                'signed_by' => $status === 'completed' ? $receiverUser->name : null,
+                'signature' => $status === 'completed' ? 'seeded_signature_base64_placeholder' : null,
             ]);
 
             // Add some activity logs

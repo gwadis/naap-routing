@@ -6,17 +6,18 @@
 <style>
     /* --- KEEPING YOUR EXACT STYLES --- */
     .tab-container {
-        background: rgba(15, 23, 42, 0.4);
+        background: var(--panel);
         padding: 5px;
-        border-radius: 14px;
+        border-radius: 12px;
         display: inline-flex;
         border: 1px solid var(--panel-border);
         margin-bottom: 30px;
+        box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.02);
     }
 
     .tab-btn {
         padding: 10px 24px;
-        border-radius: 12px;
+        border-radius: 8px;
         border: none;
         background: transparent;
         color: var(--text-dim);
@@ -25,54 +26,54 @@
         display: flex;
         align-items: center;
         gap: 8px;
-        transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        transition: 0.2s;
     }
 
     .tab-btn i { font-size: 1.1rem; }
 
     .tab-btn.active {
-        background: var(--accent-cyan);
-        color: #0b1228;
-        box-shadow: 0 0 20px rgba(34, 211, 238, 0.3);
+        background: var(--accent-navy) !important;
+        color: #FFFFFF !important;
+        box-shadow: 0 4px 12px rgba(30, 58, 138, 0.15);
     }
 
     .mgmt-card {
         background: var(--panel);
         border: 1px solid var(--panel-border);
-        border-radius: 20px;
+        border-radius: 12px;
         padding: 24px;
         height: 100%;
-        transition: all 0.3s ease;
-        backdrop-filter: blur(10px);
+        transition: all 0.2s ease;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
         position: relative;
     }
 
     .mgmt-card:hover {
-        transform: translateY(-5px);
-        border-color: rgba(34, 211, 238, 0.4);
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+        transform: translateY(-4px);
+        border-color: var(--accent-cyan);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.06);
     }
 
     .icon-sq {
         width: 48px; height: 48px;
-        border-radius: 12px;
+        border-radius: 8px;
         display: flex; align-items: center; justify-content: center;
         font-size: 1.4rem; margin-bottom: 16px;
     }
 
-    .icon-dept { background: rgba(168, 85, 247, 0.1); color: var(--accent-purple); border: 1px solid rgba(168, 85, 247, 0.2); }
-    .icon-offi { background: rgba(34, 211, 238, 0.1); color: var(--accent-cyan); border: 1px solid rgba(34, 211, 238, 0.2); }
+    .icon-dept { background: rgba(79, 70, 229, 0.1); color: var(--accent-purple); border: 1px solid rgba(79, 70, 229, 0.2); }
+    .icon-offi { background: rgba(59, 130, 246, 0.1); color: var(--accent-cyan); border: 1px solid rgba(59, 130, 246, 0.2); }
 
-    .card-title { font-weight: 700; font-size: 1.05rem; color: #fff; margin-bottom: 4px; }
+    .card-title { font-weight: 700; font-size: 1.05rem; color: var(--text-main); margin-bottom: 4px; }
     .card-subtitle { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 20px; }
 
     .btn-manage-node {
-        background: rgba(255, 255, 255, 0.03);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        color: var(--accent-cyan);
+        background: var(--panel);
+        border: 1px solid var(--panel-border);
+        color: var(--text-main);
         width: 100%;
         padding: 10px;
-        border-radius: 12px;
+        border-radius: 8px;
         font-weight: 600;
         font-size: 0.85rem;
         display: flex; align-items: center; justify-content: center;
@@ -81,16 +82,16 @@
     }
 
     .btn-manage-node:hover {
-        background: var(--accent-cyan);
-        color: #0b1228;
-        border-color: var(--accent-cyan);
+        background: var(--accent-navy);
+        color: #FFFFFF;
+        border-color: var(--accent-navy);
     }
 
     .form-input-dark {
-        background: rgba(15, 23, 42, 0.8) !important;
+        background: var(--panel) !important;
         border: 1px solid var(--panel-border) !important;
-        color: white !important;
-        border-radius: 10px !important;
+        color: var(--text-main) !important;
+        border-radius: 8px !important;
         padding: 12px !important;
     }
 </style>
@@ -189,10 +190,10 @@
 {{-- MODAL FOR REGISTERING NEW OFFICE --}}
 <div class="modal fade" id="registerNodeModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content" style="background: #161e31; border: 1px solid var(--panel-border); border-radius: 24px; color: white;">
+        <div class="modal-content" style="background: var(--panel); border: 1px solid var(--panel-border); border-radius: 24px; color: var(--text-main);">
             <div class="modal-header border-0 p-4 pb-0">
                 <h5 class="fw-bold">Register New Office</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form action="{{ route('offices.store') }}" method="POST">
                 @csrf
@@ -230,10 +231,10 @@
 {{-- MODAL FOR EDITING OFFICE --}}
 <div class="modal fade" id="editOfficeModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content" style="background: #161e31; border: 1px solid var(--panel-border); border-radius: 24px; color: white;">
+        <div class="modal-content" style="background: var(--panel); border: 1px solid var(--panel-border); border-radius: 24px; color: var(--text-main);">
             <div class="modal-header border-0 p-4 pb-0">
                 <h5 class="fw-bold">Edit Office</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form id="editOfficeForm" method="POST">
                 @csrf
@@ -275,27 +276,27 @@
 {{-- MODAL FOR MANAGING DEPARTMENT --}}
 <div class="modal fade" id="manageDeptModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered modal-lg">
-        <div class="modal-content" style="background: #161e31; border: 1px solid var(--panel-border); border-radius: 24px; color: white;">
+        <div class="modal-content" style="background: var(--panel); border: 1px solid var(--panel-border); border-radius: 12px; color: var(--text-main);">
             <div class="modal-header border-0 p-4 pb-0">
-                <h5 class="fw-bold">Manage Department: <span id="deptName"></span></h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <h5 class="fw-bold" style="color: var(--accent-navy);">Manage Department: <span id="deptName"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body p-4">
-                <h6 class="text-cyan fw-bold mb-3">Offices in Department</h6>
+            <div class="modal-body p-4 text-start">
+                <h6 class="fw-bold mb-3" style="color: var(--accent-navy);">Offices in Department</h6>
                 <div id="deptOfficesList" style="max-height: 200px; overflow-y: auto; margin-bottom: 20px;">
-                    <p class="text-dim text-center py-3">Loading...</p>
+                    <p class="text-secondary text-center py-3">Loading...</p>
                 </div>
 
-                <h6 class="text-cyan fw-bold mb-3">Users in Department</h6>
+                <h6 class="fw-bold mb-3" style="color: var(--accent-navy);">Users in Department</h6>
                 <div id="deptUsersList" style="max-height: 200px; overflow-y: auto;">
-                    <p class="text-dim text-center py-3">Loading...</p>
+                    <p class="text-secondary text-center py-3">Loading...</p>
                 </div>
 
-                <div class="mt-4 pt-3 border-top border-secondary">
-                    <label class="small text-dim fw-bold mb-2 uppercase">Rename Department</label>
+                <div class="mt-4 pt-3 border-top" style="border-color: var(--panel-border) !important;">
+                    <label class="small text-secondary fw-bold mb-2 uppercase">Rename Department</label>
                     <div class="input-group">
                         <input type="text" id="deptNameInput" class="form-control form-input-dark" placeholder="New name...">
-                        <button type="button" class="btn btn-cyan fw-bold" id="renameDeptBtn" style="background: var(--accent-cyan); color: #0b1228; border: none; border-radius: 0 10px 10px 0;">
+                        <button type="button" class="btn btn-primary fw-bold" id="renameDeptBtn" style="border-radius: 0 8px 8px 0; height: 44px !important;">
                             Rename
                         </button>
                     </div>
@@ -329,15 +330,15 @@
             .then(offices => {
                 const html = offices.length > 0 
                     ? offices.map(o => `
-                        <div style="padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center;">
+                        <div style="padding: 12px; border-bottom: 1px solid var(--panel-border); display: flex; justify-content: space-between; align-items: center; color: var(--text-main) !important;">
                             <div>
                                 <strong>${o.name}</strong>
-                                <br><small class="text-dim">${o.head || 'No head assigned'}</small>
+                                <br><small class="text-secondary">${o.head || 'No head assigned'}</small>
                             </div>
                             <span class="badge ${o.status === 'active' ? 'bg-success' : 'bg-secondary'}">${o.status}</span>
                         </div>
                     `).join('')
-                    : '<p class="text-center text-dim py-3">No offices in this department</p>';
+                    : '<p class="text-center text-secondary py-3">No offices in this department</p>';
                 
                 document.getElementById('deptOfficesList').innerHTML = html;
             })
@@ -351,15 +352,15 @@
             .then(users => {
                 const html = users.length > 0 
                     ? users.map(u => `
-                        <div style="padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center;">
+                        <div style="padding: 12px; border-bottom: 1px solid var(--panel-border); display: flex; justify-content: space-between; align-items: center; color: var(--text-main) !important;">
                             <div>
                                 <strong>${u.name}</strong>
-                                <br><small class="text-dim">${u.email}</small>
+                                <br><small class="text-secondary">${u.email}</small>
                             </div>
-                            <span class="badge bg-info">${u.role}</span>
+                            <span class="badge bg-primary text-white" style="font-size: 0.75rem; font-weight: 600; padding: 4px 8px;">${u.role}</span>
                         </div>
                     `).join('')
-                    : '<p class="text-center text-dim py-3">No users in this department yet</p>';
+                    : '<p class="text-center text-secondary py-3">No users in this department yet</p>';
                 
                 document.getElementById('deptUsersList').innerHTML = html;
             })

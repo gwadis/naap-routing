@@ -123,6 +123,48 @@ return [
             'handler' => NullHandler::class,
         ],
 
+        'security' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/security.log'),
+            'level' => 'debug',
+            'replace_placeholders' => true,
+        ],
+
+        'email' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/email.log'),
+            'level' => 'debug',
+            'replace_placeholders' => true,
+        ],
+
+        'upload' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/upload.log'),
+            'level' => 'debug',
+            'replace_placeholders' => true,
+        ],
+
+        'routing' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/routing.log'),
+            'level' => 'debug',
+            'replace_placeholders' => true,
+        ],
+
+        'authentication' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/authentication.log'),
+            'level' => 'debug',
+            'replace_placeholders' => true,
+        ],
+
+        'api' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/api.log'),
+            'level' => 'debug',
+            'replace_placeholders' => true,
+        ],
+
         'emergency' => [
             'path' => storage_path('logs/laravel.log'),
         ],

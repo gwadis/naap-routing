@@ -13,11 +13,24 @@ class User extends Authenticatable
     use Notifiable;
 
     // Valid roles
-    const ROLE_ADMIN = 'ADMIN';
-    const ROLE_USER = 'USER';
+    const ROLE_SUPER_ADMIN   = 'Super Administrator';
+    const ROLE_ADMIN         = 'Administrator';
+    const ROLE_OFFICE_HEAD   = 'Office Head';
+    const ROLE_STAFF         = 'Staff';
+    const ROLE_EMPLOYEE      = 'Employee';
+    const ROLE_LEGACY_ADMIN  = 'ADMIN';
+    const ROLE_LEGACY_USER   = 'USER';
 
     protected $fillable = [
-        'name', 'email', 'username', 'password', 'role', 'department_id', 'signature', 'phone', 'avatar', 'status', 'two_factor_secret', 'two_factor_confirmed_at',
+        'name', 'email', 'employee_id', 'position', 'username', 'password', 'role', 'department_id', 'office_id', 'signature', 'phone', 'avatar', 'status', 'two_factor_secret', 'two_factor_confirmed_at',
+        'failed_login_attempts', 'locked_until', 'needs_password_change', 'login_otp', 'login_otp_expires_at', 'login_otp_sent_at', 'recovery_email',
+    ];
+
+    protected $casts = [
+        'locked_until' => 'datetime',
+        'login_otp_expires_at' => 'datetime',
+        'login_otp_sent_at' => 'datetime',
+        'needs_password_change' => 'boolean',
     ];
 
     protected $hidden = [
@@ -43,16 +56,29 @@ class User extends Authenticatable
         parent::boot();
 
         self::creating(function ($model) {
-            if (!in_array($model->role, [self::ROLE_ADMIN, self::ROLE_USER])) {
-                $model->role = self::ROLE_USER;
+            if (!$model->role || !in_array($model->role, self::getValidRoles())) {
+                $model->role = self::ROLE_EMPLOYEE;
             }
         });
 
         self::updating(function ($model) {
-            if (!in_array($model->role, [self::ROLE_ADMIN, self::ROLE_USER])) {
-                $model->role = self::ROLE_USER;
+            if ($model->role && !in_array($model->role, self::getValidRoles())) {
+                $model->role = self::ROLE_EMPLOYEE;
             }
         });
+    }
+
+    public static function getValidRoles()
+    {
+        return [
+            self::ROLE_SUPER_ADMIN,
+            self::ROLE_ADMIN,
+            self::ROLE_OFFICE_HEAD,
+            self::ROLE_STAFF,
+            self::ROLE_EMPLOYEE,
+            self::ROLE_LEGACY_ADMIN,
+            self::ROLE_LEGACY_USER,
+        ];
     }
 
     /**
@@ -60,7 +86,7 @@ class User extends Authenticatable
      */
     public function isAdmin(): bool
     {
-        return $this->role === self::ROLE_ADMIN;
+        return in_array($this->role, [self::ROLE_SUPER_ADMIN, self::ROLE_ADMIN, self::ROLE_LEGACY_ADMIN]);
     }
 
     /**
@@ -68,7 +94,7 @@ class User extends Authenticatable
      */
     public function isUser(): bool
     {
-        return $this->role === self::ROLE_USER;
+        return !in_array($this->role, [self::ROLE_SUPER_ADMIN, self::ROLE_ADMIN, self::ROLE_LEGACY_ADMIN]);
     }
 
     /**
@@ -77,5 +103,13 @@ class User extends Authenticatable
     public function department(): BelongsTo
     {
         return $this->belongsTo(Department::class, 'department_id');
+    }
+
+    /**
+     * Define the relationship to the Office model.
+     */
+    public function office(): BelongsTo
+    {
+        return $this->belongsTo(Office::class, 'office_id');
     }
 }

@@ -4,7 +4,19 @@
 @section('head')
 <script src="https://unpkg.com/html5-qrcode"></script>
 <style>
+    /* Light Mode default variables */
     :root {
+        --glass-bg: var(--panel);
+        --panel-border: var(--panel-border);
+        --accent-cyan: var(--accent-cyan);
+        --accent-purple: var(--accent-purple);
+        --accent-green: var(--success);
+        --accent-red: var(--danger);
+        --accent-orange: var(--warning);
+    }
+    
+    /* Dark Mode specific variables */
+    body.dark-mode {
         --glass-bg: rgba(30, 41, 59, 0.7);
         --panel-border: rgba(255, 255, 255, 0.08);
         --accent-cyan: #22d3ee;
@@ -13,11 +25,28 @@
         --accent-red: #ef4444;
         --accent-orange: #f59e0b;
     }
+
     .glass-card {
         background: var(--glass-bg);
         border: 1px solid var(--panel-border);
         border-radius: 24px;
         backdrop-filter: blur(10px);
+    }
+
+    /* Adaptive colors inside glass card */
+    .glass-card .text-white {
+        color: var(--text-main) !important;
+    }
+    .glass-card .text-secondary {
+        color: var(--text-dim) !important;
+    }
+    .glass-card .text-muted {
+        color: var(--text-dim) !important;
+    }
+    #start-scan {
+        background: var(--panel-border) !important;
+        color: var(--text-main) !important;
+        border: 1px solid var(--panel-border) !important;
     }
     .form-label-custom {
         color: #94a3b8; font-size: 0.8rem; font-weight: 700; text-transform: uppercase; margin-bottom: 8px; display: block;
@@ -94,7 +123,7 @@
         <div class="col-lg-8">
             <div class="glass-card p-4 mb-4">
                 <h5 class="mb-4 d-flex align-items-center gap-2">
-                    <span class="text-info">📷</span> Scan Document QR
+                    <i class="bi bi-qr-code-scan text-info"></i> Scan Document QR
                 </h5>
                 <p class="text-secondary mb-0">Use this page to scan a document QR code and open the corresponding document details. No uploading or routing is required here.</p>
             </div>
@@ -126,7 +155,7 @@
                 <div id="reader" class="qr-preview-box">
                     <div id="scanner-placeholder">
                         <div class="scanner-icon">
-                            <span style="font-size: 2.25rem;">📷</span>
+                            <i class="bi bi-camera" style="font-size: 2.25rem; color: var(--text-dim);"></i>
                         </div>
                         <p>Scan document QR code to view</p>
                     </div>

@@ -17,10 +17,9 @@ class RoutingController extends Controller
      */
     public function index()
     {
-        // 1. Fetch real offices for the dropdown
         $offices = Office::orderBy('name', 'asc')->get();
+        $users   = User::with('department')->orderBy('name', 'asc')->get();
 
-        // 2. Fetch documents with relationships to avoid N+1 query issues
         $documents = Document::with(['originOffice', 'currentOffice', 'destinationOffice', 'receiverUser.department'])
             ->latest()
             ->paginate(10);
@@ -29,117 +28,161 @@ class RoutingController extends Controller
     }
 
     /**
-     * Update document location and log the movement.
+     * Update document location/receiver and log the movement.
      */
     public function routeDocument(Request $request, $id)
     {
         $request->validate([
-            'office_id' => 'required|exists:offices,id',
-            'receiver_user_ids' => 'nullable|array',
-            'receiver_user_ids.*' => 'exists:users,id'
+            'office_id'          => 'required|exists:offices,id',
+            'receiver_user_ids'  => 'nullable|array',
+            'receiver_user_ids.*' => 'exists:users,id',
+            'notes'              => 'nullable|string|max:500',
         ]);
+
+        // Custom check: make sure every receiver in receiver_user_ids belongs to office_id
+        $officeId = $request->input('office_id');
+        $receiverUserIds = $request->input('receiver_user_ids', []);
+        foreach ($receiverUserIds as $userId) {
+            if ($userId) {
+                $user = User::find($userId);
+                if (!$user || $user->office_id != $officeId) {
+                    $officeName = Office::find($officeId)?->name ?? 'Selected Office';
+                    $userName = $user?->name ?? 'Selected User';
+                    return back()->withErrors([
+                        'receiver_user_ids' => "Routing validation failed: Receiver '{$userName}' does not belong to the office '{$officeName}'."
+                    ])->withInput();
+                }
+            }
+        }
 
         try {
             DB::transaction(function () use ($request, $id) {
-                // Find document or fail with 404
-                $document = Document::findOrFail($id);
-                $oldOfficeName = $document->currentOffice->name ?? 'Unknown Office';
-                $oldReceiverName = optional($document->receiverUser)->name ?? 'Unassigned';
-                $fromOfficeId = $document->current_office_id ?? $document->origin_office_id; // GET BEFORE UPDATE
-                
-                // Find the target office name for the log
-                $targetOffice = Office::findOrFail($request->office_id);
-                $newStatus = ($request->office_id == $document->destination_office_id) 
-                    ? 'Completed' 
+                $document      = Document::findOrFail($id);
+                $fromOfficeId  = $document->current_office_id ?? $document->origin_office_id;
+                $targetOffice  = Office::findOrFail($request->office_id);
+                $oldOfficeName = $document->currentOffice->name ?? 'Unknown';
+
+                $newStatus = ($request->office_id == $document->destination_office_id)
+                    ? 'Completed'
                     : 'In Transit';
 
-                $updateData = [
-                    'current_office_id' => $request->office_id,
-                    'status' => $newStatus
-                ];
-
-                // Set first receiver as primary if multiple provided, but never allow self-selection
+                // Build the receiver list — strip current user to avoid self-routing
                 $receiverUserIds = collect($request->input('receiver_user_ids', []))
                     ->filter()
-                    ->map(fn($id) => (int) $id)
-                    ->reject(fn($id) => $id === (int) session('user_id'))
+                    ->map(fn($uid) => (int) $uid)
+                    ->reject(fn($uid) => $uid === (int) session('user_id'))
                     ->unique()
                     ->values()
                     ->all();
+
+                $updateData = [
+                    'current_office_id' => $request->office_id,
+                    'status'            => $newStatus,
+                ];
 
                 if (!empty($receiverUserIds)) {
                     $updateData['receiver_user_id'] = $receiverUserIds[0];
                 }
 
-                // 1. Update the Document record
+                // 1. Update document record
                 $document->update($updateData);
 
-                // 2. Create DocumentRouting records - one per receiver (or one general if no receivers)
+                // 2. Create DocumentRouting records with sort_order and SLA tracking
+                $slaHours = match($document->sla ?? 'Standard') {
+                    'Critical'  => 24,
+                    'Expedited' => 72,
+                    default     => 168,
+                };
+
                 if (!empty($receiverUserIds)) {
-                    foreach ($receiverUserIds as $receiverId) {
+                    foreach ($receiverUserIds as $index => $receiverId) {
                         DocumentRouting::create([
-                            'document_id' => $document->id,
-                            'from_office_id' => $fromOfficeId,
-                            'to_office_id' => $request->office_id,
+                            'document_id'      => $document->id,
+                            'from_office_id'   => $fromOfficeId,
+                            'to_office_id'     => $request->office_id,
                             'receiver_user_id' => $receiverId,
-                            'status' => $newStatus,
-                            'notes' => $request->notes ?? null,
+                            'sender_user_id'   => (int) session('user_id'),
+                            'status'           => $newStatus,
+                            'pending_at'       => ($newStatus === 'Pending') ? now() : null,
+                            'sort_order'       => $index + 1,
+                            'notes'            => $request->notes ?? null,
+                            'action_label'     => 'Routed',
+                            'sla_hours'        => $slaHours,
+                            'sla_due_at'       => now()->addHours($slaHours),
+                            'sla_status'       => 'on_time',
                         ]);
                     }
                 } else {
-                    // No receivers selected, create single routing record
                     DocumentRouting::create([
-                        'document_id' => $document->id,
+                        'document_id'    => $document->id,
                         'from_office_id' => $fromOfficeId,
-                        'to_office_id' => $request->office_id,
-                        'status' => $newStatus,
-                        'notes' => $request->notes ?? null,
+                        'to_office_id'   => $request->office_id,
+                        'sender_user_id' => (int) session('user_id'),
+                        'status'         => $newStatus,
+                        'pending_at'     => ($newStatus === 'Pending') ? now() : null,
+                        'sort_order'     => 1,
+                        'notes'          => $request->notes ?? null,
+                        'action_label'   => 'Routed',
+                        'sla_hours'      => $slaHours,
+                        'sla_due_at'     => now()->addHours($slaHours),
+                        'sla_status'     => 'on_time',
                     ]);
                 }
 
-                // 3. Log the activity with receiver info
+                // 3. Activity log (ARTA-enriched)
                 $receiverNames = User::whereIn('id', $receiverUserIds)->pluck('name')->toArray();
-                $meta = [
-                    'from_office' => $oldOfficeName,
-                    'to_office' => $targetOffice->name,
-                    'status' => $newStatus,
-                    'timestamp' => now()->toIso8601String(),
-                    'receivers_count' => count($receiverUserIds),
-                ];
-
-                if (!empty($receiverNames)) {
-                    $meta['receivers'] = implode(', ', $receiverNames);
-                }
-
                 ActivityLog::create([
-                    'user' => session('user_name') ?? 'System Admin',
-                    'action' => 'Document Routed',
+                    'user'        => session('user_name') ?? 'System',
+                    'action'      => 'Document Routed',
                     'document_id' => $document->id,
-                    'ip' => $request->ip(),
-                    'meta' => json_encode($meta)
+                    'ip'          => $request->ip(),
+                    'meta'        => json_encode([
+                        'from_office'     => $oldOfficeName,
+                        'to_office'       => $targetOffice->name,
+                        'status'          => $newStatus,
+                        'timestamp'       => now()->toIso8601String(),
+                        'routed_by'       => session('user_name') ?? 'System',
+                        'receivers_count' => count($receiverUserIds),
+                        'receivers'       => implode(', ', $receiverNames),
+                        'sla_due_at'      => now()->addHours($slaHours)->toIso8601String(),
+                    ]),
                 ]);
 
-                // 4. Send notification to receiver
-                if ($request->filled('receiver_user_id')) {
-                    try {
-                        $document->notifyReceiver();
-                    } catch (\Exception $e) {
-                        \Log::error('Notification failed: ' . $e->getMessage());
+                // 4. Notify ALL receivers (not just first, not request-conditional)
+                $senderName    = session('user_name') ?? 'System';
+                $toOfficeName  = $targetOffice->name;
+
+                if (!empty($receiverUserIds)) {
+                    foreach ($receiverUserIds as $receiverId) {
+                        try {
+                            $receiver = User::find($receiverId);
+                            if ($receiver) {
+                                $receiver->notify(
+                                    new \App\Notifications\DocumentForwardedNotification(
+                                        $document->fresh(),
+                                        $senderName,
+                                        $toOfficeName
+                                    )
+                                );
+                            }
+                        } catch (\Exception $e) {
+                            \Log::warning('Notification failed for user ' . $receiverId . ': ' . $e->getMessage());
+                        }
                     }
-                } else if ($document->receiver_user_id) {
-                    // Notify existing receiver if no new receiver specified
+                } elseif ($document->receiver_user_id) {
                     try {
-                        $document->notifyReceiver();
+                        $document->fresh()->notifyReceiver();
                     } catch (\Exception $e) {
-                        \Log::error('Notification failed: ' . $e->getMessage());
+                        \Log::warning('Notification failed: ' . $e->getMessage());
                     }
                 }
             });
 
-            return redirect()->route('track.index')->with('success', 'Document routed successfully! Check tracking to see the update.');
+            return redirect()->route('track.index')
+                ->with('success', 'Document routed successfully! The receiver has been notified.');
+
         } catch (\Exception $e) {
-            // Log the error for the developer and show a user-friendly message
-            \Log::error("Routing Error: " . $e->getMessage());
+            \Log::error('Routing Error: ' . $e->getMessage());
             return back()->with('error', 'Routing failed: ' . $e->getMessage());
         }
     }

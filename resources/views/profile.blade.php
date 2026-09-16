@@ -5,44 +5,45 @@
 @section('content')
 <style>
     .profile-header {
-        background: linear-gradient(135deg, rgba(34, 211, 238, 0.15), rgba(168, 85, 247, 0.15));
+        background: var(--panel);
         border: 1px solid var(--panel-border);
-        border-radius: 24px;
+        border-radius: 12px;
         padding: 30px;
         margin-bottom: 25px;
         display: flex;
         align-items: center;
         gap: 20px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
     }
 
     .profile-avatar-lg {
         width: 80px; height: 80px;
         background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
-        border-radius: 20px;
+        border-radius: 12px;
         display: grid; place-items: center;
         font-size: 2rem; font-weight: 800; color: white;
-        box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
     }
 
     .info-card {
         background: var(--panel);
         border: 1px solid var(--panel-border);
-        border-radius: 20px;
+        border-radius: 12px;
         padding: 24px;
         height: 100%;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
     }
 
     .alert-custom-close {
         border: none;
-        background: rgba(255, 255, 255, 0.15);
-        color: #0f172a;
+        background: rgba(0, 0, 0, 0.05);
+        color: var(--text-main);
         width: 34px;
         height: 34px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
         border-radius: 50%;
-        box-shadow: 0 0 0 1px rgba(255,255,255,0.1);
         position: absolute;
         top: 12px;
         right: 12px;
@@ -51,7 +52,7 @@
 
     .alert-custom-close:hover {
         opacity: 1;
-        background: rgba(255, 255, 255, 0.22);
+        background: rgba(0, 0, 0, 0.1);
     }
 
     .alert-success.alert-dismissible,
@@ -62,20 +63,21 @@
 
     .info-label {
         color: var(--text-dim);
-        font-size: 0.7rem;
+        font-size: 0.75rem;
         text-transform: uppercase;
         letter-spacing: 1px;
-        margin-bottom: 4px;
+        margin-bottom: 8px;
+        font-weight: 700;
     }
 
     #sig-canvas {
         border: 2px dashed var(--panel-border);
-        border-radius: 12px;
+        border-radius: 8px;
         cursor: crosshair;
-        background: rgba(255,255,255,0.02);
+        background: var(--panel);
         width: 100%;
         height: 180px;
-        touch-action: none; /* Critical for mobile drawing */
+        touch-action: none;
     }
 
     @media (max-width: 768px) {
@@ -91,55 +93,95 @@
     @endif
 
     <div class="profile-header">
-        <div class="profile-avatar-lg">{{ substr($user->email, 0, 1) }}</div>
-        <div class="flex-grow-1">
-            <h2 class="fw-bold mb-1">{{ $user->name }}</h2>
-            <p class="text-info mb-0 small"><i class="bi bi-shield-check me-1"></i> {{ strtoupper($user->role) }}</p>
+        <div class="profile-avatar-lg" style="display: flex; align-items: center; justify-content: center; overflow: hidden; background: var(--bg);">
+            @if($user->avatar)
+                <img src="{{ asset('storage/' . $user->avatar) }}" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover;">
+            @else
+                {{ substr($user->email, 0, 1) }}
+            @endif
         </div>
-        <div class="form-check form-switch bg-dark px-3 py-2 rounded-pill border border-secondary">
-            <input class="form-check-input me-2" type="checkbox" role="switch" id="themeToggle" checked>
-            <label class="form-check-label small text-white" for="themeToggle">Dark Mode</label>
+        <div class="flex-grow-1 text-start">
+            <h2 class="fw-bold mb-1">{{ $user->name }}</h2>
+            <p class="mb-0 small" style="color: var(--accent-cyan) !important;"><i class="bi bi-shield-check me-1"></i> {{ strtoupper($user->role) }}</p>
         </div>
     </div>
 
     <div class="row g-4">
-        <div class="col-12 col-xl-4">
+        <div class="col-12 col-xl-4 text-start">
             <div class="info-card">
-                <h6 class="fw-bold mb-4 text-cyan"><i class="bi bi-person-gear me-2"></i>Edit Information</h6>
-                <form action="{{ route('profile.update') }}" method="POST">
+                <h6 class="fw-bold mb-4"><i class="bi bi-person-gear me-2"></i>Edit Information</h6>
+                <form action="{{ route('profile.update') }}" method="POST" enctype="multipart/form-data">
                     @csrf
                     <div class="mb-3">
+                        <label class="info-label">Profile Picture</label>
+                        <input type="file" name="avatar" class="form-control">
+                    </div>
+                    <div class="mb-3">
                         <label class="info-label">Full Name</label>
-                        <input type="text" name="name" class="form-control bg-dark border-secondary text-white rounded-3" value="{{ $user->name }}" required>
+                        <input type="text" name="name" class="form-control" value="{{ $user->name }}" required>
                     </div>
                     <div class="mb-3">
                         <label class="info-label">Email Address</label>
-                        <input type="email" name="email" class="form-control bg-dark border-secondary text-white rounded-3" value="{{ $user->email }}" required>
+                        <input type="email" name="email" class="form-control" value="{{ $user->email }}" required>
                     </div>
-                    <button type="submit" class="btn btn-info w-100 rounded-3 fw-bold">Save Changes</button>
+                    @php
+                        $role = session('user_role');
+                        $isAdmin = in_array($role, ['ADMIN', 'Administrator', 'Super Administrator']);
+                    @endphp
+                    <div class="mb-3">
+                        <label class="info-label">Employee ID</label>
+                        <input type="text" name="employee_id" class="form-control" value="{{ $user->employee_id }}" placeholder="e.g. EMP-1234" @disabled(!$isAdmin)>
+                    </div>
+                    <div class="mb-3">
+                        <label class="info-label">Position</label>
+                        <input type="text" name="position" class="form-control" value="{{ $user->position }}" placeholder="e.g. Registrar Officer" @disabled(!$isAdmin)>
+                    </div>
+                    <div class="mb-3">
+                        <label class="info-label">Contact Number</label>
+                        <input type="text" name="phone" class="form-control" value="{{ $user->phone }}" placeholder="e.g. 09123456789">
+                    </div>
+                    <div class="mb-3">
+                        <label class="info-label">Department</label>
+                        <select name="department_id" class="form-select" @disabled(!$isAdmin)>
+                            <option value="">-- Select Department --</option>
+                            @foreach($departments as $dept)
+                                <option value="{{ $dept->id }}" {{ $user->department_id == $dept->id ? 'selected' : '' }}>{{ $dept->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="info-label">Office</label>
+                        <select name="office_id" class="form-select" @disabled(!$isAdmin)>
+                            <option value="">-- Select Office --</option>
+                            @foreach(\App\Models\Office::orderBy('name', 'asc')->get() as $off)
+                                <option value="{{ $off->id }}" {{ $user->office_id == $off->id ? 'selected' : '' }}>{{ $off->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100 fw-bold" style="height: 44px !important;">Save Changes</button>
                 </form>
             </div>
         </div>
 
-        <div class="col-12 col-xl-4">
+        <div class="col-12 col-xl-4 text-start">
             <div class="info-card">
-                <h6 class="fw-bold mb-4 text-purple"><i class="bi bi-pen me-2"></i>Digital Signature</h6>
+                <h6 class="fw-bold mb-4"><i class="bi bi-pen me-2"></i>Digital Signature</h6>
                 
                 @if($user->signature)
-                <div class="alert alert-info alert-dismissible fade show mb-3" role="alert" style="background: rgba(209, 250, 255, 0.95); color: #0f172a; border: 1px solid rgba(15, 23, 42, 0.12);">
-                    <i class="bi bi-check-circle me-2" style="color: #0f172a;"></i>
-                    <strong style="color: #0f172a;">Signature Saved!</strong> <span style="color: #0f172a;">You can edit or upload a new one below.</span>
+                <div class="alert alert-info alert-dismissible fade show mb-3" role="alert" style="background: rgba(59, 130, 246, 0.1); color: var(--text-main); border: 1px solid var(--panel-border);">
+                    <i class="bi bi-check-circle me-2" style="color: var(--accent-cyan);"></i>
+                    <strong style="color: var(--text-main);">Signature Saved!</strong> <span style="color: var(--text-main);">You can edit or upload a new one below.</span>
                     <button type="button" class="btn alert-custom-close" data-bs-dismiss="alert" aria-label="Close">
-                        <i class="bi bi-x-lg" style="color: #0f172a;"></i>
+                        <i class="bi bi-x-lg" style="color: var(--text-main);"></i>
                     </button>
                 </div>
-                <div style="border: 1px solid var(--panel-border); border-radius: 12px; padding: 16px; margin-bottom: 16px; text-align: center; background: rgba(255,255,255,0.03);">
+                <div style="border: 1px solid var(--panel-border); border-radius: 12px; padding: 16px; margin-bottom: 16px; text-align: center; background: var(--bg);">
                     <img src="{{ asset('storage/' . $user->signature) }}" alt="Your Signature" style="max-width: 100%; max-height: 120px; border-radius: 8px;">
-                    <p class="small text-dim mt-2 mb-0">Your current digital signature</p>
+                    <p class="small text-secondary mt-2 mb-0">Your current digital signature</p>
                 </div>
                 @endif
                 
-                <ul class="nav nav-pills nav-justified mb-3 bg-dark rounded-3 p-1">
+                <ul class="nav nav-pills nav-justified mb-3 rounded-3 p-1 border" style="background: var(--bg); border-color: var(--panel-border) !important;">
                     <li class="nav-item">
                         <button class="nav-link active small py-1" data-bs-toggle="pill" data-bs-target="#draw-sig">Draw</button>
                     </li>
@@ -155,39 +197,39 @@
                             @csrf
                             <input type="hidden" name="signature_data" id="signature_data">
                             <div class="d-flex gap-2 mt-2">
-                                <button type="button" class="btn btn-sm btn-outline-secondary w-50" id="sig-clear">Clear</button>
-                                <button type="submit" class="btn btn-sm btn-purple w-50 text-white fw-bold">Save Signature</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary w-50" id="sig-clear" style="height: 38px !important;">Clear</button>
+                                <button type="submit" class="btn btn-sm btn-primary w-50 text-white fw-bold" style="height: 38px !important;">Save Signature</button>
                             </div>
                         </form>
                     </div>
                     <div class="tab-pane fade" id="upload-sig">
                         <form action="{{ route('profile.signature') }}" method="POST" enctype="multipart/form-data">
                             @csrf
-                            <div class="py-4 text-center border border-dashed border-secondary rounded-3">
-                                <i class="bi bi-cloud-arrow-up fs-2 text-dim"></i>
-                                <input type="file" name="sig_file" class="form-control form-control-sm mt-2 bg-transparent border-0 text-white">
+                            <div class="py-4 text-center border border-dashed rounded-3" style="background: var(--bg); border-color: var(--panel-border) !important;">
+                                <i class="bi bi-cloud-arrow-up fs-2 text-secondary"></i>
+                                <input type="file" name="sig_file" class="form-control form-control-sm mt-2 bg-transparent border-0">
                             </div>
-                            <button type="submit" class="btn btn-purple btn-sm w-100 mt-3 rounded-3">Upload File</button>
+                            <button type="submit" class="btn btn-primary btn-sm w-100 mt-3" style="height: 38px !important;">Upload File</button>
                         </form>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="col-12 col-xl-4">
+        <div class="col-12 col-xl-4 text-start">
             <div class="info-card">
-                <h6 class="fw-bold mb-4 text-warning"><i class="bi bi-key me-2"></i>Security Settings</h6>
+                <h6 class="fw-bold mb-4"><i class="bi bi-key me-2"></i>Security Settings</h6>
                 <form action="{{ route('profile.password') }}" method="POST">
                     @csrf
                     <div class="mb-3">
                         <label class="info-label">New Password</label>
-                        <input type="password" name="password" class="form-control bg-dark border-secondary text-white rounded-3" required>
+                        <input type="password" name="password" class="form-control" required>
                     </div>
                     <div class="mb-3">
                         <label class="info-label">Confirm Password</label>
-                        <input type="password" name="password_confirmation" class="form-control bg-dark border-secondary text-white rounded-3" required>
+                        <input type="password" name="password_confirmation" class="form-control" required>
                     </div>
-                    <button type="submit" class="btn btn-outline-warning w-100 rounded-3 fw-bold">Update Password</button>
+                    <button type="submit" class="btn btn-outline-primary w-100 fw-bold" style="height: 44px !important;">Update Password</button>
                 </form>
             </div>
         </div>
@@ -257,44 +299,5 @@
             showNotification('{{ session('success') }}', 'success');
         });
     @endif
-
-    // --- LIGHT/DARK MODE PERSISTENCE ---
-    const themeToggle = document.getElementById('themeToggle');
-    
-    // Load saved theme on page load
-    const savedTheme = localStorage.getItem('theme') || 'dark';
-    themeToggle.checked = savedTheme === 'dark';
-    applyTheme(savedTheme);
-    
-    function applyTheme(theme) {
-        const root = document.documentElement;
-        if (theme === 'dark') {
-            root.style.setProperty('--bg', '#0b1228');
-            root.style.setProperty('--sidebar-bg', '#161e31');
-            root.style.setProperty('--accent-cyan', '#22d3ee');
-            root.style.setProperty('--accent-purple', '#a855f7');
-            root.style.setProperty('--text-dim', '#94a3b8');
-            root.style.setProperty('--panel', 'rgba(30, 41, 59, 0.45)');
-            root.style.setProperty('--panel-border', 'rgba(255, 255, 255, 0.08)');
-            document.body.style.backgroundColor = '#0b1228';
-            document.body.style.color = '#f8fafc';
-        } else {
-            root.style.setProperty('--bg', '#f8fafc');
-            root.style.setProperty('--sidebar-bg', '#e2e8f0');
-            root.style.setProperty('--accent-cyan', '#0891b2');
-            root.style.setProperty('--accent-purple', '#7c3aed');
-            root.style.setProperty('--text-dim', '#475569');
-            root.style.setProperty('--panel', 'rgba(226, 232, 240, 0.8)');
-            root.style.setProperty('--panel-border', 'rgba(15, 23, 42, 0.1)');
-            document.body.style.backgroundColor = '#f8fafc';
-            document.body.style.color = '#1e293b';
-        }
-    }
-    
-    themeToggle.addEventListener('change', function() {
-        const theme = this.checked ? 'dark' : 'light';
-        applyTheme(theme);
-        localStorage.setItem('theme', theme);
-    });
 </script>
 @endsection

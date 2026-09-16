@@ -37,7 +37,7 @@ class DocumentSignedNotification extends Notification
     public function toMail($notifiable)
     {
         return (new MailMessage)
-            ->subject("Document Received: {$this->document->title}")
+            ->subject("NAAP Document Routing System - Transmission Completed - {$this->document->title}")
             ->greeting("Hello {$notifiable->name},")
             ->line("Your document has been successfully received and signed.")
             ->line("Document: {$this->document->title}")

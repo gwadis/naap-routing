@@ -6,13 +6,13 @@
 <style>
     /* Header Styling */
     .page-header { margin-bottom: 30px; }
-    .page-header h2 { font-weight: 700; color: #fff; margin: 0; }
-    .page-header p { color: #94a3b8; margin: 5px 0 0 0; }
+    .page-header h2 { font-weight: 700; color: var(--text-main); margin: 0; }
+    .page-header p { color: var(--text-dim); margin: 5px 0 0 0; }
 
     /* Routing Card Styling */
     .routing-card { 
-        background: #1e293b; 
-        border: 1px solid rgba(255, 255, 255, 0.05); 
+        background: var(--panel); 
+        border: 1px solid var(--panel-border); 
         border-radius: 24px; 
         padding: 28px; 
         margin-bottom: 25px; 
@@ -34,7 +34,7 @@
         position: absolute;
         top: 15px; left: 0; right: 0;
         height: 4px;
-        background: rgba(255, 255, 255, 0.05);
+        background: var(--panel-border);
         z-index: 1;
         border-radius: 10px;
     }
@@ -61,12 +61,12 @@
     .step-dot {
         width: 32px; height: 32px;
         border-radius: 50%;
-        background: #0f172a;
-        border: 3px solid #334155;
+        background: var(--bg);
+        border: 3px solid var(--panel-border);
         display: grid; place-items: center;
         font-size: 0.8rem; font-weight: 700;
         transition: 0.3s;
-        color: #64748b;
+        color: var(--text-dim);
     }
 
     .step-node.completed .step-dot {
@@ -86,17 +86,17 @@
         margin-top: 12px;
         font-size: 0.75rem;
         font-weight: 600;
-        color: #64748b;
+        color: var(--text-dim);
         text-align: center;
     }
-    .active .step-label, .completed .step-label { color: #fff; }
+    .active .step-label, .completed .step-label { color: var(--text-main); }
 
     /* Form Controls */
     .form-glass {
-        background: rgba(15, 23, 42, 0.3);
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: var(--bg);
+        border: 1px solid var(--panel-border);
         border-radius: 12px;
-        color: white !important;
+        color: var(--text-main) !important;
         padding: 12px 15px;
     }
     .form-glass:focus { border-color: #22d3ee; box-shadow: none; }
@@ -128,15 +128,15 @@
             <span class="badge mb-2" style="background: rgba(168, 85, 247, 0.1); color: #a855f7; border: 1px solid rgba(168, 85, 247, 0.2);">
                 {{ $doc->priority }} Priority
             </span>
-            <h4 class="text-white mb-1">{{ $doc->title }}</h4>
+            <h4 class="mb-1">{{ $doc->title }}</h4>
             <div class="text-muted small">Tracking ID: <span class="text-info">#{{ str_pad($doc->id, 6, '0', STR_PAD_LEFT) }}</span></div>
         </div>
         <div class="text-end">
             <div class="small text-muted">Receiver</div>
-            <div class="small fw-bold text-white">{{ optional($doc->receiverUser)->name ?? 'Unassigned' }}</div>
+            <div class="small fw-bold">{{ optional($doc->receiverUser)->name ?? 'Unassigned' }}</div>
             <div class="small text-muted">{{ optional(optional($doc->receiverUser)->department)->name ?? 'No department' }}</div>
             <div class="small text-muted mt-2">Last Update</div>
-            <div class="small fw-bold text-white">{{ optional($doc->updated_at)->diffForHumans() ?? 'Unknown' }}</div>
+            <div class="small fw-bold">{{ optional($doc->updated_at)->diffForHumans() ?? 'Unknown' }}</div>
         </div>
     </div>
 
@@ -170,7 +170,7 @@
             <div class="step-label text-truncate" style="max-width: 100px;">{{ optional($doc->destinationOffice)->name ?? 'Destination' }}</div>
         </div>
     </div>
-    <div class="row text-white mt-3">
+    <div class="row mt-3">
         <div class="col-md-4">
             <small class="text-muted">Receiver</small>
             <div class="fw-bold">{{ optional($doc->receiverUser)->name ?? 'Unassigned' }}</div>
@@ -186,30 +186,30 @@
         </div>
     </div>
 
-    <hr style="border-color: rgba(255,255,255,0.05); margin: 25px 0;">
+    <hr style="border-color: var(--panel-border); margin: 25px 0;">
 
-    <div class="row text-white mb-4">
+    <div class="row mb-4">
         <div class="col-md-12">
             <h6 class="text-info mb-3">Current Document Location</h6>
         </div>
     </div>
 
-    <div class="row text-white g-3">
+    <div class="row g-3">
         <div class="col-md-3">
             <div class="card p-3" style="background: rgba(34, 211, 238, 0.05); border: 1px solid rgba(34, 211, 238, 0.2); border-radius: 10px;">
-                <small class="text-muted">📍 Current Location</small>
+                <small class="text-muted"><i class="bi bi-geo-alt-fill text-info me-1"></i> Current Location</small>
                 <div class="fw-bold mt-2">{{ $doc->currentOffice->name ?? 'In Transit' }}</div>
             </div>
         </div>
         <div class="col-md-3">
             <div class="card p-3" style="background: rgba(168, 85, 247, 0.05); border: 1px solid rgba(168, 85, 247, 0.2); border-radius: 10px;">
-                <small class="text-muted">🔄 Status</small>
+                <small class="text-muted"><i class="bi bi-arrow-repeat text-purple me-1"></i> Status</small>
                 <div class="fw-bold mt-2">{{ $doc->status }}</div>
             </div>
         </div>
         <div class="col-md-3">
             <div class="card p-3" style="background: rgba(245, 158, 11, 0.05); border: 1px solid rgba(245, 158, 11, 0.2); border-radius: 10px;">
-                <small class="text-muted">⏱️ Due Date</small>
+                <small class="text-muted"><i class="bi bi-clock-fill text-warning me-1"></i> Due Date</small>
                 <div class="fw-bold mt-2">
                     @if($doc->due_date)
                         {{ $doc->due_date->format('M d, Y') }}
@@ -221,15 +221,15 @@
         </div>
         <div class="col-md-3">
             <div class="card p-3" style="background: rgba(34, 197, 94, 0.05); border: 1px solid rgba(34, 197, 94, 0.2); border-radius: 10px;">
-                <small class="text-muted">👤 Current Holder</small>
+                <small class="text-muted"><i class="bi bi-person-fill text-success me-1"></i> Current Holder</small>
                 <div class="fw-bold mt-2 small">{{ optional($doc->receiverUser)->name ?? 'Unassigned' }}</div>
             </div>
         </div>
     </div>
 
-    <div class="row text-white mt-4 g-3">
+    <div class="row mt-4 g-3">
         <div class="col-md-6">
-            <div class="card p-4" style="background: rgba(15, 23, 42, 0.5); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 10px;">
+            <div class="card p-4" style="background: var(--bg) !important; border: 1px solid var(--panel-border) !important; border-radius: 10px;">
                 <h6 class="text-info mb-3">Journey So Far</h6>
                 <div class="small">
                     <div class="mb-2">
@@ -248,9 +248,9 @@
             </div>
         </div>
         <div class="col-md-6">
-            <div class="card p-4" style="background: rgba(15, 23, 42, 0.5); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 10px;">
+            <div class="card p-4" style="background: var(--bg) !important; border: 1px solid var(--panel-border) !important; border-radius: 10px;">
                 <h6 class="text-info mb-3">Document Details</h6>
-                <div class="small text-white">
+                <div class="small">
                     <div class="d-flex justify-content-between mb-2">
                         <span class="text-muted">QR Code:</span>
                         <span class="fw-bold">{{ $doc->qr_id ?? 'N/A' }}</span>

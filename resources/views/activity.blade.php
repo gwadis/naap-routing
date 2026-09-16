@@ -5,45 +5,38 @@
 @section('content')
 <style>
     :root {
-        --primary-bg: #1e293b;
-        --secondary-bg: #0f172a;
-        --accent-cyan: #00d7ff;
+        --primary-bg: var(--panel);
+        --secondary-bg: var(--bg);
+        --accent-cyan: var(--accent-cyan);
         --accent-success: #10b981;
-        --border-color: rgba(0, 215, 255, 0.1);
-        --text-primary: #e2e8f0;
-        --text-secondary: #94a3b8;
-        --text-muted: #64748b;
-    }
-
-    /* Dark Mode Adjustments */
-    body.dark-mode {
-        background: var(--secondary-bg);
-    }
-
-    body.light-mode {
-        --primary-bg: #f8fafc;
-        --secondary-bg: #ffffff;
-        --accent-cyan: #0891b2;
-        --border-color: rgba(2, 132, 199, 0.15);
-        --text-primary: #0f172a;
-        --text-secondary: #475569;
-        --text-muted: #64748b;
+        --border-color: var(--panel-border);
+        --text-primary: inherit;
+        --text-secondary: var(--text-dim);
+        --text-muted: var(--text-dim);
+        --accent-navy: var(--accent-navy);
     }
 
     .filter-panel {
         background: var(--primary-bg);
         border: 1px solid var(--border-color);
-        border-radius: 15px;
-        padding: 20px;
+        border-radius: 12px;
+        padding: 24px;
         margin-bottom: 25px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
     }
 
     .filter-input {
-        background: rgba(255, 255, 255, 0.05) !important;
+        background: var(--primary-bg) !important;
         border: 1px solid var(--border-color) !important;
-        color: var(--text-primary) !important;
+        color: inherit !important;
         border-radius: 8px;
         padding: 10px 12px;
+        height: 44px;
+    }
+    .filter-input:focus {
+        border-color: var(--accent-cyan) !important;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15) !important;
+        outline: none;
     }
 
     .activity-table {
@@ -52,27 +45,29 @@
         border-radius: 12px;
         overflow: hidden;
         --bs-table-bg: var(--primary-bg) !important;
-        --bs-table-hover-bg: rgba(0, 215, 255, 0.05) !important;
+        --bs-table-hover-bg: rgba(59, 130, 246, 0.05) !important;
     }
 
     .activity-table thead {
-        background: rgba(0, 215, 255, 0.08) !important;
+        background: var(--secondary-bg) !important;
     }
 
     .activity-table th {
-        color: var(--accent-cyan) !important;
-        font-weight: 600;
+        color: var(--text-secondary) !important;
+        font-weight: 700;
         text-transform: uppercase;
         font-size: 0.75rem;
         letter-spacing: 0.05em;
         padding: 14px 16px;
         border-color: var(--border-color) !important;
+        background: var(--secondary-bg) !important;
     }
 
     .activity-table td {
         color: var(--text-primary) !important;
         padding: 14px 16px;
         border-color: var(--border-color) !important;
+        background: transparent !important;
     }
 
     /* --- PAGINATION STYLING --- */
@@ -86,63 +81,54 @@
     }
 
     .pagination .page-link {
-        background: rgba(255, 255, 255, 0.08);
-        border: 1px solid rgba(0, 215, 255, 0.2);
-        color: var(--accent-cyan);
+        background: var(--primary-bg) !important;
+        border: 1px solid var(--border-color);
+        color: var(--text-secondary);
         border-radius: 8px !important;
         margin: 0 3px;
         padding: 8px 16px;
-        transition: 0.3s;
+        transition: 0.2s;
     }
 
     .pagination .page-link:hover {
-        background: rgba(0, 215, 255, 0.1);
-        border-color: var(--accent-cyan);
-        color: var(--accent-cyan);
-        transform: translateY(-1px);
+        background: var(--secondary-bg);
+        color: var(--text-primary);
     }
 
     .pagination .page-item.active .page-link {
-        background: var(--accent-cyan);
-        border-color: var(--accent-cyan);
-        color: #0b1228 !important;
-        font-weight: 700;
-    }
-
-    body.light-mode .pagination .page-link {
-        background: #ffffff;
-        border-color: rgba(2, 132, 199, 0.15);
-        color: #475569;
-    }
-
-    body.light-mode .pagination .page-item.active .page-link {
-        background: var(--accent-cyan);
-        color: #ffffff !important;
+        background: var(--accent-navy);
+        border-color: var(--accent-navy);
+        color: #FFFFFF;
     }
 
     .btn-search {
-        background: linear-gradient(135deg, var(--accent-cyan), #0891b2);
+        background: var(--accent-navy) !important;
         border: none;
-        color: #000;
+        color: #FFFFFF !important;
         font-weight: 600;
         border-radius: 8px;
+        height: 44px;
         padding: 10px 24px;
-        transition: 0.3s;
+        transition: 0.2s;
     }
-
     .btn-search:hover {
-        box-shadow: 0 0 20px rgba(0, 215, 255, 0.3);
-        transform: translateY(-2px);
+        background: #1D4ED8 !important;
+        box-shadow: 0 4px 12px rgba(30, 58, 138, 0.15);
     }
-
     .btn-reset {
-        background: rgba(255, 255, 255, 0.08);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        color: var(--text-primary);
+        background: var(--primary-bg) !important;
+        border: 1px solid var(--border-color) !important;
+        color: var(--text-secondary) !important;
+        font-weight: 500;
         border-radius: 8px;
+        height: 44px;
         padding: 10px 20px;
         text-decoration: none;
-        transition: 0.3s;
+        transition: 0.2s;
+    }
+    .btn-reset:hover {
+        background: var(--secondary-bg) !important;
+        color: var(--text-primary) !important;
     }
 
     .activity-badge {
@@ -155,10 +141,11 @@
         border: 1px solid;
     }
 
-    .activity-badge.create { background: rgba(16, 185, 129, 0.15); color: #10b981; border-color: rgba(16, 185, 129, 0.35); }
-    .activity-badge.routed { background: rgba(0, 215, 255, 0.15); color: var(--accent-cyan); border-color: rgba(0, 215, 255, 0.35); }
-    .activity-badge.completed { background: rgba(59, 130, 246, 0.15); color: #3b82f6; border-color: rgba(59, 130, 246, 0.35); }
-    .activity-badge.scan { background: rgba(245, 158, 11, 0.15); color: #f59e0b; border-color: rgba(245, 158, 11, 0.35); }
+    .activity-badge.create { background: rgba(16, 185, 129, 0.1); color: #059669; border-color: rgba(16, 185, 129, 0.2); }
+    .activity-badge.routed { background: rgba(59, 130, 246, 0.1); color: #2563EB; border-color: rgba(59, 130, 246, 0.2); }
+    .activity-badge.completed { background: rgba(16, 185, 129, 0.1); color: #059669; border-color: rgba(16, 185, 129, 0.2); }
+    .activity-badge.scan { background: rgba(245, 158, 11, 0.1); color: #D97706; border-color: rgba(245, 158, 11, 0.2); }
+    .activity-badge.viewed { background: rgba(139, 92, 246, 0.1); color: #7C3AED; border-color: rgba(139, 92, 246, 0.2); }
 
     .doc-title { color: var(--accent-cyan); text-decoration: none; font-weight: 500; }
     .doc-title:hover { text-decoration: underline; }
@@ -166,30 +153,30 @@
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
-        <h1 class="page-title" style="font-size: 2rem; color: var(--accent-cyan); font-weight: 700;">Activity Logs</h1>
-        <p class="page-subtitle" style="color: var(--text-secondary);">Audit entries for user and document actions.</p>
+        <h1 class="page-title mb-2">Activity Logs</h1>
+        <p class="text-secondary small mb-0">Audit entries for user and document actions.</p>
     </div>
 </div>
 
 <div class="filter-panel">
     <form method="GET" action="{{ route('activity.index') }}" class="row g-3">
-        <div class="col-md-3">
-            <label class="form-label" style="color: var(--accent-cyan); font-size: 0.85rem; font-weight: 600;">Search</label>
+        <div class="col-md-3 text-start">
+            <label class="form-label text-uppercase" style="font-weight: 700;">Search</label>
             <input type="text" name="search" class="form-control filter-input" placeholder="Document or user..." value="{{ request('search') }}">
         </div>
         
-        <div class="col-md-2">
-            <label class="form-label" style="color: var(--accent-cyan); font-size: 0.85rem; font-weight: 600;">From Date</label>
+        <div class="col-md-2 text-start">
+            <label class="form-label text-uppercase" style="font-weight: 700;">From Date</label>
             <input type="date" name="from_date" class="form-control filter-input" value="{{ request('from_date') }}">
         </div>
         
-        <div class="col-md-2">
-            <label class="form-label" style="color: var(--accent-cyan); font-size: 0.85rem; font-weight: 600;">To Date</label>
+        <div class="col-md-2 text-start">
+            <label class="form-label text-uppercase" style="font-weight: 700;">To Date</label>
             <input type="date" name="to_date" class="form-control filter-input" value="{{ request('to_date') }}">
         </div>
 
-        <div class="col-md-2">
-            <label class="form-label" style="color: var(--accent-cyan); font-size: 0.85rem; font-weight: 600;">Action</label>
+        <div class="col-md-2 text-start">
+            <label class="form-label text-uppercase" style="font-weight: 700;">Action</label>
             <select name="action" class="form-control filter-input">
                 <option value="">All Actions</option>
                 <option value="Document Created" {{ request('action') === 'Document Created' ? 'selected' : '' }}>Created</option>
@@ -231,6 +218,7 @@
                         if (str_contains($action, 'created')) $badgeClass = 'create';
                         elseif (str_contains($action, 'completed')) $badgeClass = 'completed';
                         elseif (str_contains($action, 'scan')) $badgeClass = 'scan';
+                        elseif (str_contains($action, 'viewed')) $badgeClass = 'viewed';
                     @endphp
                     <span class="activity-badge {{ $badgeClass }}">
                         {{ $log->action }}
@@ -254,7 +242,11 @@
                 </td>
                 <td class="align-middle">
                     <span style="color: var(--text-secondary); font-size: 0.9rem;">
-                        {{ is_string($log->created_at) ? $log->created_at : $log->created_at->format('M j, Y H:i') }}
+                        @if(is_string($log->created_at))
+                            {{ $log->created_at }}
+                        @else
+                            {{ str_contains(strtolower($log->action), 'viewed') ? $log->created_at->format('M d, Y • h:i A') : $log->created_at->format('M j, Y H:i') }}
+                        @endif
                     </span>
                 </td>
             </tr>
@@ -275,24 +267,4 @@
         {{ $logs->links('pagination::bootstrap-4') }}
     @endif
 </div>
-
-<script>
-    function setActivityLogTheme() {
-        const isDarkMode = localStorage.getItem('theme') === 'dark' || 
-                          (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
-        
-        if (isDarkMode) {
-            document.body.classList.add('dark-mode');
-            document.body.classList.remove('light-mode');
-        } else {
-            document.body.classList.add('light-mode');
-            document.body.classList.remove('dark-mode');
-        }
-    }
-
-    document.addEventListener('DOMContentLoaded', setActivityLogTheme);
-    window.addEventListener('storage', (e) => {
-        if (e.key === 'theme') setActivityLogTheme();
-    });
-</script>
 @endsection

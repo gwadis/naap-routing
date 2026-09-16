@@ -12,15 +12,15 @@
         max-width: 720px;
         margin: 0 auto;
     }
-    .form-label-custom { color: #94a3b8; font-size: 0.9rem; font-weight: 600; }
+    .form-label-custom { color: var(--text-dim); font-size: 0.9rem; font-weight: 600; }
     .form-control-custom,
-    .form-select.form-control-custom { background: rgba(255,255,255,0.05) !important; border: 1px solid var(--panel-border) !important; color: #fff !important; border-radius: 12px; appearance: none !important; -webkit-appearance: none !important; -moz-appearance: none !important; }
+    .form-select.form-control-custom { background: var(--bg) !important; border: 1px solid var(--panel-border) !important; color: var(--text-main) !important; border-radius: 12px; appearance: none !important; -webkit-appearance: none !important; -moz-appearance: none !important; }
     .form-control-custom::placeholder {
-        color: rgba(255,255,255,0.75) !important;
+        color: var(--text-muted) !important;
     }
     .form-select.form-control-custom option {
-        color: #0b1228 !important;
-        background: #f8fafc !important;
+        color: var(--text-main) !important;
+        background: var(--panel) !important;
     }
     .form-select.form-control-custom option:disabled {
         color: rgba(75,85,99,0.75) !important;
@@ -32,10 +32,10 @@
 <div class="register-card">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
-            <h2 class="fw-bold text-white mb-1">Register New User</h2>
+            <h2 class="fw-bold mb-1">Register New User</h2>
             <p class="text-dim mb-0">Create a new account using the same dashboard layout.</p>
         </div>
-        <a href="{{ route('users.index') }}" class="btn btn-outline-light btn-sm">Back to Users</a>
+        <a href="{{ route('users.index') }}" class="btn btn-outline-secondary btn-sm">Back to Users</a>
     </div>
 
     @if(session('success'))
@@ -66,6 +66,18 @@
         </div>
 
         <div class="mb-3">
+            <label class="form-label-custom">Employee ID</label>
+            <input type="text" name="employee_id" value="{{ old('employee_id') }}" class="form-control form-control-custom @error('employee_id') is-invalid @enderror" placeholder="e.g. EMP-1234">
+            @error('employee_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label-custom">Position</label>
+            <input type="text" name="position" value="{{ old('position') }}" class="form-control form-control-custom @error('position') is-invalid @enderror" placeholder="e.g. Registrar Officer">
+            @error('position') <div class="invalid-feedback">{{ $message }}</div> @enderror
+        </div>
+
+        <div class="mb-3">
             <label class="form-label-custom">Role</label>
             <select name="role" class="form-select form-control-custom @error('role') is-invalid @enderror" required>
                 <option value="" disabled {{ old('role') ? '' : 'selected' }}>Select role</option>
@@ -84,6 +96,26 @@
                 @endforeach
             </select>
             @error('department_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label-custom">Office</label>
+            <select name="office_id" class="form-select form-control-custom @error('office_id') is-invalid @enderror">
+                <option value="" selected>Select office</option>
+                @foreach($offices as $office)
+                    <option value="{{ $office->id }}" {{ old('office_id') == $office->id ? 'selected' : '' }}>{{ $office->name }}</option>
+                @endforeach
+            </select>
+            @error('office_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label-custom">Status</label>
+            <select name="status" class="form-select form-control-custom @error('status') is-invalid @enderror" required>
+                <option value="active" {{ old('status') === 'active' ? 'selected' : '' }}>Active</option>
+                <option value="inactive" {{ old('status') === 'inactive' ? 'selected' : '' }}>Inactive</option>
+            </select>
+            @error('status') <div class="invalid-feedback">{{ $message }}</div> @enderror
         </div>
 
         <div class="mb-3">

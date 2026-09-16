@@ -18,7 +18,9 @@ class ProfileController extends Controller
                 return redirect()->route('home')->with('error', 'Please log in again.');
             }
 
-            return view('profile', compact('user'));
+            $departments = \App\Models\Department::all();
+
+            return view('profile', compact('user', 'departments'));
 
         } catch (\Exception $e) {
             Log::error('Profile Load Error: ' . $e->getMessage());
@@ -35,12 +37,42 @@ class ProfileController extends Controller
                 return back()->with('error', 'User not found.');
             }
 
-            $validated = $request->validate([
+            $role = session('user_role');
+            $isAdmin = in_array($role, ['ADMIN', 'Administrator', 'Super Administrator']);
+
+            $rules = [
                 'name' => 'required|string|max:255',
                 'email' => 'required|email|unique:users,email,' . $user->id,
-            ]);
+                'phone' => 'nullable|string|max:255',
+                'avatar' => 'nullable|image|max:2048',
+            ];
 
+            if ($isAdmin) {
+                $rules['employee_id'] = 'nullable|string|max:255|unique:users,employee_id,' . $user->id;
+                $rules['position'] = 'nullable|string|max:255';
+                $rules['department_id'] = 'nullable|exists:departments,id';
+                $rules['office_id'] = 'nullable|exists:offices,id';
+            }
+
+            $validated = $request->validate($rules);
+
+            if ($request->hasFile('avatar')) {
+                if ($user->avatar) {
+                    Storage::disk('public')->delete($user->avatar);
+                }
+                $validated['avatar'] = $request->file('avatar')->store('avatars', 'public');
+            }
+
+            $oldValues = $user->toArray();
             $user->update($validated);
+
+            \App\Models\AuditTrail::log("User Profile Updated via Web UI", "users/{$user->id}", $oldValues, $user->toArray());
+            \App\Models\ActivityLog::log('User profile updated', null, [
+                'email' => $user->email,
+                'employee_id' => $user->employee_id,
+                'position' => $user->position,
+                'phone' => $user->phone
+            ]);
 
             session([
                 'user_name' => $user->name,
@@ -59,7 +91,19 @@ class ProfileController extends Controller
     {
         try {
             $request->validate([
-                'password' => 'required|min:8|confirmed'
+                'password' => [
+                    'required',
+                    'string',
+                    'min:10',
+                    'regex:/[a-z]/',
+                    'regex:/[A-Z]/',
+                    'regex:/[0-9]/',
+                    'regex:/[^A-Za-z0-9]/',
+                    'confirmed'
+                ]
+            ], [
+                'password.min' => 'The password must be at least 10 characters.',
+                'password.regex' => 'The password must contain at least one uppercase letter, one lowercase letter, one number, and one special character.',
             ]);
 
             $user = User::where('email', session('user_email'))->first();
@@ -68,15 +112,31 @@ class ProfileController extends Controller
                 return back()->with('error', 'User not found.');
             }
 
+            $oldValues = $user->toArray();
             $user->update([
                 'password' => Hash::make($request->password)
             ]);
+
+            // Dispatch confirmation email
+            try {
+                \Illuminate\Support\Facades\Mail::to($user->email)->send(new \App\Mail\SecurityMail(
+                    "🔐 Security Notice: Password Updated Successfully",
+                    $user->name,
+                    "<p>This email confirms that your password for NAAP Routing was updated successfully from your profile page.</p>"
+                    . "<p>If you did not perform this change, please notify your administrator immediately.</p>"
+                ));
+                Log::channel('email')->info("Password changed confirmation email sent to {$user->email}");
+            } catch (\Exception $mailEx) {
+                Log::channel('email')->error("Failed to send password update confirmation email to {$user->email}: " . $mailEx->getMessage());
+            }
+
+            \App\Models\AuditTrail::log("Password Changed via Profile", "users/{$user->id}", $oldValues, $user->toArray());
 
             return back()->with('success', 'Password changed successfully!');
 
         } catch (\Exception $e) {
             Log::error('Password Update Error: ' . $e->getMessage());
-            return back()->with('error', 'Failed to change password.');
+            return back()->with('error', $e instanceof \Illuminate\Validation\ValidationException ? $e->getMessage() : 'Failed to change password.');
         }
     }
 
@@ -114,6 +174,7 @@ class ProfileController extends Controller
             }
 
             if ($path) {
+                $oldValues = $user->toArray();
 
                 // delete old signature safely
                 if ($user->signature) {
@@ -121,6 +182,8 @@ class ProfileController extends Controller
                 }
 
                 $user->update(['signature' => $path]);
+
+                \App\Models\AuditTrail::log("Signature Updated via Profile", "users/{$user->id}", $oldValues, $user->toArray());
 
                 return back()->with('success', 'Digital signature updated!');
             }

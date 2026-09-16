@@ -38,7 +38,7 @@ class DocumentDueNotification extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-                    ->subject('⚠️ Document Due Soon: ' . $this->document->title)
+                    ->subject('NAAP Document Routing System - SLA Alert: Document Due Soon - ' . $this->document->title)
                     ->level('warning')
                     ->markdown('emails.documents.document_due', [
                         'document' => $this->document,

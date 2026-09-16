@@ -18,9 +18,7 @@ return [
         'key' => env('POSTMARK_API_KEY'),
     ],
 
-    'resend' => [
-        'key' => env('RESEND_API_KEY'),
-    ],
+
 
     'ses' => [
         'key' => env('AWS_ACCESS_KEY_ID'),
@@ -33,6 +31,13 @@ return [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
+    ],
+
+    'email' => [
+        'provider' => env('EMAIL_PROVIDER', 'log'),
+        'api_key' => env('EMAIL_PROVIDER') === 'brevo' ? env('BREVO_API_KEY') : env('EMAIL_API_KEY'),
+        'from_address' => env('EMAIL_FROM_ADDRESS'),
+        'from_name' => env('EMAIL_FROM_NAME', 'NAAP Document Routing'),
     ],
 
 ];

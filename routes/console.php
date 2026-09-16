@@ -8,5 +8,7 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-// Schedule the document due date check daily
 Schedule::command('documents:check-due-dates')->daily();
+Schedule::command('documents:vpaa-alarm')->hourly();
+Schedule::command('sla:monitor')->everyThirtyMinutes();
+

@@ -10,30 +10,32 @@
     }
 
     .back-link {
-        color: #00d7ff;
+        color: var(--accent-cyan);
         text-decoration: none;
         display: inline-flex;
         align-items: center;
         gap: 8px;
         margin-bottom: 24px;
         transition: 0.2s;
+        font-weight: 600;
     }
 
     .back-link:hover {
-        color: #00e5ff;
+        color: #1D4ED8;
         transform: translateX(-4px);
     }
 
     .document-header {
-        background: linear-gradient(135deg, rgba(0, 215, 255, 0.1), rgba(168, 85, 247, 0.1));
-        border: 1px solid rgba(0, 215, 255, 0.2);
-        border-radius: 16px;
+        background: var(--panel);
+        border: 1px solid var(--panel-border);
+        border-radius: 12px;
         padding: 24px;
         margin-bottom: 30px;
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
     }
 
     .document-title {
-        color: #00d7ff;
+        color: var(--accent-navy);
         font-size: 1.75rem;
         font-weight: 700;
         margin: 0 0 16px 0;
@@ -46,14 +48,14 @@
     }
 
     .meta-item {
-        background: rgba(15, 23, 42, 0.5);
-        border: 1px solid rgba(0, 215, 255, 0.1);
+        background: var(--bg);
+        border: 1px solid var(--panel-border);
         border-radius: 12px;
         padding: 16px;
     }
 
     .meta-label {
-        color: #94a3b8;
+        color: var(--text-dim);
         font-size: 0.75rem;
         font-weight: 700;
         text-transform: uppercase;
@@ -62,9 +64,9 @@
     }
 
     .meta-value {
-        color: white;
+        color: var(--text-main);
         font-size: 1rem;
-        font-weight: 500;
+        font-weight: 600;
     }
 
     .status-badge {
@@ -78,21 +80,21 @@
     }
 
     .status-completed {
-        background: rgba(16, 185, 129, 0.2);
-        color: #10b981;
-        border: 1px solid rgba(16, 185, 129, 0.3);
+        background: rgba(16, 185, 129, 0.1);
+        color: #059669;
+        border: 1px solid rgba(16, 185, 129, 0.2);
     }
 
     .status-in-transit {
-        background: rgba(245, 158, 11, 0.2);
-        color: #f59e0b;
-        border: 1px solid rgba(245, 158, 11, 0.3);
+        background: rgba(59, 130, 246, 0.1);
+        color: #2563EB;
+        border: 1px solid rgba(59, 130, 246, 0.2);
     }
 
     .status-pending {
-        background: rgba(59, 130, 246, 0.2);
-        color: #3b82f6;
-        border: 1px solid rgba(59, 130, 246, 0.3);
+        background: rgba(245, 158, 11, 0.1);
+        color: #D97706;
+        border: 1px solid rgba(245, 158, 11, 0.2);
     }
 
     .timeline-section {
@@ -100,7 +102,7 @@
     }
 
     .timeline-title {
-        color: #00d7ff;
+        color: var(--accent-navy);
         font-size: 1.25rem;
         font-weight: 700;
         margin-bottom: 24px;
@@ -120,7 +122,7 @@
         top: 0;
         bottom: 0;
         width: 2px;
-        background: rgba(0, 215, 255, 0.2);
+        background: var(--panel-border);
     }
 
     .timeline-item {
@@ -139,25 +141,25 @@
         align-items: center;
         justify-content: center;
         font-weight: 700;
-        color: #000;
-        box-shadow: 0 0 0 3px #0f172a;
+        color: #FFFFFF !important;
+        box-shadow: 0 0 0 3px var(--bg);
         z-index: 10;
     }
 
     .dot-created {
-        background: #10b981;
+        background: var(--success);
     }
 
     .dot-transit {
-        background: #f59e0b;
+        background: var(--accent-cyan);
     }
 
     .dot-signed {
-        background: #00d7ff;
+        background: var(--accent-purple);
     }
 
     .dot-received {
-        background: #10b981;
+        background: var(--success);
     }
 
     .timeline-content {
@@ -165,45 +167,47 @@
     }
 
     .timeline-event-title {
-        color: #00d7ff;
+        color: var(--text-main);
         font-weight: 700;
         font-size: 1rem;
         margin-bottom: 8px;
     }
 
     .timeline-event-details {
-        color: #94a3b8;
+        color: var(--text-dim);
         font-size: 0.9rem;
         margin-bottom: 8px;
     }
 
     .timeline-timestamp {
-        color: #64748b;
+        color: var(--text-dim);
         font-size: 0.85rem;
         font-weight: 500;
     }
 
     .timeline-notes {
-        background: rgba(0, 215, 255, 0.08);
-        border-left: 3px solid #00d7ff;
+        background: var(--bg);
+        border-left: 3px solid var(--accent-cyan);
         padding: 12px;
         border-radius: 8px;
         margin-top: 12px;
-        color: #ccc;
+        color: var(--text-main);
         font-size: 0.9rem;
         font-style: italic;
+        border: 1px solid var(--panel-border);
+        border-left: 3px solid var(--accent-cyan) !important;
     }
 
     .proof-of-delivery {
-        background: rgba(16, 185, 129, 0.1);
-        border: 1px solid rgba(16, 185, 129, 0.3);
+        background: #F8FAFC;
+        border: 1px solid var(--panel-border);
         border-radius: 12px;
         padding: 16px;
         margin-top: 12px;
     }
 
     .proof-header {
-        color: #10b981;
+        color: var(--success);
         font-weight: 700;
         display: flex;
         align-items: center;
@@ -215,7 +219,7 @@
         display: flex;
         justify-content: space-between;
         padding: 8px 0;
-        border-bottom: 1px solid rgba(16, 185, 129, 0.2);
+        border-bottom: 1px solid var(--panel-border);
         font-size: 0.9rem;
     }
 
@@ -224,21 +228,21 @@
     }
 
     .proof-label {
-        color: #94a3b8;
+        color: var(--text-dim);
     }
 
     .proof-value {
-        color: white;
-        font-weight: 500;
+        color: var(--text-main);
+        font-weight: 600;
     }
 
     .signature-preview {
         display: inline-block;
         margin-top: 12px;
-        border: 1px solid rgba(16, 185, 129, 0.3);
+        border: 1px solid var(--panel-border);
         border-radius: 8px;
         padding: 8px;
-        background: rgba(255, 255, 255, 0.05);
+        background: #FFFFFF;
     }
 
     .signature-preview img {
@@ -283,11 +287,11 @@
         <h1 class="document-title">{{ $document->title }}</h1>
         <div class="document-meta">
             <div class="meta-item">
-                <div class="meta-label">📋 Document ID</div>
+                <div class="meta-label"><i class="fas fa-file-alt text-primary me-1"></i> Document ID</div>
                 <div class="meta-value">#{{ $document->id }}</div>
             </div>
             <div class="meta-item">
-                <div class="meta-label">🔖 QR Code ID</div>
+                <div class="meta-label"><i class="fas fa-qrcode text-primary me-1"></i> QR Code ID</div>
                 <div class="meta-value">{{ $document->qr_id ?? 'N/A' }}</div>
             </div>
             <div class="meta-item">
@@ -297,20 +301,34 @@
                 </span>
             </div>
             <div class="meta-item">
-                <div class="meta-label">📤 Origin</div>
+                <div class="meta-label"><i class="fas fa-paper-plane text-primary me-1"></i> Origin</div>
                 <div class="meta-value">{{ $document->originOffice?->name ?? 'Unknown' }}</div>
             </div>
             <div class="meta-item">
-                <div class="meta-label">📥 Destination</div>
+                <div class="meta-label"><i class="fas fa-inbox text-primary me-1"></i> Destination</div>
                 <div class="meta-value">{{ $document->destinationOffice?->name ?? 'Unknown' }}</div>
             </div>
             <div class="meta-item">
-                <div class="meta-label">📍 Current Location</div>
+                <div class="meta-label"><i class="fas fa-map-marker-alt text-primary me-1"></i> Current Location</div>
                 <div class="meta-value">{{ $document->currentOffice?->name ?? 'In Transit' }}</div>
             </div>
             <div class="meta-item">
-                <div class="meta-label">⏰ Created</div>
+                <div class="meta-label"><i class="fas fa-clock text-primary me-1"></i> Created</div>
                 <div class="meta-value">{{ $document->created_at->format('M j, Y H:i') }}</div>
+            </div>
+            <div class="meta-item">
+                <div class="meta-label"><i class="fas fa-eye text-primary me-1"></i> Last Viewed</div>
+                <div class="meta-value">
+                    @php
+                        $latestView = $document->views->sortByDesc('viewed_at')->first();
+                    @endphp
+                    @if($latestView)
+                        <div style="font-weight: 700;">{{ $latestView->viewed_at->format('M d, Y • h:i A') }}</div>
+                        <div style="font-size: 0.8rem; font-weight: normal; color: var(--text-dim); margin-top: 4px;">Viewed by {{ $latestView->user->name }}</div>
+                    @else
+                        <span style="color: var(--text-dim); font-weight: normal;">Never Viewed</span>
+                    @endif
+                </div>
             </div>
         </div>
     </div>
@@ -350,9 +368,12 @@
                         {{ $routing->toOffice?->name }}
                     </div>
                     <div class="timeline-timestamp">
-                        {{ $routing->created_at->format('M j, Y \a\t H:i:s') }}
+                        Routed: {{ $routing->created_at->format('M j, Y \a\t H:i:s') }}
+                        @if($routing->scanned_at)
+                            <br><span style="color: #00d7ff;">Scanned: {{ $routing->scanned_at->format('M j, Y \a\t H:i:s') }}</span>
+                        @endif
                         @if($routing->received_at)
-                            <br><small>Received: {{ $routing->received_at->format('M j, Y \a\t H:i:s') }}</small>
+                            <br><span style="color: #10b981;">Received: {{ $routing->received_at->format('M j, Y \a\t H:i:s') }}</span>
                         @endif
                     </div>
 
@@ -377,7 +398,7 @@
                             <span class="proof-value">{{ $routing->received_at?->format('M j, Y H:i') ?? 'N/A' }}</span>
                         </div>
                         <div class="signature-preview">
-                            <img src="{{ strpos($routing->signature, 'storage/') === 0 ? asset($routing->signature) : 'data:image/png;base64,' . $routing->signature }}" alt="Signature Proof" onerror="this.style.display='none'">
+                            <img src="{{ str_contains($routing->signature, 'data:image') ? $routing->signature : asset('storage/' . $routing->signature) }}" alt="Signature Proof" onerror="this.style.display='none'">
                         </div>
                     </div>
                     @endif
@@ -417,7 +438,7 @@
                             <span class="proof-value">{{ $document->qr_scanned_at?->format('M j, Y H:i:s') ?? 'N/A' }}</span>
                         </div>
                         <div class="signature-preview">
-                            <img src="{{ asset('storage/' . $document->receiver_signature) }}" alt="Receiver Signature" onerror="this.style.display='none'">
+                            <img src="{{ str_contains($document->receiver_signature, 'data:image') ? $document->receiver_signature : asset('storage/' . $document->receiver_signature) }}" alt="Receiver Signature" onerror="this.style.display='none'">
                         </div>
                     </div>
                     @endif
