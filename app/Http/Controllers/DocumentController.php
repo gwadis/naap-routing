@@ -24,8 +24,10 @@ class DocumentController extends Controller
     {
         $query = Document::with(['currentOffice', 'originOffice', 'destinationOffice', 'receiverUser.department', 'receiverUsers.department'])->latest();
 
-        if (session('user_role') !== 'ADMIN') {
-            $userId = (int) session('user_id');
+        $user = auth()->user() ?? User::find(session('user_id'));
+        $isAdmin = $user ? $user->isAdmin() : in_array(session('user_role'), ['ADMIN', 'Administrator', 'Super Administrator']);
+        if (!$isAdmin) {
+            $userId = (int) ($user?->id ?? session('user_id'));
             // Include documents uploaded by user OR routed to them via document_routings
             $query->where(function ($q) use ($userId) {
                 $q->where('uploaded_by', $userId)
@@ -157,8 +159,8 @@ class DocumentController extends Controller
                 $uniqueName = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
                 $path = $file->storeAs('documents', $uniqueName, 'public');
 
-                $senderName = session('user_name') ?? 'System';
-                $uploader = User::find(session('user_id') ?? 1);
+                $senderName = auth()->user()?->name ?? session('user_name') ?? 'System';
+                $uploader = auth()->user() ?? User::find(session('user_id') ?? 1);
 
                 // Handle Overwrite or Versioning
                 if ($duplicate && ($duplicateAction === 'overwrite' || $duplicateAction === 'version')) {
@@ -266,7 +268,7 @@ class DocumentController extends Controller
                     'category' => $categoryValue,
                     'tags' => $request->tags,
                     'status' => 'Pending',
-                    'uploaded_by' => session('user_id') ?? 1,
+                    'uploaded_by' => auth()->id() ?? session('user_id') ?? 1,
                     'access_pin' => $hashedPin,
                     'uploaded_at' => now(),
                     'processed_at' => now(),
@@ -356,7 +358,7 @@ class DocumentController extends Controller
                             'from_office_id'     => $fromOfficeId,
                             'to_office_id'       => $toOfficeId,
                             'receiver_user_id'   => $receiverId,
-                            'sender_user_id'     => session('user_id'),  // uploader is the sender for step 0
+                            'sender_user_id'     => auth()->id() ?? session('user_id'),  // uploader is the sender for step 0
                             'status'             => ($index === 0) ? 'Pending' : 'Waiting',
                             'pending_at'         => ($index === 0) ? now() : null,
                             'approval_type'      => $appType,
@@ -393,11 +395,11 @@ class DocumentController extends Controller
                     }
 
                     // 3. Notify Administrators
-                    $admins = User::where('role', 'ADMIN')->get();
+                    $admins = User::whereIn('role', ['ADMIN', 'Administrator', 'Super Administrator'])->get();
                     foreach ($admins as $admin) {
                         $admin->notify(new \App\Notifications\DocumentRoutedNotification($document, $senderName, 'admin'));
                     }
-                } catch (\Exception $ne) {
+                } catch (\Throwable $ne) {
                     \Log::warning('Document notification dispatch encountered an issue: ' . $ne->getMessage(), [
                         'document_id' => $document->id,
                         'exception'   => $ne->getMessage(),
@@ -416,10 +418,10 @@ class DocumentController extends Controller
 
                 return redirect()->route('documents.index')->with('success', 'Document uploaded and initialized successfully!');
             });
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             \Log::error('Document Upload Exception: ' . $e->getMessage(), [
                 'trace' => $e->getTraceAsString(),
-                'user_id' => session('user_id'),
+                'user_id' => auth()->id() ?? session('user_id'),
                 'file_name' => $request->hasFile('file') ? $request->file('file')->getClientOriginalName() : null,
                 'file_size' => $request->hasFile('file') ? $request->file('file')->getSize() : null,
                 'request_inputs' => $request->except(['file', 'access_pin'])

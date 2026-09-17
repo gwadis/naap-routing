@@ -79,7 +79,10 @@ class Document extends Model
 
         static::saving(function ($document) {
             if ($document->due_date) {
-                $days = now()->startOfDay()->diffInDays($document->due_date->startOfDay(), false);
+                $dueDate = $document->due_date instanceof \Carbon\Carbon
+                    ? $document->due_date
+                    : \Carbon\Carbon::parse($document->due_date);
+                $days = now()->startOfDay()->diffInDays($dueDate->startOfDay(), false);
                 
                 if ($days <= 1 || $document->sla === 'Critical') {
                     $document->priority = 'Urgent';

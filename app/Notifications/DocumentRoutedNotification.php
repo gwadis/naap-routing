@@ -23,7 +23,11 @@ class DocumentRoutedNotification extends Notification
 
     public function via($notifiable)
     {
-        return ['database', 'mail']; // Store in database and send email
+        $channels = ['database'];
+        if (!empty($notifiable->email) && filter_var($notifiable->email, FILTER_VALIDATE_EMAIL)) {
+            $channels[] = 'mail';
+        }
+        return $channels;
     }
 
     public function toDatabase($notifiable)
@@ -35,6 +39,13 @@ class DocumentRoutedNotification extends Notification
             $message = "New document '{$this->document->title}' has been uploaded by {$this->sender} and registered in the system.";
         }
 
+        $dueDateStr = null;
+        if ($this->document->due_date) {
+            $dueDateStr = $this->document->due_date instanceof \Carbon\Carbon
+                ? $this->document->due_date->toIso8601String()
+                : \Carbon\Carbon::parse($this->document->due_date)->toIso8601String();
+        }
+
         return [
             'document_id' => $this->document->id,
             'document_title' => $this->document->title,
@@ -42,7 +53,7 @@ class DocumentRoutedNotification extends Notification
             'sender' => $this->sender ?? 'System',
             'date_routed' => now()->toIso8601String(),
             'priority' => $this->document->priority,
-            'due_date' => $this->document->due_date ? $this->document->due_date->toIso8601String() : null,
+            'due_date' => $dueDateStr,
             'message' => $message,
             'type' => 'document_routed',
             'read_at' => null,
@@ -62,7 +73,18 @@ class DocumentRoutedNotification extends Notification
             $intro = "A new document has been uploaded to the system by {$this->sender}.";
         }
 
-        \Illuminate\Support\Facades\Log::channel('email')->info("Routing Email notification sent to {$notifiable->email} with subject: {$subject}");
+        try {
+            \Illuminate\Support\Facades\Log::channel('email')->info("Routing Email notification sent to {$notifiable->email} with subject: {$subject}");
+        } catch (\Throwable $e) {
+            // Logging failure should not abort mail dispatch
+        }
+
+        $dueDateFormatted = 'N/A';
+        if ($this->document->due_date) {
+            $dueDateFormatted = $this->document->due_date instanceof \Carbon\Carbon
+                ? $this->document->due_date->format('M j, Y')
+                : \Carbon\Carbon::parse($this->document->due_date)->format('M j, Y');
+        }
 
         $mail = (new MailMessage)
             ->subject($subject)
@@ -73,7 +95,7 @@ class DocumentRoutedNotification extends Notification
             ->line("Sender: " . ($this->sender ?? 'System'))
             ->line("Date Routed: " . now()->format('M j, Y h:i A'))
             ->line("Priority: {$this->document->priority}")
-            ->line("Due Date: " . ($this->document->due_date ? $this->document->due_date->format('M j, Y') : 'N/A'));
+            ->line("Due Date: " . $dueDateFormatted);
 
         if ($this->otp && $this->recipientType === 'receiver') {
             $mail->line("🔒 SECURITY ACCESS PIN/OTP: **{$this->otp}**")

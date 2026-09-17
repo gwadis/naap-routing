@@ -33,7 +33,7 @@ class ActivityLog extends Model
         if ($userId) {
             $userModel = User::find($userId);
             if ($userModel) {
-                $meta['department'] = $userModel->department->name ?? 'System';
+                $meta['department'] = $userModel->department?->name ?? 'System';
             }
         }
 

@@ -333,8 +333,14 @@
                                     <div class="col-md-12">
                                         <label class="form-label small fw-bold text-secondary">Origin Office</label>
                                         <select name="origin_office_id" id="originOfficeSelect" class="form-select" required>
+                                            @php
+                                                $currUserOfficeId = auth()->user()?->office_id ?? session('office_id');
+                                                if (!$currUserOfficeId && session('user_id')) {
+                                                    $currUserOfficeId = \App\Models\User::find(session('user_id'))?->office_id;
+                                                }
+                                            @endphp
                                             @foreach($offices as $office)
-                                                <option value="{{ $office->id }}">{{ $office->name }}</option>
+                                                <option value="{{ $office->id }}" {{ $currUserOfficeId == $office->id ? 'selected' : '' }}>{{ $office->name }}</option>
                                             @endforeach
                                         </select>
                                     </div>
@@ -1083,7 +1089,13 @@
                     } else if (xhr.status === 419) {
                         errMsg = 'CSRF session expired. Please refresh the page and try again.';
                     } else if (xhr.status === 500) {
-                        errMsg = 'Server error during upload. Please check server logs.';
+                        try {
+                            const doc = new DOMParser().parseFromString(xhr.responseText, 'text/html');
+                            const title = doc.querySelector('title')?.textContent || doc.querySelector('h1')?.textContent;
+                            errMsg = title ? `Server error (500): ${title.trim()}` : 'Server error during upload. Please check server logs.';
+                        } catch(parseErr) {
+                            errMsg = 'Server error during upload. Please check server logs.';
+                        }
                     } else if (xhr.statusText) {
                         errMsg = 'Upload failed: ' + xhr.statusText;
                     }

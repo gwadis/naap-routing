@@ -374,5 +374,125 @@ class UploadDocumentTest extends TestCase
             'sla' => 'Simple Transaction (3 Working Days)',
         ]);
     }
+
+    public function test_upload_when_user_is_employee_and_position_is_it_maintenance()
+    {
+        config(['mail.default' => 'smtp']);
+        config(['mail.mailers.smtp.host' => '127.0.0.1']);
+        config(['mail.mailers.smtp.port' => 1]); // Will fail to connect
+
+        $originOffice = Office::create(['name' => 'IT Office', 'department' => 'IT Dept']);
+        $finalOffice = Office::create(['name' => 'HR Office 2', 'department' => 'HR Dept']);
+
+        $uploader = User::create([
+            'name' => 'IT Staff',
+            'username' => 'it_maintenance_user',
+            'email' => 'it_maint@naap.org',
+            'password' => bcrypt('Password123!'),
+            'role' => 'Employee',
+            'position' => 'IT Maintenance',
+            'office_id' => null,
+            'department_id' => null,
+        ]);
+
+        $finalUser = User::create([
+            'name' => 'HR Staff 2',
+            'username' => 'hr_staff_2',
+            'email' => 'hr2@naap.org',
+            'password' => bcrypt('Password123!'),
+            'role' => 'Staff',
+            'office_id' => $finalOffice->id,
+        ]);
+
+        $mockFile = UploadedFile::fake()->create('server_log.pdf', 300, 'application/pdf');
+
+        $response = $this->withSession([
+            'authenticated' => true,
+            'user_id' => $uploader->id,
+            'user_role' => 'Employee',
+            'user_name' => $uploader->name
+        ])->post(route('documents.store'), [
+            'title' => 'Maintenance Log',
+            'priority' => 'Normal',
+            'sla' => 'Simple Transaction (3 Working Days)',
+            'category' => 'Operational Plans',
+            'description' => 'Server room maintenance documentation.',
+            'origin_office_id' => $originOffice->id,
+            'final_office_id' => $finalOffice->id,
+            'final_receiver_id' => $finalUser->id,
+            'destination_office_id' => $finalOffice->id,
+            'routing_office_ids' => [$finalOffice->id],
+            'routing_user_ids' => [$finalUser->id],
+            'routing_approval_types' => ['sequential'],
+            'routing_signatures_required' => [1],
+            'file' => $mockFile,
+        ], [
+            'X-Requested-With' => 'XMLHttpRequest',
+            'Accept' => 'application/json',
+        ]);
+
+        $response->assertStatus(200);
+    }
+
+    public function test_document_notification_handles_string_due_date_and_missing_email()
+    {
+        $originOffice = Office::create(['name' => 'IT Logistics', 'department' => 'Operations']);
+        $finalOffice = Office::create(['name' => 'Support Desk', 'department' => 'Support']);
+
+        $uploader = User::create([
+            'name' => 'Tech Support Staff',
+            'username' => 'tech_support',
+            'email' => 'invalid-email-address',
+            'password' => bcrypt('Password123!'),
+            'role' => 'Employee',
+            'position' => 'IT Maintenance',
+            'office_id' => $originOffice->id,
+            'department_id' => null,
+        ]);
+
+        $finalUser = User::create([
+            'name' => 'Support Head',
+            'username' => 'support_head',
+            'email' => 'head@naap.org',
+            'password' => bcrypt('Password123!'),
+            'role' => 'Office Head',
+            'office_id' => $finalOffice->id,
+        ]);
+
+        $mockFile = UploadedFile::fake()->create('cable_diagram.png', 200, 'image/png');
+
+        $response = $this->withSession([
+            'authenticated' => true,
+            'user_id' => $uploader->id,
+            'user_role' => 'Employee',
+            'user_name' => $uploader->name
+        ])->post(route('documents.store'), [
+            'title' => 'Server Rack Diagram',
+            'priority' => 'Normal',
+            'sla' => 'Complex Transaction (7 Working Days)',
+            'category' => 'Operational Plans',
+            'description' => 'Server rack wiring documentation.',
+            'origin_office_id' => $originOffice->id,
+            'final_office_id' => $finalOffice->id,
+            'final_receiver_id' => $finalUser->id,
+            'destination_office_id' => $finalOffice->id,
+            'routing_office_ids' => [$finalOffice->id],
+            'routing_user_ids' => [$finalUser->id],
+            'routing_approval_types' => ['sequential'],
+            'routing_signatures_required' => [1],
+            'file' => $mockFile,
+        ], [
+            'X-Requested-With' => 'XMLHttpRequest',
+            'Accept' => 'application/json',
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertJson(['success' => true]);
+
+        $this->assertDatabaseHas('documents', [
+            'title' => 'Server Rack Diagram',
+            'uploaded_by' => $uploader->id,
+        ]);
+    }
 }
 
