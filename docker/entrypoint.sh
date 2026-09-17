@@ -10,7 +10,12 @@ mkdir -p /var/www/html/storage/app/public/documents \
          /var/www/html/storage/framework/sessions \
          /var/www/html/storage/framework/views \
          /var/www/html/storage/logs \
-         /var/www/html/bootstrap/cache
+         /var/www/html/bootstrap/cache \
+         /var/lib/nginx/tmp/client_body \
+         /var/lib/nginx/tmp/proxy \
+         /var/lib/nginx/tmp/fastcgi \
+         /var/log/nginx \
+         /run/nginx
 
 # If no .env file exists in the container, copy from .env.example
 if [ ! -f /var/www/html/.env ] && [ -f /var/www/html/.env.example ]; then
@@ -18,9 +23,9 @@ if [ ! -f /var/www/html/.env ] && [ -f /var/www/html/.env.example ]; then
     cp /var/www/html/.env.example /var/www/html/.env
 fi
 
-# Fix permissions
-chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
-chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
+# Fix permissions for application storage and Nginx worker temp directories
+chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache /var/lib/nginx /var/log/nginx /run/nginx
+chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache /var/lib/nginx /var/log/nginx /run/nginx
 
 # Default environment settings if not explicitly injected
 export APP_ENV="${APP_ENV:-production}"

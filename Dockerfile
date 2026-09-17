@@ -88,9 +88,16 @@ COPY --from=frontend /app/public/build ./public/build
 # Finish composer autoloader generation
 RUN composer dump-autoload --optimize --classmap-authoritative --no-dev
 
-# Setup proper permissions for web user
+# Setup proper permissions for web user and Nginx temp/log directories
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
-    && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
+    && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache \
+    && mkdir -p /var/lib/nginx/tmp/client_body \
+                /var/lib/nginx/tmp/proxy \
+                /var/lib/nginx/tmp/fastcgi \
+                /var/log/nginx \
+                /run/nginx \
+    && chown -R www-data:www-data /var/lib/nginx /var/log/nginx /run/nginx \
+    && chmod -R 775 /var/lib/nginx /var/log/nginx /run/nginx
 
 EXPOSE 80
 
