@@ -273,7 +273,29 @@ class DocumentController extends Controller
                 ];
 
                 if (Schema::hasColumn('documents', 'sla')) {
-                    $documentData['sla'] = $request->sla;
+                    $slaVal = $request->sla;
+                    try {
+                        $colType = Schema::getColumnType('documents', 'sla');
+                        if ($colType === 'enum') {
+                            $slaVal = match ($request->sla) {
+                                'Simple Transaction (3 Working Days)'           => 'Standard',
+                                'Complex Transaction (7 Working Days)'          => 'Expedited',
+                                'Highly Technical Transaction (20 Working Days)' => 'Critical',
+                                default                                         => in_array($request->sla, ['Standard', 'Expedited', 'Critical']) ? $request->sla : 'Standard',
+                            };
+                        }
+                    } catch (\Throwable $e) {
+                        // Fallback if column inspection fails and value is too long for legacy enum
+                        if (strlen($slaVal) > 15) {
+                            $slaVal = match ($request->sla) {
+                                'Simple Transaction (3 Working Days)'           => 'Standard',
+                                'Complex Transaction (7 Working Days)'          => 'Expedited',
+                                'Highly Technical Transaction (20 Working Days)' => 'Critical',
+                                default                                         => 'Standard',
+                            };
+                        }
+                    }
+                    $documentData['sla'] = $slaVal;
                 }
 
                 if (Schema::hasColumn('documents', 'due_date') && $dueDate) {

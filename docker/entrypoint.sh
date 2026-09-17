@@ -2,7 +2,11 @@
 set -e
 
 # Ensure required storage and bootstrap cache directories exist
-mkdir -p /var/www/html/storage/framework/cache/data \
+mkdir -p /var/www/html/storage/app/public/documents \
+         /var/www/html/storage/app/public/qr_codes \
+         /var/www/html/storage/app/public/avatars \
+         /var/www/html/storage/app/public/signatures \
+         /var/www/html/storage/framework/cache/data \
          /var/www/html/storage/framework/sessions \
          /var/www/html/storage/framework/views \
          /var/www/html/storage/logs \
@@ -46,7 +50,8 @@ if [ -n "$DB_HOST" ] && [ "$DB_HOST" != "127.0.0.1" ] && [ "$DB_HOST" != "localh
     echo "Database reachable!"
 fi
 
-# Run migrations if RUN_MIGRATIONS is set to true
+# Run migrations by default or if RUN_MIGRATIONS is set to true
+RUN_MIGRATIONS="${RUN_MIGRATIONS:-true}"
 if [ "$RUN_MIGRATIONS" = "true" ] || [ "$RUN_MIGRATIONS" = "1" ]; then
     echo "Running database migrations..."
     php artisan migrate --force || echo "Migration encountered an issue, check logs."
