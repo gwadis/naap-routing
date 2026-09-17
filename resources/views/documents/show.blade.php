@@ -133,7 +133,7 @@
                 <strong><i class="bi bi-shield-lock-fill me-1"></i> Confidential Document</strong>
                 <div class="small">Access is restricted. Receivers require a PIN code to view details.</div>
             </div>
-            @if(session('user_role') === 'ADMIN')
+            @if(\App\Models\User::isRoleAdmin(session('user_role')) || (auth()->user() && auth()->user()->isAdmin()))
                 <form action="{{ route('documents.regeneratePin', $document->id) }}" method="POST">
                     @csrf
                     <button type="submit" class="btn btn-warning btn-sm fw-bold"><i class="bi bi-arrow-clockwise me-1"></i> Regenerate PIN</button>
@@ -442,7 +442,7 @@
             <!-- Workflow Execution Actions Card -->
             @php
                 $showWorkflowCard = $canViewWorkflow ?? true;
-                $canExecuteAction = $canPerformWorkflowAction ?? (session('user_role') === 'ADMIN' || ($document->receiver_user_id === (auth()->id() ?? session('user_id')) && !in_array($document->status, ['Completed', 'Archived', 'Rejected'])));
+                $canExecuteAction = $canPerformWorkflowAction ?? (\App\Models\User::isRoleAdmin(session('user_role')) || (auth()->user() && auth()->user()->isAdmin()) || ($document->receiver_user_id === (auth()->id() ?? session('user_id')) && !in_array($document->status, ['Completed', 'Archived', 'Rejected'])));
             @endphp
             @if($showWorkflowCard)
             <div class="card shadow-sm border-0 p-4 mb-4" style="border-radius: 12px; background: var(--panel); border: 1px solid var(--panel-border) !important;">

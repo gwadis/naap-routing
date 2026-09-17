@@ -10,7 +10,11 @@ class SettingsController extends Controller
 {
     public function index()
     {
-        if (session('user_role') !== 'ADMIN') {
+        $role = session('user_role') ?? auth()->user()?->role;
+        $user = auth()->user() ?? \App\Models\User::find(session('user_id'));
+        $isAdmin = ($user && $user->isAdmin()) || \App\Models\User::isRoleAdmin($role);
+
+        if (!$isAdmin) {
             return redirect()->route('profile');
         }
 
@@ -54,7 +58,11 @@ class SettingsController extends Controller
 
     protected function authorizeAdmin()
     {
-        if (session('user_role') !== 'ADMIN') {
+        $role = session('user_role') ?? auth()->user()?->role;
+        $user = auth()->user() ?? \App\Models\User::find(session('user_id'));
+        $isAdmin = ($user && $user->isAdmin()) || \App\Models\User::isRoleAdmin($role);
+
+        if (!$isAdmin) {
             abort(403, 'Administrator privileges are required to access this page.');
         }
     }

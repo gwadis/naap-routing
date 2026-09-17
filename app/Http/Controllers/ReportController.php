@@ -14,8 +14,9 @@ class ReportController extends Controller
      */
     public function index(Request $request)
     {
+        $this->authorizeAdmin();
+
         try {
-            $this->authorizeAdmin();
 
             // 1. Build Query with Filters
             $query = Document::with(['originOffice', 'currentOffice', 'destinationOffice', 'uploader']);
@@ -103,23 +104,28 @@ class ReportController extends Controller
                 $flowData[] = Document::whereDate('created_at', $date->toDateString())->count();
             }
 
-            $officeSlaStats = DB::table('document_routings')
-                ->join('offices', 'document_routings.to_office_id', '=', 'offices.id')
-                ->select(
-                    'offices.name as office_name',
-                    DB::raw('COUNT(*) as total_steps'),
-                    DB::raw('SUM(CASE WHEN document_routings.status IN ("Approved", "Completed", "Accepted", "Endorsed") THEN 1 ELSE 0 END) as completed_steps'),
-                    DB::raw('SUM(CASE WHEN document_routings.status IN ("Approved", "Completed", "Accepted", "Endorsed") AND document_routings.received_at > document_routings.sla_due_at THEN 1 ELSE 0 END) as delayed_steps'),
-                    DB::raw('ROUND(AVG(CASE WHEN document_routings.received_at IS NOT NULL THEN TIMESTAMPDIFF(MINUTE, document_routings.created_at, document_routings.received_at) ELSE NULL END) / 60, 1) as avg_processing_hours')
-                )
-                ->groupBy('offices.id', 'offices.name')
-                ->get()
-                ->map(function($stat) {
-                    $stat->compliance_rate = $stat->completed_steps > 0 
-                        ? round((($stat->completed_steps - $stat->delayed_steps) / $stat->completed_steps) * 100, 1) 
-                        : 100.0;
-                    return $stat;
-                });
+                    $isSqlite = DB::connection()->getDriverName() === 'sqlite';
+                    $avgHoursRaw = $isSqlite
+                        ? 'ROUND(AVG(CASE WHEN document_routings.received_at IS NOT NULL THEN (julianday(document_routings.received_at) - julianday(document_routings.created_at)) * 24 ELSE NULL END), 1) as avg_processing_hours'
+                        : 'ROUND(AVG(CASE WHEN document_routings.received_at IS NOT NULL THEN TIMESTAMPDIFF(MINUTE, document_routings.created_at, document_routings.received_at) ELSE NULL END) / 60, 1) as avg_processing_hours';
+
+                    $officeSlaStats = DB::table('document_routings')
+                        ->join('offices', 'document_routings.to_office_id', '=', 'offices.id')
+                        ->select(
+                            'offices.name as office_name',
+                            DB::raw('COUNT(*) as total_steps'),
+                            DB::raw('SUM(CASE WHEN document_routings.status IN ("Approved", "Completed", "Accepted", "Endorsed") THEN 1 ELSE 0 END) as completed_steps'),
+                            DB::raw('SUM(CASE WHEN document_routings.status IN ("Approved", "Completed", "Accepted", "Endorsed") AND document_routings.received_at > document_routings.sla_due_at THEN 1 ELSE 0 END) as delayed_steps'),
+                            DB::raw($avgHoursRaw)
+                        )
+                        ->groupBy('offices.id', 'offices.name')
+                        ->get()
+                        ->map(function($stat) {
+                            $stat->compliance_rate = $stat->completed_steps > 0 
+                                ? round((($stat->completed_steps - $stat->delayed_steps) / $stat->completed_steps) * 100, 1) 
+                                : 100.0;
+                            return $stat;
+                        });
 
             return view('reports', compact(
                 'officeNames',
@@ -145,8 +151,9 @@ class ReportController extends Controller
      */
     public function export(Request $request)
     {
+        $this->authorizeAdmin();
+
         try {
-            $this->authorizeAdmin();
 
             $format = $request->input('format', 'csv');
 
@@ -260,7 +267,11 @@ class ReportController extends Controller
 
     protected function authorizeAdmin()
     {
-        if (session('user_role') !== 'ADMIN') {
+        $role = session('user_role') ?? auth()->user()?->role;
+        $user = auth()->user() ?? User::find(session('user_id'));
+        $isAdmin = ($user && $user->isAdmin()) || User::isRoleAdmin($role);
+
+        if (!$isAdmin) {
             abort(403, 'Administrator privileges are required to access this page.');
         }
     }

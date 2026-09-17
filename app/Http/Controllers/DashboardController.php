@@ -16,7 +16,7 @@ class DashboardController extends Controller
     {
         try {
             $user = auth()->user() ?? User::find(session('user_id'));
-            $isAdmin = $user?->role === 'ADMIN';
+            $isAdmin = ($user && $user->isAdmin()) || User::isRoleAdmin($user?->role ?? session('user_role'));
             $userId = $user?->id;
             $deptId = $user?->department_id;
 

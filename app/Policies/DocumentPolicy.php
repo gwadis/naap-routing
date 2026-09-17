@@ -21,10 +21,7 @@ class DocumentPolicy
             return false;
         }
 
-        $role = strtoupper($user->role ?? session('user_role') ?? '');
-        return in_array($role, ['ADMIN', 'ADMINISTRATOR', 'SUPER ADMINISTRATOR'])
-            || in_array(strtolower($user->username ?? ''), ['admin', 'vpaa'])
-            || ($user->email ?? '') === 'vpaa@naap.org';
+        return $user->isAdmin();
     }
 
     /**

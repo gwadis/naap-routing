@@ -11,7 +11,11 @@ class SecurityDashboardController extends Controller
 {
     public function index()
     {
-        if (session('user_role') !== 'ADMIN' && session('user_role') !== 'Administrator' && session('user_role') !== 'Super Administrator') {
+        $role = session('user_role') ?? auth()->user()?->role;
+        $user = auth()->user() ?? User::find(session('user_id'));
+        $isAdmin = ($user && $user->isAdmin()) || User::isRoleAdmin($role);
+
+        if (!$isAdmin) {
             abort(403, 'Unauthorized.');
         }
 

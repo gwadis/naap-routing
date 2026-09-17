@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('title')
-    {{ session('user_role') === 'ADMIN' ? 'System Analytics - Admin' : 'My Dashboard' }}
+    {{ \App\Models\User::isRoleAdmin(session('user_role')) ? 'System Analytics - Admin' : 'My Dashboard' }}
 @endsection
 
 @section('content')

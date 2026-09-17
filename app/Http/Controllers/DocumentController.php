@@ -25,7 +25,7 @@ class DocumentController extends Controller
         $query = Document::with(['currentOffice', 'originOffice', 'destinationOffice', 'receiverUser.department', 'receiverUsers.department'])->latest();
 
         $user = auth()->user() ?? User::find(session('user_id'));
-        $isAdmin = $user ? $user->isAdmin() : in_array(session('user_role'), ['ADMIN', 'Administrator', 'Super Administrator']);
+        $isAdmin = ($user && $user->isAdmin()) || User::isRoleAdmin(session('user_role'));
         if (!$isAdmin) {
             $userId = (int) ($user?->id ?? session('user_id'));
             // Include documents uploaded by user OR routed to them via document_routings
@@ -664,7 +664,7 @@ class DocumentController extends Controller
             ->exists();
             
         $isUploader = $document->uploaded_by === $user?->id;
-        $isAdmin = $user?->role === 'ADMIN';
+        $isAdmin = ($user && $user->isAdmin()) || User::isRoleAdmin($user?->role ?? session('user_role'));
         $isVpaa = $user?->username === 'vpaa' || $user?->email === 'vpaa@naap.org';
         
         if (!$isAdmin && !$isVpaa && !$isUploader && !$inRoutingHistory) {
@@ -756,8 +756,11 @@ class DocumentController extends Controller
     {
         $query = Document::with(['originOffice', 'currentOffice', 'destinationOffice', 'uploader', 'receiverUser.department', 'views.user']);
 
-        if (session('user_role') !== 'ADMIN') {
-            $userId = (int) session('user_id');
+        $user = auth()->user() ?? User::find(session('user_id'));
+        $isAdmin = ($user && $user->isAdmin()) || User::isRoleAdmin(session('user_role'));
+
+        if (!$isAdmin) {
+            $userId = (int) ($user?->id ?? session('user_id'));
             $query->where(function ($q) use ($userId) {
                 $q->where('uploaded_by', $userId)
                   ->orWhere('receiver_user_id', $userId)
@@ -884,7 +887,11 @@ class DocumentController extends Controller
 
     protected function authorizeAdmin()
     {
-        if (session('user_role') !== 'ADMIN') {
+        $role = session('user_role') ?? auth()->user()?->role;
+        $user = auth()->user() ?? User::find(session('user_id'));
+        $isAdmin = ($user && $user->isAdmin()) || User::isRoleAdmin($role);
+
+        if (!$isAdmin) {
             abort(403, 'Administrator privileges are required to access this page.');
         }
     }
@@ -896,7 +903,10 @@ class DocumentController extends Controller
     {
         $document = Document::findOrFail($id);
 
-        if (session('user_role') !== 'ADMIN' && $document->uploaded_by !== session('user_id')) {
+        $user = auth()->user() ?? User::find(session('user_id'));
+        $isAdmin = ($user && $user->isAdmin()) || User::isRoleAdmin(session('user_role'));
+
+        if (!$isAdmin && $document->uploaded_by !== session('user_id')) {
             abort(403, 'You are not authorized to delete this document.');
         }
 
@@ -948,7 +958,7 @@ class DocumentController extends Controller
             ->where('status', 'Pending')
             ->exists();
             
-        $isAdmin = $user?->role === 'ADMIN';
+        $isAdmin = ($user && $user->isAdmin()) || User::isRoleAdmin($user?->role ?? session('user_role'));
 
         if (!$isAdmin && !$isActiveReceiver) {
             abort(403, 'You are not authorized to regenerate/resend the PIN.');

@@ -543,16 +543,16 @@
         </div>
 
         @php
-            $role = session('user_role');
-            $isAdmin = in_array($role, ['ADMIN', 'Administrator', 'Super Administrator']);
+            $currentUser = auth()->user() ?? \App\Models\User::find(session('user_id'));
+            $role = session('user_role') ?? $currentUser?->role;
+            $isAdmin = ($currentUser && $currentUser->isAdmin()) || \App\Models\User::isRoleAdmin($role);
             $documentsLabel = $isAdmin ? 'Documents' : 'My Documents';
-            $currentUser = \App\Models\User::find(session('user_id'));
-            $roleLabel = match(session('user_role')) {
-                'ADMIN' => 'Admin',
-                'Super Admin' => 'Super Admin',
+            $roleLabel = match($role) {
+                'ADMIN', 'Administrator' => 'Administrator',
+                'Super Administrator', 'Super Admin' => 'Super Administrator',
                 'Sender' => 'Sender',
                 'Receiver' => 'Receiver',
-                default => session('user_role') ?? 'User'
+                default => $role ?? 'User'
             };
         @endphp
 
