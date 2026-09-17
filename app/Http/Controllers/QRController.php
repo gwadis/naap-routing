@@ -83,6 +83,22 @@ class QRController extends Controller
                     ], 404);
                 }
 
+                // Check document is active
+                if (in_array(strtolower($document->status ?? ''), ['cancelled'])) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'This document has been cancelled and is no longer active.',
+                        'error'   => true
+                    ], 410);
+                }
+
+                // Debug log QR Scan Access (Requirement 8)
+                \Illuminate\Support\Facades\Log::info('QR Scan Access', [
+                    'user_id' => auth()->id() ?? session('user_id'),
+                    'document_id' => $document->id,
+                    'route' => request()->path(),
+                ]);
+
                 // --- QR MISMATCH CHECK ---
                 if ($request->filled('target_document_id')) {
                     $targetId = (int) $request->target_document_id;
@@ -98,23 +114,35 @@ class QRController extends Controller
                 // Resolve the authenticated user
                 $user = auth()->user() ?? User::find(session('user_id'));
 
-                // Find active Pending routing record
+                // Locate active Pending routing step if present (for updating scanned_at or tracking)
+                // Note: Workflow action authorization checks are removed from QR scanning process.
                 $activeRouting = DocumentRouting::where('document_id', $document->id)
-                    ->where('receiver_user_id', $user?->id)
+                    ->where(function ($q) use ($user) {
+                        if ($user) {
+                            $q->where('receiver_user_id', $user->id)
+                              ->orWhere(function ($sub) use ($user) {
+                                  if ($user->office_id) {
+                                      $sub->whereNull('receiver_user_id')
+                                          ->where('to_office_id', $user->office_id);
+                                  }
+                              });
+                        }
+                    })
                     ->where('status', 'Pending')
                     ->first();
 
-                if (!$activeRouting && $user?->role !== 'ADMIN' && $document->uploaded_by !== $user?->id) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'You are not the active receiver for this document.',
-                        'error' => true
-                    ], 403);
+                if (!$activeRouting) {
+                    $activeRouting = DocumentRouting::where('document_id', $document->id)
+                        ->where('status', 'Pending')
+                        ->first();
                 }
 
                 $userToNotify = $user;
-                if (!$userToNotify && $activeRouting) {
+                if (!$userToNotify && $activeRouting && $activeRouting->receiver_user_id) {
                     $userToNotify = User::find($activeRouting->receiver_user_id);
+                }
+                if (!$userToNotify && $document->receiver_user_id) {
+                    $userToNotify = User::find($document->receiver_user_id);
                 }
 
                 // Handle Resend Request

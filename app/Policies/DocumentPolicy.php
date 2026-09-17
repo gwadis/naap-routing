@@ -103,6 +103,11 @@ class DocumentPolicy
             }
         }
 
+        // 7. QR Code verified in current session allows viewing document details
+        if (session('qr_verified_' . $document->id)) {
+            return true;
+        }
+
         Log::warning("Workflow view authorization denied: User ID {$user->id} (office: {$user->office_id}, role: {$user->role}) not permitted to view document ID {$document->id}");
         return false;
     }

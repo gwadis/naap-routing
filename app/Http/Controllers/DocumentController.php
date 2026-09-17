@@ -483,10 +483,17 @@ class DocumentController extends Controller
     }
 
     /**
-     * Display the workflow page for a document (GET /documents/{id}/workflow).
+     * Display the document details and verification page for a document (GET /documents/{id}/workflow).
+     * Opens the document verification page (/documents/{id}) so users see document details first.
      */
     public function workflowView($id)
     {
+        \Illuminate\Support\Facades\Log::info('QR Scan Access', [
+            'user_id' => auth()->id() ?? session('user_id'),
+            'document_id' => (int) $id,
+            'route' => request()->path(),
+        ]);
+
         return $this->show($id);
     }
 
@@ -500,6 +507,12 @@ class DocumentController extends Controller
         $document = Document::with(['originOffice', 'currentOffice', 'destinationOffice', 'receiverUser.department', 'receiverUsers.department', 'activityLogs' => function($query) {
             $query->latest();
         }, 'routings.fromOffice', 'routings.toOffice', 'views.user'])->findOrFail($id);
+
+        \Illuminate\Support\Facades\Log::info('QR Scan Access', [
+            'user_id' => auth()->id() ?? session('user_id'),
+            'document_id' => $document->id,
+            'route' => request()->path(),
+        ]);
 
         $user = auth()->user() ?? User::find(session('user_id'));
         $policy = $this->getDocumentPolicy();
