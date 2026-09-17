@@ -39,15 +39,17 @@ class UserController extends Controller
             return back()->with('error', "This account is locked due to multiple failed login attempts. Please try again in {$diff} minute(s).");
         }
 
-        // 2. Count failed logins for this IP to enforce Google reCAPTCHA
-        $failedAttemptsCount = DB::table('login_failures')
-            ->where('ip_address', $ip)
-            ->where('created_at', '>=', now()->subMinutes(15))
-            ->count();
+        // 2. Count failed logins for this IP to enforce Google reCAPTCHA (if enabled)
+        if (env('RECAPTCHA_ENABLED', false)) {
+            $failedAttemptsCount = DB::table('login_failures')
+                ->where('ip_address', $ip)
+                ->where('created_at', '>=', now()->subMinutes(15))
+                ->count();
 
-        if ($failedAttemptsCount >= 3) {
-            if (!$this->validateReCaptcha($request->input('g-recaptcha-response'))) {
-                return back()->with('error', 'reCAPTCHA verification failed. Please try again.')->withInput($request->only('username'));
+            if ($failedAttemptsCount >= 3) {
+                if (!$this->validateReCaptcha($request->input('g-recaptcha-response'))) {
+                    return back()->with('error', 'reCAPTCHA verification failed. Please try again.')->withInput($request->only('username'));
+                }
             }
         }
 
@@ -474,6 +476,10 @@ class UserController extends Controller
 
     private function validateReCaptcha($responseToken)
     {
+        if (!env('RECAPTCHA_ENABLED', false)) {
+            return true;
+        }
+
         $secret = env('RECAPTCHA_SECRET_KEY', '6LeIxAcTAAAAAGG-vFI1Tn5cfdCwCxC1TvpaA1Yb');
         if (!$responseToken) {
             return false;

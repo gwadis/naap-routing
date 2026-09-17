@@ -124,7 +124,7 @@
                 <input id="password" name="password" type="password" placeholder="••••••••••" required>
             </div>
             
-            @if(isset($showRecaptcha) && $showRecaptcha)
+            @if(env('RECAPTCHA_ENABLED', false) && isset($showRecaptcha) && $showRecaptcha)
                 <script src="https://www.google.com/recaptcha/api.js" async defer></script>
                 <div class="field" style="display: flex; justify-content: center; margin-bottom: 1rem;">
                     <div class="g-recaptcha" data-sitekey="{{ env('RECAPTCHA_SITE_KEY', '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI') }}"></div>

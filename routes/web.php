@@ -19,12 +19,15 @@ Route::get('/', function() {
     if (session()->has('user_id')) {
         return redirect()->route('dashboard');
     }
-    $ip = request()->ip() ?? '127.0.0.1';
-    $failedAttemptsCount = \Illuminate\Support\Facades\DB::table('login_failures')
-        ->where('ip_address', $ip)
-        ->where('created_at', '>=', now()->subMinutes(15))
-        ->count();
-    $showRecaptcha = $failedAttemptsCount >= 3;
+    $showRecaptcha = false;
+    if (env('RECAPTCHA_ENABLED', false)) {
+        $ip = request()->ip() ?? '127.0.0.1';
+        $failedAttemptsCount = \Illuminate\Support\Facades\DB::table('login_failures')
+            ->where('ip_address', $ip)
+            ->where('created_at', '>=', now()->subMinutes(15))
+            ->count();
+        $showRecaptcha = $failedAttemptsCount >= 3;
+    }
     return view('login', compact('showRecaptcha'));
 })->name('home');
 
@@ -32,12 +35,15 @@ Route::get('/login', function() {
     if (session()->has('user_id')) {
         return redirect()->route('dashboard');
     }
-    $ip = request()->ip() ?? '127.0.0.1';
-    $failedAttemptsCount = \Illuminate\Support\Facades\DB::table('login_failures')
-        ->where('ip_address', $ip)
-        ->where('created_at', '>=', now()->subMinutes(15))
-        ->count();
-    $showRecaptcha = $failedAttemptsCount >= 3;
+    $showRecaptcha = false;
+    if (env('RECAPTCHA_ENABLED', false)) {
+        $ip = request()->ip() ?? '127.0.0.1';
+        $failedAttemptsCount = \Illuminate\Support\Facades\DB::table('login_failures')
+            ->where('ip_address', $ip)
+            ->where('created_at', '>=', now()->subMinutes(15))
+            ->count();
+        $showRecaptcha = $failedAttemptsCount >= 3;
+    }
     return view('login', compact('showRecaptcha'));
 })->name('login');
 
