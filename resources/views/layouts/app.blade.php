@@ -752,14 +752,14 @@
             const viewAllHtml = `
                 <li><hr class="dropdown-divider m-0"></li>
                 <li>
-                    <a class="dropdown-item text-center py-2 fw-semibold" href="{{ route('notifications.index') }}" style="font-size:0.8rem; color:#3B82F6;">
+                    <a class="dropdown-item text-center py-2 fw-semibold" href="{{ route('notifications.index', [], false) }}" style="font-size:0.8rem; color:#3B82F6;">
                         View All Notifications
                     </a>
                 </li>
             `;
 
             try {
-                const response = await fetch('{{ route('api.notifications') }}', {
+                const response = await fetch('{{ route('api.notifications', [], false) }}', {
                     headers: { 'Accept': 'application/json' }
                 });
 
@@ -838,7 +838,7 @@
 
         async function markAllRead() {
             try {
-                const response = await fetch('{{ route('api.notifications.markRead') }}', {
+                const response = await fetch('{{ route('api.notifications.markRead', [], false) }}', {
                     method: 'POST',
                     headers: { 
                         'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content, 

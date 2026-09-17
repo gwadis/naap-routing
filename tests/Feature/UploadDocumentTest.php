@@ -313,5 +313,66 @@ class UploadDocumentTest extends TestCase
             'is_confidential' => true,
         ]);
     }
+
+    public function test_arta_processing_time_category_upload_success()
+    {
+        $originOffice = Office::create(['name' => 'ARTA Origin Office', 'department' => 'ARTA Dept']);
+        $finalOffice = Office::create(['name' => 'ARTA Dest Office', 'department' => 'ARTA Dept']);
+
+        $uploader = User::create([
+            'name' => 'ARTA Officer',
+            'username' => 'arta_officer',
+            'email' => 'arta@naap.org',
+            'password' => bcrypt('Password123!'),
+            'role' => 'STAFF',
+            'office_id' => $originOffice->id,
+        ]);
+
+        $finalUser = User::create([
+            'name' => 'ARTA Receiver',
+            'username' => 'arta_receiver',
+            'email' => 'artareceiver@naap.org',
+            'password' => bcrypt('Password123!'),
+            'role' => 'STAFF',
+            'office_id' => $finalOffice->id,
+        ]);
+
+        $mockFile = UploadedFile::fake()->create('arta_doc.pdf', 300, 'application/pdf');
+
+        $response = $this->withSession([
+            'authenticated' => true,
+            'user_id' => $uploader->id,
+            'user_role' => 'STAFF',
+            'user_name' => $uploader->name
+        ])->post(route('documents.store'), [
+            'title' => 'Simple ARTA Request',
+            'priority' => 'High',
+            'sla' => 'Simple Transaction (3 Working Days)',
+            'category' => 'Operational Plans',
+            'description' => 'Processing under ARTA 3 working days guideline.',
+            'origin_office_id' => $originOffice->id,
+            'final_office_id' => $finalOffice->id,
+            'final_receiver_id' => $finalUser->id,
+            'destination_office_id' => $finalOffice->id,
+            'routing_office_ids' => [$finalOffice->id],
+            'routing_user_ids' => [$finalUser->id],
+            'routing_approval_types' => ['sequential'],
+            'routing_signatures_required' => [1],
+            'file' => $mockFile,
+        ], [
+            'X-Requested-With' => 'XMLHttpRequest',
+            'Accept' => 'application/json',
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertJson([
+            'success' => true,
+        ]);
+
+        $this->assertDatabaseHas('documents', [
+            'title' => 'Simple ARTA Request',
+            'sla' => 'Simple Transaction (3 Working Days)',
+        ]);
+    }
 }
 

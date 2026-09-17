@@ -83,9 +83,9 @@ class Document extends Model
                 
                 if ($days <= 1 || $document->sla === 'Critical') {
                     $document->priority = 'Urgent';
-                } elseif ($days <= 3 || $document->sla === 'Expedited') {
+                } elseif ($days <= 3 || $document->sla === 'Expedited' || $document->sla === 'Simple Transaction (3 Working Days)') {
                     $document->priority = 'High';
-                } elseif ($days <= 7) {
+                } elseif ($days <= 7 || $document->sla === 'Complex Transaction (7 Working Days)') {
                     $document->priority = 'Normal';
                 } else {
                     $document->priority = 'Low';

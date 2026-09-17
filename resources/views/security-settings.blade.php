@@ -301,7 +301,7 @@
     function terminateSession(sessionId) {
         if (!confirm('Are you sure you want to terminate this active login session?')) return;
 
-        fetch('{{ route("security.settings.session.terminate") }}', {
+        fetch('{{ route("security.settings.session.terminate", [], false) }}', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

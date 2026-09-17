@@ -490,11 +490,11 @@
 
                                 <!-- SLA Select -->
                                 <div>
-                                    <label class="form-label small fw-bold text-secondary">SLA Duration</label>
+                                    <label class="form-label small fw-bold text-secondary">Processing Time Category</label>
                                     <select name="sla" class="form-select" required>
-                                        <option value="Standard">Standard</option>
-                                        <option value="Expedited">Expedited</option>
-                                        <option value="Critical">Critical</option>
+                                        <option value="Simple Transaction (3 Working Days)">Simple Transaction (3 Working Days)</option>
+                                        <option value="Complex Transaction (7 Working Days)">Complex Transaction (7 Working Days)</option>
+                                        <option value="Highly Technical Transaction (20 Working Days)">Highly Technical Transaction (20 Working Days)</option>
                                     </select>
                                 </div>
                             </div>

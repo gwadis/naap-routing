@@ -88,10 +88,13 @@ class RoutingController extends Controller
                 $document->update($updateData);
 
                 // 2. Create DocumentRouting records with sort_order and SLA tracking
-                $slaHours = match($document->sla ?? 'Standard') {
-                    'Critical'  => 24,
-                    'Expedited' => 72,
-                    default     => 168,
+                $slaHours = match($document->sla ?? 'Simple Transaction (3 Working Days)') {
+                    'Simple Transaction (3 Working Days)'           => 72,   // 3 days
+                    'Complex Transaction (7 Working Days)'          => 168,  // 7 days
+                    'Highly Technical Transaction (20 Working Days)' => 480,  // 20 days
+                    'Critical'                                      => 24,
+                    'Expedited'                                     => 72,
+                    default                                         => 168,
                 };
 
                 if (!empty($receiverUserIds)) {

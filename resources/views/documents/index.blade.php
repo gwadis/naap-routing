@@ -878,7 +878,7 @@
                 <button type="button" class="btn custom-close-btn" data-bs-dismiss="modal" aria-label="Close" style="color: var(--text-main);"><i class="bi bi-x-lg"></i></button>
             </div>
             <div class="modal-body text-center">
-                <img id="qrImage" src="" alt="QR Code" class="img-fluid" style="border: 1px solid var(--panel-border); border-radius: 8px; padding: 12px; background: #FFFFFF;">
+                <img id="qrImage" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E" alt="QR Code" class="img-fluid" style="border: 1px solid var(--panel-border); border-radius: 8px; padding: 12px; background: #FFFFFF;">
             </div>
         </div>
     </div>

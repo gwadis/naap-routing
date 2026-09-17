@@ -42,12 +42,12 @@
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label">SLA</label>
+                        <label class="form-label">Processing Time Category</label>
                         <select name="sla" class="form-control @error('sla') is-invalid @enderror" required>
-                            <option value="" disabled {{ old('sla') ? '' : 'selected' }}>Select SLA</option>
-                            <option value="Standard" {{ old('sla') === 'Standard' ? 'selected' : '' }}>Standard</option>
-                            <option value="Expedited" {{ old('sla') === 'Expedited' ? 'selected' : '' }}>Expedited</option>
-                            <option value="Critical" {{ old('sla') === 'Critical' ? 'selected' : '' }}>Critical</option>
+                            <option value="" disabled {{ old('sla') ? '' : 'selected' }}>Select Processing Time Category</option>
+                            <option value="Simple Transaction (3 Working Days)" {{ old('sla') === 'Simple Transaction (3 Working Days)' ? 'selected' : '' }}>Simple Transaction (3 Working Days)</option>
+                            <option value="Complex Transaction (7 Working Days)" {{ old('sla') === 'Complex Transaction (7 Working Days)' ? 'selected' : '' }}>Complex Transaction (7 Working Days)</option>
+                            <option value="Highly Technical Transaction (20 Working Days)" {{ old('sla') === 'Highly Technical Transaction (20 Working Days)' ? 'selected' : '' }}>Highly Technical Transaction (20 Working Days)</option>
                         </select>
                         @error('sla')
                             <div class="invalid-feedback">{{ $message }}</div>

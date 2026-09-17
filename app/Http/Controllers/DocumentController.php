@@ -84,7 +84,7 @@ class DocumentController extends Controller
         $request->validate([
             'title'                 => 'required|string|max:255',
             'priority'              => 'nullable|in:Low,Normal,High,Urgent',
-            'sla'                   => 'required|in:Standard,Expedited,Critical',
+            'sla'                   => 'required|in:Simple Transaction (3 Working Days),Complex Transaction (7 Working Days),Highly Technical Transaction (20 Working Days),Standard,Expedited,Critical',
             'origin_office_id'      => 'required|exists:offices,id',
             'destination_office_id' => 'nullable|exists:offices,id',
             'routing_office_ids'    => 'required|array|min:1',
@@ -210,6 +210,9 @@ class DocumentController extends Controller
                 $dueDate = null;
                 if (Schema::hasColumn('documents', 'due_date')) {
                     $dueDate = match ($request->sla) {
+                        'Simple Transaction (3 Working Days)' => Carbon::now()->addDays(3),
+                        'Complex Transaction (7 Working Days)' => Carbon::now()->addDays(7),
+                        'Highly Technical Transaction (20 Working Days)' => Carbon::now()->addDays(20),
                         'Critical' => Carbon::now()->addDay(),
                         'Expedited' => Carbon::now()->addDays(3),
                         default => Carbon::now()->addDays(7),
@@ -310,9 +313,12 @@ class DocumentController extends Controller
 
                 // Compute SLA hours from document SLA type
                 $slaHours = match ($request->sla) {
-                    'Critical'  => 24,
-                    'Expedited' => 72,
-                    default     => 168,  // Standard = 7 days
+                    'Simple Transaction (3 Working Days)'           => 72,   // 3 days
+                    'Complex Transaction (7 Working Days)'          => 168,  // 7 days
+                    'Highly Technical Transaction (20 Working Days)' => 480,  // 20 days
+                    'Critical'                                      => 24,
+                    'Expedited'                                     => 72,
+                    default                                         => 168,  // Standard = 7 days
                 };
 
                 if (!empty($routingUserIds)) {
@@ -1306,37 +1312,37 @@ class DocumentController extends Controller
         $suggestions = [
             'Class Schedule' => [
                 'priority' => 'Normal',
-                'sla' => 'Standard',
+                'sla' => 'Simple Transaction (3 Working Days)',
                 'offices' => ['Program Chairs', 'Office of the Deans'],
                 'notes' => 'Suggested sequence: Program Chairs -> Office of the Deans'
             ],
             'Faculty Workload' => [
                 'priority' => 'Normal',
-                'sla' => 'Standard',
+                'sla' => 'Simple Transaction (3 Working Days)',
                 'offices' => ['Office of the Deans', 'Registrar'],
                 'notes' => 'Suggested sequence: Office of the Deans -> Registrar'
             ],
             'Operational Plans' => [
                 'priority' => 'High',
-                'sla' => 'Expedited',
+                'sla' => 'Complex Transaction (7 Working Days)',
                 'offices' => ['Campus Directors', 'Office of the President'],
                 'notes' => 'Suggested sequence: Campus Directors -> Office of the President'
             ],
             'Endorsements' => [
                 'priority' => 'High',
-                'sla' => 'Standard',
+                'sla' => 'Simple Transaction (3 Working Days)',
                 'offices' => ['Office of the Deans', 'Office of the President'],
                 'notes' => 'Suggested sequence: Office of the Deans -> Office of the President'
             ],
             'Payrolls' => [
                 'priority' => 'Urgent',
-                'sla' => 'Critical',
+                'sla' => 'Simple Transaction (3 Working Days)',
                 'offices' => ['Human Resources (HR)', 'Budget Office', 'Accounting Office', 'Vice President of Finance'],
                 'notes' => 'Suggested sequence: HR -> Budget -> Accounting -> VP Finance'
             ],
             'Finance Related Documents' => [
                 'priority' => 'High',
-                'sla' => 'Expedited',
+                'sla' => 'Complex Transaction (7 Working Days)',
                 'offices' => ['Budget Office', 'Accounting Office', 'Vice President of Finance'],
                 'notes' => 'Suggested sequence: Budget Office -> Accounting Office -> VP Finance'
             ]
@@ -1344,7 +1350,7 @@ class DocumentController extends Controller
 
         $suggestion = $suggestions[$category] ?? [
             'priority' => 'Normal',
-            'sla' => 'Standard',
+            'sla' => 'Simple Transaction (3 Working Days)',
             'offices' => [],
             'notes' => ''
         ];

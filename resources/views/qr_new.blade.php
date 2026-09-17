@@ -841,7 +841,7 @@
             const alertContainer = document.getElementById('pinModalAlertContainer');
             alertContainer.innerHTML = '<div class="alert alert-info py-2 small" style="border:none;"><i class="fas fa-spinner fa-spin me-2"></i>Sending new PIN...</div>';
 
-            fetch('{{ route("qr.scan") }}', {
+            fetch('{{ route("qr.scan", [], false) }}', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -875,7 +875,7 @@
             const alertContainer = document.getElementById('pinModalAlertContainer');
             alertContainer.innerHTML = '<div class="alert alert-info py-2 small" style="border:none;"><i class="fas fa-spinner fa-spin me-2"></i>Verifying PIN...</div>';
 
-            fetch('{{ route("qr.scan") }}', {
+            fetch('{{ route("qr.scan", [], false) }}', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -917,7 +917,7 @@
         isProcessingScan = true;
 
         // Send QR data to server
-        fetch('{{ route("qr.scan") }}', {
+        fetch('{{ route("qr.scan", [], false) }}', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -1114,7 +1114,7 @@
         const signatureData = signaturePad.toDataURL('image/png');
         const docId = currentScannedDoc.id;
 
-        fetch('{{ route("qr.scan") }}', {
+        fetch('{{ route("qr.scan", [], false) }}', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

@@ -132,7 +132,6 @@
                             <tr class="border-bottom text-muted">
                                 <th>User</th>
                                 <th>Device</th>
-                                <th>IP Address</th>
                                 <th>Time</th>
                             </tr>
                         </thead>
@@ -141,12 +140,11 @@
                                 <tr class="border-bottom">
                                     <td class="fw-bold text-dark">{{ $login->email }}</td>
                                     <td>{{ $login->device ?? 'N/A' }}</td>
-                                    <td><code>{{ $login->ip_address }}</code></td>
                                     <td class="text-muted">{{ $login->login_time }}</td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="4" class="text-muted text-center py-3">No login logs.</td>
+                                    <td colspan="3" class="text-muted text-center py-3">No login logs.</td>
                                 </tr>
                             @endforelse
                         </tbody>

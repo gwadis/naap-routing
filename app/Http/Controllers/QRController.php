@@ -605,7 +605,7 @@ class QRController extends Controller
             'origin_office_id' => 'required|exists:offices,id',
             'destination_office_id' => 'required|exists:offices,id',
             'priority' => 'nullable|string',
-            'sla' => 'required|in:Standard,Expedited,Critical',
+            'sla' => 'required|in:Simple Transaction (3 Working Days),Complex Transaction (7 Working Days),Highly Technical Transaction (20 Working Days),Standard,Expedited,Critical',
             'receiver_user_id' => 'nullable|exists:users,id',
         ]);
 
@@ -706,6 +706,9 @@ class QRController extends Controller
     private function calculateDueDate($sla)
     {
         return match ($sla) {
+            'Simple Transaction (3 Working Days)' => now()->addDays(3),
+            'Complex Transaction (7 Working Days)' => now()->addDays(7),
+            'Highly Technical Transaction (20 Working Days)' => now()->addDays(20),
             'Critical' => now()->addDay(),
             'Expedited' => now()->addDays(3),
             default => now()->addDays(7),
