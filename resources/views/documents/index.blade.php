@@ -468,6 +468,7 @@
                                 <ul class="dropdown-menu dropdown-menu-end">
                                     <li><a class="dropdown-item" href="{{ route('documents.show', $doc->id) }}"><i class="bi bi-file-text me-2"></i> View Details</a></li>
                                     <li><a class="dropdown-item" href="{{ route('documents.download', $doc->id) }}" target="_blank"><i class="bi bi-download me-2"></i> Download File</a></li>
+                                    <li><a class="dropdown-item" href="{{ route('documents.qr-label', $doc->id) }}?autoprint=1" target="_blank"><i class="bi bi-printer me-2 text-primary"></i> Print QR Label</a></li>
                                     @if($doc->qr_code)
                                         @php
                                             $qrValue = $doc->qr_code;
@@ -486,7 +487,7 @@
                                             }
                                         @endphp
                                         @if($qrUrl)
-                                            <li><button class="dropdown-item" type="button" onclick="showQR('{{ $qrUrl }}')"><i class="bi bi-qr-code me-2"></i> View QR Code</button></li>
+                                            <li><button class="dropdown-item" type="button" onclick="showQR('{{ $qrUrl }}', '{{ route('documents.qr-label', $doc->id) }}?autoprint=1')"><i class="bi bi-qr-code me-2"></i> View QR Code</button></li>
                                         @endif
                                     @endif
                                 </ul>
@@ -526,8 +527,17 @@
         return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
-    function showQR(src) {
+    function showQR(src, printUrl = '') {
         document.getElementById('qrImage').src = src;
+        const printBtn = document.getElementById('qrModalPrintBtn');
+        if (printBtn) {
+            if (printUrl) {
+                printBtn.href = printUrl;
+                printBtn.style.display = 'inline-flex';
+            } else {
+                printBtn.style.display = 'none';
+            }
+        }
         new bootstrap.Modal(document.getElementById('qrModal')).show();
     }
 
@@ -878,7 +888,12 @@
                 <button type="button" class="btn custom-close-btn" data-bs-dismiss="modal" aria-label="Close" style="color: var(--text-main);"><i class="bi bi-x-lg"></i></button>
             </div>
             <div class="modal-body text-center">
-                <img id="qrImage" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E" alt="QR Code" class="img-fluid" style="border: 1px solid var(--panel-border); border-radius: 8px; padding: 12px; background: #FFFFFF;">
+                <img id="qrImage" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E" alt="QR Code" class="img-fluid mb-3" style="border: 1px solid var(--panel-border); border-radius: 8px; padding: 12px; background: #FFFFFF; max-width: 220px;">
+                <div>
+                    <a id="qrModalPrintBtn" href="#" target="_blank" class="btn btn-primary btn-sm px-3" style="font-weight: 600;">
+                        <i class="bi bi-printer me-1"></i> Print Full QR Routing Label
+                    </a>
+                </div>
             </div>
         </div>
     </div>

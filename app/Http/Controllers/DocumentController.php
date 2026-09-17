@@ -446,11 +446,13 @@ class DocumentController extends Controller
 
                 if ($request->ajax() || $request->wantsJson()) {
                     return response()->json([
-                        'success'       => true,
-                        'message'       => 'Document uploaded and initialized successfully!',
-                        'redirect'      => route('documents.index'),
-                        'qr_label_url'  => route('documents.qr-label', $document->id),
-                        'document_id'   => $document->id,
+                        'success'         => true,
+                        'message'         => 'Document uploaded and initialized successfully!',
+                        'redirect'        => route('documents.index'),
+                        'qr_label_url'    => route('documents.qr-label', $document->id),
+                        'document_id'     => $document->id,
+                        'tracking_number' => $document->tracking_number ?? ('DOC-' . str_pad($document->id, 6, '0', STR_PAD_LEFT)),
+                        'title'           => $document->title,
                     ]);
                 }
 
@@ -599,13 +601,22 @@ class DocumentController extends Controller
             ->findOrFail($id);
 
         $user = auth()->user() ?? User::find(session('user_id'));
-        $isAdmin = $user?->role === 'ADMIN';
+        $role = strtoupper($user?->role ?? '');
+        $isAdmin = in_array($role, ['ADMIN', 'ADMINISTRATOR', 'SUPER ADMINISTRATOR']);
         $isUploader = $document->uploaded_by === $user?->id;
         $inHistory = DocumentRouting::where('document_id', $document->id)
-            ->where('receiver_user_id', $user?->id)
+            ->where(function($q) use ($user) {
+                $q->where('receiver_user_id', $user?->id)
+                  ->orWhere('sender_user_id', $user?->id);
+            })
             ->exists();
+        $isRelatedOffice = $user && in_array($user->office_id, array_filter([
+            $document->origin_office_id,
+            $document->destination_office_id,
+            $document->current_office_id
+        ]));
 
-        if (!$isAdmin && !$isUploader && !$inHistory) {
+        if (!$isAdmin && !$isUploader && !$inHistory && !$isRelatedOffice) {
             abort(403, 'You are not authorized to view this label.');
         }
 

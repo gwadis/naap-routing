@@ -574,6 +574,47 @@
     </div>
 </div>
 
+<div class="modal fade" id="uploadSuccessModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" style="z-index: 1070;">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 480px !important;">
+        <div class="modal-content text-center p-4" style="background:#FFFFFF; border-radius: 16px; border: 1px solid var(--panel-border); box-shadow: 0 20px 40px rgba(0,0,0,0.15); height: auto !important; max-height: none !important;">
+            <div class="mb-3">
+                <div style="width: 60px; height: 60px; border-radius: 50%; background: #ecfdf5; color: #10b981; display: inline-flex; align-items: center; justify-content: center; font-size: 30px;">
+                    <i class="bi bi-check-circle-fill"></i>
+                </div>
+            </div>
+            <h4 class="fw-bold mb-1" style="color: #1e293b;">Document Uploaded!</h4>
+            <p class="text-secondary small mb-3">Your document has been registered and initialized in the routing system.</p>
+            
+            <div class="p-3 mb-3 text-start rounded" style="background: #f8fafc; border: 1px solid #e2e8f0;">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span class="text-muted small fw-semibold">TRACKING NUMBER</span>
+                    <span class="badge bg-primary px-2 py-1 font-monospace" id="successModalTracking">DOC-000000</span>
+                </div>
+                <div class="fw-bold text-dark text-truncate" id="successModalTitle">Document Title</div>
+            </div>
+
+            <div id="popupBlockedAlert" class="alert alert-warning text-start small py-2 px-3 mb-3 d-none" style="font-size: 13px;">
+                <i class="bi bi-exclamation-circle-fill me-1"></i>
+                <strong>Notice:</strong> Your browser blocked the automatic new tab. Click the button below to view and print your QR Routing Label.
+            </div>
+
+            <div class="d-grid gap-2">
+                <a id="btnSuccessPrintQr" href="#" target="_blank" class="btn btn-primary py-2 fw-bold d-flex align-items-center justify-content-center gap-2" style="background: #2563eb; border-color: #2563eb; font-size: 0.95rem;">
+                    <i class="bi bi-printer-fill fs-5"></i> Open & Print QR Routing Label
+                </a>
+                <div class="d-flex gap-2">
+                    <a id="btnSuccessViewDoc" href="#" class="btn btn-outline-secondary flex-fill py-2" style="font-size: 0.9rem;">
+                        <i class="bi bi-file-text me-1"></i> View Details
+                    </a>
+                    <button type="button" id="btnSuccessClose" class="btn btn-light flex-fill py-2 border" onclick="window.location.href = '{{ route("documents.index") }}'" style="font-size: 0.9rem;">
+                        All Documents
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     // Priority chips interactive logic removed.
 
@@ -987,7 +1028,7 @@
     const documentUploadForm = document.getElementById('documentUploadForm');
     let duplicateData = null;
 
-    function performUpload(formData) {
+    function performUpload(formData, preOpenedTab = null) {
         const submitBtn = documentUploadForm.querySelector('button[type="submit"]');
         const progressContainer = document.getElementById('uploadProgressContainer');
         const progressBar = document.getElementById('uploadProgressBar');
@@ -1045,6 +1086,9 @@
             progressContainer.style.display = 'none';
 
             if (xhr.status === 409) {
+                if (preOpenedTab && !preOpenedTab.closed) {
+                    try { preOpenedTab.close(); } catch(e) {}
+                }
                 try {
                     const response = JSON.parse(xhr.responseText);
                     if (response.duplicate) {
@@ -1065,16 +1109,82 @@
                 const response = JSON.parse(xhr.responseText);
                 if (response.success) {
                     showNotification(response.message || 'Upload complete!', 'success');
-                    if (response.qr_label_url) {
-                        window.open(response.qr_label_url + '?autoprint=1', '_blank');
+                    
+                    const qrTargetUrl = (response.qr_label_url || ('/documents/' + response.document_id + '/qr-label')) + '?autoprint=1';
+                    let popupOpened = false;
+
+                    // 1. If tab was pre-opened during user click gesture, navigate it now
+                    if (preOpenedTab && !preOpenedTab.closed) {
+                        try {
+                            preOpenedTab.location.href = qrTargetUrl;
+                            popupOpened = true;
+                        } catch (e) {
+                            console.warn('Pre-opened tab navigation error:', e);
+                        }
+                    } else {
+                        // 2. Otherwise attempt standard popup window
+                        try {
+                            const newTab = window.open(qrTargetUrl, '_blank');
+                            if (newTab && !newTab.closed && typeof newTab.closed !== 'undefined') {
+                                popupOpened = true;
+                            }
+                        } catch (e) {
+                            console.warn('Fallback window.open error:', e);
+                        }
                     }
-                    setTimeout(() => {
-                        window.location.href = response.redirect || '{{ route("documents.index") }}';
-                    }, 1000);
+
+                    // Hide upload modal
+                    bootstrap.Modal.getInstance(document.getElementById('uploadModal'))?.hide();
+
+                    // Show success confirmation modal with direct print QR action
+                    const successModalEl = document.getElementById('uploadSuccessModal');
+                    if (successModalEl) {
+                        const trackingNum = response.tracking_number || ('DOC-' + response.document_id);
+                        const docTitle = response.title || (formData.get('title') || 'Document');
+
+                        const trackingEl = document.getElementById('successModalTracking');
+                        if (trackingEl) trackingEl.textContent = trackingNum;
+
+                        const titleEl = document.getElementById('successModalTitle');
+                        if (titleEl) titleEl.textContent = docTitle;
+                        
+                        const btnPrint = document.getElementById('btnSuccessPrintQr');
+                        if (btnPrint) {
+                            btnPrint.href = qrTargetUrl;
+                        }
+
+                        const btnView = document.getElementById('btnSuccessViewDoc');
+                        if (btnView) {
+                            btnView.href = '/documents/' + response.document_id;
+                        }
+
+                        const blockedNotice = document.getElementById('popupBlockedAlert');
+                        if (blockedNotice) {
+                            if (!popupOpened) {
+                                blockedNotice.classList.remove('d-none');
+                            } else {
+                                blockedNotice.classList.add('d-none');
+                            }
+                        }
+
+                        const successModal = new bootstrap.Modal(successModalEl);
+                        successModal.show();
+                    } else {
+                        // Fallback if modal not present
+                        setTimeout(() => {
+                            window.location.href = response.redirect || '{{ route("documents.index") }}';
+                        }, 2000);
+                    }
                 } else {
+                    if (preOpenedTab && !preOpenedTab.closed) {
+                        try { preOpenedTab.close(); } catch(e) {}
+                    }
                     showNotification(response.message || 'Upload failed', 'danger');
                 }
             } else {
+                if (preOpenedTab && !preOpenedTab.closed) {
+                    try { preOpenedTab.close(); } catch(e) {}
+                }
                 let errMsg = 'Upload failed.';
                 try {
                     const response = JSON.parse(xhr.responseText);
@@ -1106,6 +1216,9 @@
         };
 
         xhr.onerror = function() {
+            if (preOpenedTab && !preOpenedTab.closed) {
+                try { preOpenedTab.close(); } catch(e) {}
+            }
             submitBtn.disabled = false;
             progressContainer.style.display = 'none';
             showNotification('A network error occurred. Please check connection.', 'danger');
@@ -1207,7 +1320,14 @@
                 return false;
             }
 
-            performUpload(new FormData(this));
+            let preOpenedTab = null;
+            try {
+                preOpenedTab = window.open('about:blank', '_blank');
+            } catch (e) {
+                preOpenedTab = null;
+            }
+
+            performUpload(new FormData(this), preOpenedTab);
         });
     }
 
@@ -1238,7 +1358,15 @@
         const formData = new FormData(form);
         formData.append('duplicate_action', 'overwrite');
         formData.append('duplicate_doc_id', duplicateData.document_id);
-        performUpload(formData);
+
+        let preOpenedTab = null;
+        try {
+            preOpenedTab = window.open('about:blank', '_blank');
+        } catch (e) {
+            preOpenedTab = null;
+        }
+
+        performUpload(formData, preOpenedTab);
     });
 
     // Duplicate version click handler
@@ -1250,6 +1378,14 @@
         const formData = new FormData(form);
         formData.append('duplicate_action', 'version');
         formData.append('duplicate_doc_id', duplicateData.document_id);
-        performUpload(formData);
+
+        let preOpenedTab = null;
+        try {
+            preOpenedTab = window.open('about:blank', '_blank');
+        } catch (e) {
+            preOpenedTab = null;
+        }
+
+        performUpload(formData, preOpenedTab);
     });
 </script>

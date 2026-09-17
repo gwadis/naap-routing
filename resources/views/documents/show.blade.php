@@ -603,6 +603,12 @@
                     @endphp
                     <span class="badge {{ $qrStatusClass }}" style="font-weight: 600; font-size: 0.85rem;">{{ $document->qr_status ?? 'Not Scanned' }}</span>
                 </div>
+
+                <div class="mt-3">
+                    <a href="{{ route('documents.qr-label', $document->id) }}?autoprint=1" target="_blank" class="btn btn-outline-primary btn-sm w-100 d-flex align-items-center justify-content-center gap-2" style="font-weight: 600; border-radius: 8px;">
+                        <i class="bi bi-printer"></i> Print QR Routing Label
+                    </a>
+                </div>
             </div>
             @endif
 

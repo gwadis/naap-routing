@@ -320,31 +320,24 @@
             <!-- QR + Meta Grid -->
             <div class="qr-section">
                 <div class="qr-image">
-                    @if($document->qr_code)
-                        @php
-                            $qrValue = $document->qr_code;
-                            $qrUrl = '';
-                            if (str_contains($qrValue, 'qr_codes/')) {
-                                $qrUrl = asset('storage/' . $qrValue);
-                            } else {
-                                try {
-                                    $qrObj = new \Endroid\QrCode\QrCode(route('documents.show', $document->id), size: 300);
-                                    $writer = new \Endroid\QrCode\Writer\PngWriter();
-                                    $result = $writer->write($qrObj);
-                                    $qrUrl = 'data:image/png;base64,' . base64_encode($result->getString());
-                                } catch (\Exception $e) {
-                                    $qrUrl = '';
-                                }
+                    @php
+                        $qrValue = $document->qr_code;
+                        $qrUrl = '';
+                        if ($qrValue && str_contains($qrValue, 'qr_codes/')) {
+                            $qrUrl = asset('storage/' . $qrValue);
+                        } else {
+                            try {
+                                $qrObj = new \Endroid\QrCode\QrCode(route('documents.show', $document->id), size: 300);
+                                $writer = new \Endroid\QrCode\Writer\PngWriter();
+                                $result = $writer->write($qrObj);
+                                $qrUrl = 'data:image/png;base64,' . base64_encode($result->getString());
+                            } catch (\Throwable $e) {
+                                $qrUrl = '';
                             }
-                        @endphp
-                        @if($qrUrl)
-                            <img src="{{ $qrUrl }}" alt="QR Code">
-                        @else
-                            <div class="no-qr">
-                                <div style="font-size:2rem; margin-bottom:4px;">📦</div>
-                                <div>No QR</div>
-                            </div>
-                        @endif
+                        }
+                    @endphp
+                    @if($qrUrl)
+                        <img src="{{ $qrUrl }}" alt="QR Code">
                     @else
                         <div class="no-qr">
                             <div style="font-size:2rem; margin-bottom:4px;">📦</div>
