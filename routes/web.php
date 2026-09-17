@@ -93,6 +93,7 @@ Route::middleware([\App\Http\Middleware\EnsureAuthenticated::class, \App\Http\Mi
     // --- Document Management & Tracking ---
     Route::resource('documents', DocumentController::class);
     Route::post('/documents/{id}/regenerate-pin', [DocumentController::class, 'regeneratePin'])->name('documents.regeneratePin');
+    Route::get('/documents/{id}/workflow', [DocumentController::class, 'workflowView'])->name('documents.workflow');
     Route::post('/documents/{id}/workflow', [DocumentController::class, 'workflowAction'])->name('documents.workflowAction');
     Route::post('/documents/{id}/forward', [DocumentController::class, 'forwardDocument'])->name('documents.forward');
     Route::get('/documents/{id}/download', [DocumentController::class, 'download'])->name('documents.download');

@@ -475,6 +475,22 @@ class DocumentController extends Controller
     }
 
     /**
+     * Helper to get DocumentPolicy instance.
+     */
+    protected function getDocumentPolicy(): \App\Policies\DocumentPolicy
+    {
+        return app(\App\Policies\DocumentPolicy::class);
+    }
+
+    /**
+     * Display the workflow page for a document (GET /documents/{id}/workflow).
+     */
+    public function workflowView($id)
+    {
+        return $this->show($id);
+    }
+
+    /**
      * Display specific document tracking details.
      * Points to resources/views/documents/show.blade.php
      */
@@ -486,29 +502,26 @@ class DocumentController extends Controller
         }, 'routings.fromOffice', 'routings.toOffice', 'views.user'])->findOrFail($id);
 
         $user = auth()->user() ?? User::find(session('user_id'));
+        $policy = $this->getDocumentPolicy();
         
-        $inRoutingHistory = DocumentRouting::where('document_id', $document->id)
-            ->where('receiver_user_id', $user?->id)
-            ->exists();
-            
-        $isUploader = $document->uploaded_by === $user?->id;
-        $isAdmin = $user?->role === 'ADMIN';
-        $isVpaa = $user?->username === 'vpaa' || $user?->email === 'vpaa@naap.org';
+        // 1. Check view permission: Document creator, current receiver, office members, admin, history participants
+        $canViewWorkflow = $policy->viewWorkflow($user, $document);
         
-        if (!$isAdmin && !$isVpaa && !$isUploader && !$inRoutingHistory) {
+        if (!$canViewWorkflow) {
+            \Log::warning("Workflow view authorization denied: User ID " . ($user?->id ?? 'guest') . " attempted to view document ID {$document->id}");
             abort(403, 'You are not authorized to view this document.');
         }
 
+        // 2. Resolve active routing step (handles pending user-assigned, office-assigned, or latest hop)
+        $activeRouting = $policy->resolveActiveRouting($user, $document);
+
+        // 3. Check perform workflow action permission: Active receiver, authorized approver, admin
+        $canPerformWorkflowAction = $policy->performWorkflow($user, $document, $activeRouting);
+
         $isLocked = false;
 
-        // Find if this user is the active receiver
-        $activeRouting = DocumentRouting::where('document_id', $document->id)
-            ->where('receiver_user_id', $user?->id)
-            ->where('status', 'Pending')
-            ->first();
-
-        if ($activeRouting) {
-            if (is_null($activeRouting->scanned_at)) {
+        if ($activeRouting && $activeRouting->status === 'Pending') {
+            if (is_null($activeRouting->scanned_at) && $canPerformWorkflowAction) {
                 $isLocked = true;
             } else {
                 // If confidential, require current session verification to prevent bypasses
@@ -587,9 +600,9 @@ class DocumentController extends Controller
             ->where('document_id', $document->id)
             ->get();
 
-        $activeStep = $document->routings->where('status', 'Pending')->first();
+        $activeStep = $activeRouting ?? $document->routings->where('status', 'Pending')->first();
 
-        return view('documents.show', compact('document', 'isLocked', 'views', 'activeStep'));
+        return view('documents.show', compact('document', 'isLocked', 'views', 'activeStep', 'activeRouting', 'canPerformWorkflowAction', 'canViewWorkflow'));
     }
 
     /**
@@ -990,16 +1003,14 @@ class DocumentController extends Controller
 
         $document = Document::findOrFail($id);
         $user = auth()->user() ?? User::find(session('user_id'));
+        $policy = $this->getDocumentPolicy();
 
-        // Check auth: Admin or active receiver in document routing
-        $activeRouting = DocumentRouting::where('document_id', $document->id)
-            ->where('receiver_user_id', $user?->id)
-            ->where('status', 'Pending')
-            ->first();
+        $activeRouting = $policy->resolveActiveRouting($user, $document);
+        $canPerform = $policy->performWorkflow($user, $document, $activeRouting);
+        $isAdmin = $policy->isUserAdmin($user);
 
-        $isAdmin = $user?->role === 'ADMIN';
-
-        if (!$isAdmin && !$activeRouting) {
+        if (!$canPerform) {
+            \Log::warning("Workflow action authorization denied: User ID " . ($user?->id ?? 'guest') . " (office: " . ($user?->office_id ?? 'none') . ") attempted action '{$newStatus}' on document ID {$document->id}");
             abort(403, 'You are not the active receiver or authorized to perform workflow actions.');
         }
 
@@ -1456,15 +1467,14 @@ class DocumentController extends Controller
 
         $document = Document::findOrFail($id);
         $user = auth()->user() ?? User::find(session('user_id'));
+        $policy = $this->getDocumentPolicy();
 
-        $activeRouting = DocumentRouting::where('document_id', $document->id)
-            ->where('receiver_user_id', $user?->id)
-            ->where('status', 'Pending')
-            ->first();
+        $activeRouting = $policy->resolveActiveRouting($user, $document);
+        $canPerform = $policy->performWorkflow($user, $document, $activeRouting);
+        $isAdmin = $policy->isUserAdmin($user);
 
-        $isAdmin = $user?->role === 'ADMIN';
-
-        if (!$isAdmin && !$activeRouting) {
+        if (!$canPerform) {
+            \Log::warning("Forward document authorization denied: User ID " . ($user?->id ?? 'guest') . " attempted to forward document ID {$document->id}");
             abort(403, 'You are not authorized to forward this document.');
         }
 

@@ -142,7 +142,10 @@
         </div>
     @endif
 
-    @if($document->receiver_user_id === session('user_id') && !in_array($document->status, ['Accepted', 'Completed', 'Archived', 'Rejected']))
+    @php
+        $canAct = $canPerformWorkflowAction ?? ($document->receiver_user_id === (auth()->id() ?? session('user_id')));
+    @endphp
+    @if($canAct && !in_array($document->status, ['Accepted', 'Completed', 'Archived', 'Rejected']))
     <div class="card shadow-sm border-0 p-4 mb-4" style="border-radius: 12px; background: rgba(59, 130, 246, 0.04); border: 1px solid rgba(59, 130, 246, 0.2) !important;">
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
             <div class="text-start">
@@ -437,14 +440,36 @@
             </div>
 
             <!-- Workflow Execution Actions Card -->
-            @if(session('user_role') === 'ADMIN' || ($document->receiver_user_id === session('user_id') && !in_array($document->status, ['Completed', 'Archived', 'Rejected'])))
+            @php
+                $showWorkflowCard = $canViewWorkflow ?? true;
+                $canExecuteAction = $canPerformWorkflowAction ?? (session('user_role') === 'ADMIN' || ($document->receiver_user_id === (auth()->id() ?? session('user_id')) && !in_array($document->status, ['Completed', 'Archived', 'Rejected'])));
+            @endphp
+            @if($showWorkflowCard)
             <div class="card shadow-sm border-0 p-4 mb-4" style="border-radius: 12px; background: var(--panel); border: 1px solid var(--panel-border) !important;">
-                <h5 class="fw-bold mb-3" style="color: var(--accent-cyan);"><i class="bi bi-gear-fill me-2"></i>Workflow Execution Actions</h5>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold mb-0" style="color: var(--accent-cyan);"><i class="bi bi-gear-fill me-2"></i>Workflow Execution Actions</h5>
+                    @if(!$canExecuteAction)
+                        <span class="badge bg-secondary text-white px-2 py-1" style="font-size: 0.75rem; font-weight: 600;">
+                            <i class="bi bi-eye me-1"></i> View Only
+                        </span>
+                    @endif
+                </div>
+
+                @if(!$canExecuteAction)
+                    <div class="alert alert-light border small text-muted mb-3 py-2 px-3" style="background: rgba(0,0,0,0.02); font-size: 13px;">
+                        @if(in_array($document->status, ['Completed', 'Archived', 'Cancelled']))
+                            <i class="bi bi-check-circle-fill text-success me-1"></i> This document's workflow has reached a terminal status (<strong>{{ $document->status }}</strong>).
+                        @else
+                            <i class="bi bi-info-circle text-primary me-1"></i> You are viewing this workflow in read-only mode. Only the designated receiver, assigned office handler, or an administrator can execute workflow actions.
+                        @endif
+                    </div>
+                @endif
+
                 <form action="{{ route('documents.workflowAction', $document->id) }}" method="POST" enctype="multipart/form-data" id="workflowActionForm">
                     @csrf
                     <div class="mb-3">
                         <label class="form-label small fw-bold text-secondary">Update Status</label>
-                        <select name="status" class="form-select" required>
+                        <select name="status" class="form-select" required @disabled(!$canExecuteAction)>
                             <option value="Pending" {{ $document->status === 'Pending' ? 'selected' : '' }}>Pending</option>
                             <option value="Received" {{ $document->status === 'Received' ? 'selected' : '' }}>Received</option>
                             <option value="Under Review" {{ $document->status === 'Under Review' ? 'selected' : '' }}>Under Review</option>
@@ -461,9 +486,10 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label small fw-bold text-secondary">Execution Remarks / Notes</label>
-                        <textarea name="notes" class="form-control" rows="3" placeholder="Enter remarks or approval notes..."></textarea>
+                        <textarea name="notes" class="form-control" rows="3" placeholder="Enter remarks or approval notes..." @disabled(!$canExecuteAction)></textarea>
                     </div>
 
+                    @if($canExecuteAction)
                     <!-- Signature Section -->
                     <div id="workflow-signature-section" style="display: none;" class="mb-3 text-start">
                         <label class="form-label small fw-bold text-secondary">Digital Signature</label>
@@ -522,12 +548,18 @@
                             </label>
                         </div>
                     </div>
+                    @endif
 
-                    <button type="submit" class="btn btn-primary fw-bold px-4 py-2 w-100" style="border-radius: 8px;">Update State</button>
+                    @if($canExecuteAction)
+                        <button type="submit" class="btn btn-primary fw-bold px-4 py-2 w-100" style="border-radius: 8px;">Update State</button>
+                    @else
+                        <button type="button" class="btn btn-secondary fw-bold px-4 py-2 w-100" style="border-radius: 8px; opacity: 0.65; cursor: not-allowed;" disabled>Action Restricted (View Only)</button>
+                    @endif
                 </form>
             </div>
 
             <!-- Forward Document Action -->
+            @if($canExecuteAction)
             <div class="card shadow-sm border-0 p-4 mb-4" style="border-radius: 12px; background: var(--panel); border: 1px solid var(--panel-border) !important;">
                 <h5 class="fw-bold mb-3" style="color: var(--accent-cyan);"><i class="bi bi-arrow-right-short"></i> Forward Document</h5>
                 <p class="small text-muted mb-3" style="margin-top:-8px;">Delegate or forward this document to another recipient if you are unavailable.</p>
@@ -555,6 +587,7 @@
                     <button type="submit" class="btn btn-outline-primary fw-bold w-100 py-2" style="border-radius: 8px;">Forward Document</button>
                 </form>
             </div>
+            @endif
             @endif
 
             <div class="row mb-4">

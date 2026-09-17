@@ -29,6 +29,11 @@ class AppServiceProvider extends ServiceProvider
             URL::forceScheme('https');
         }
 
+        // Register DocumentPolicy and Workflow Gate Definitions
+        \Illuminate\Support\Facades\Gate::policy(\App\Models\Document::class, \App\Policies\DocumentPolicy::class);
+        \Illuminate\Support\Facades\Gate::define('view-workflow', [\App\Policies\DocumentPolicy::class, 'viewWorkflow']);
+        \Illuminate\Support\Facades\Gate::define('perform-workflow', [\App\Policies\DocumentPolicy::class, 'performWorkflow']);
+
         // Auto-heal legacy SLA column schema in production if migrations have not run yet
         if (!app()->environment('testing')) {
             try {
