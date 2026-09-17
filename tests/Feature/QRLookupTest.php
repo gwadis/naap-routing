@@ -67,9 +67,12 @@ class QRLookupTest extends TestCase
         $urls = [
             "http://naaprouting_system.test/documents/" . $this->document->id,
             "https://naaprouting_system.test/track/" . $this->document->id,
+            "https://naaprouting.com/documents/" . $this->document->id,
+            "https://naaprouting.com/track/" . $this->document->id,
             "http://naaprouting_system.test/Documents/" . $this->document->id,
             "http://naaprouting_system.test/Track/" . $this->document->id,
             "http://naaprouting_system.test/storage/qr_codes/" . $this->document->id . ".png",
+            "https://naaprouting.com/storage/qr_codes/" . $this->document->id . ".png",
             "qr_codes/" . $this->document->id . ".png",
             (string) $this->document->id
         ];
