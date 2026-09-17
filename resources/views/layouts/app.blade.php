@@ -689,6 +689,22 @@
     @yield('scripts')
 
     <script>
+        // Global AJAX & Axios CSRF Setup
+        function setupCsrfHeaders() {
+            const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+            if (!token) return;
+            if (window.jQuery) {
+                window.jQuery.ajaxSetup({
+                    headers: { 'X-CSRF-TOKEN': token }
+                });
+            }
+            if (window.axios) {
+                window.axios.defaults.headers.common['X-CSRF-TOKEN'] = token;
+            }
+        }
+        setupCsrfHeaders();
+        document.addEventListener('DOMContentLoaded', setupCsrfHeaders);
+
         const body = document.body;
         const hamburgerMenu = document.getElementById('hamburgerMenu');
         const closeSidebar = document.getElementById('closeSidebar');

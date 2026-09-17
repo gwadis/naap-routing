@@ -1028,21 +1028,32 @@
     const documentUploadForm = document.getElementById('documentUploadForm');
     let duplicateData = null;
 
+    let isUploading = false;
+
     function performUpload(formData, preOpenedTab = null) {
+        if (isUploading) return;
+        isUploading = true;
+
         const submitBtn = documentUploadForm.querySelector('button[type="submit"]');
         const progressContainer = document.getElementById('uploadProgressContainer');
         const progressBar = document.getElementById('uploadProgressBar');
         const progressPercent = document.getElementById('uploadProgressPercent');
 
-        submitBtn.disabled = true;
-        progressContainer.style.display = 'block';
-        progressBar.style.width = '0%';
-        progressBar.setAttribute('aria-valuenow', '0');
-        progressPercent.textContent = '0%';
+        if (submitBtn) submitBtn.disabled = true;
+        if (progressContainer) progressContainer.style.display = 'block';
+        if (progressBar) {
+            progressBar.style.width = '0%';
+            progressBar.setAttribute('aria-valuenow', '0');
+        }
+        if (progressPercent) progressPercent.textContent = '0%';
+
+        // Ensure CSRF token is attached both in FormData and Request Header
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}';
+        formData.set('_token', csrfToken);
 
         const xhr = new XMLHttpRequest();
         xhr.open('POST', documentUploadForm.action, true);
-        xhr.setRequestHeader('X-CSRF-TOKEN', document.querySelector('meta[name="csrf-token"]').content);
+        xhr.setRequestHeader('X-CSRF-TOKEN', csrfToken);
         xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
         xhr.setRequestHeader('Accept', 'application/json');
 
@@ -1082,33 +1093,52 @@
         });
 
         xhr.onload = function() {
-            submitBtn.disabled = false;
-            progressContainer.style.display = 'none';
+            isUploading = false;
+            if (submitBtn) submitBtn.disabled = false;
+            if (progressContainer) progressContainer.style.display = 'none';
+
+            let response = null;
+            try {
+                response = JSON.parse(xhr.responseText);
+            } catch(e) {}
+
+            // Always synchronize CSRF token across DOM if returned
+            if (response && response.csrf_token) {
+                const metaCsrf = document.querySelector('meta[name="csrf-token"]');
+                if (metaCsrf) metaCsrf.setAttribute('content', response.csrf_token);
+                document.querySelectorAll('input[name="_token"]').forEach(input => {
+                    input.value = response.csrf_token;
+                });
+                if (window.jQuery) {
+                    window.jQuery.ajaxSetup({
+                        headers: { 'X-CSRF-TOKEN': response.csrf_token }
+                    });
+                }
+                if (window.axios) {
+                    window.axios.defaults.headers.common['X-CSRF-TOKEN'] = response.csrf_token;
+                }
+            }
 
             if (xhr.status === 409) {
                 if (preOpenedTab && !preOpenedTab.closed) {
                     try { preOpenedTab.close(); } catch(e) {}
                 }
-                try {
-                    const response = JSON.parse(xhr.responseText);
-                    if (response.duplicate) {
-                        duplicateData = response;
-                        document.getElementById('duplicateDocTitle').textContent = response.title;
-                        document.getElementById('duplicateDocTracking').textContent = response.tracking_number;
-                        bootstrap.Modal.getInstance(document.getElementById('uploadModal'))?.hide();
-                        const dupModal = new bootstrap.Modal(document.getElementById('duplicateModal'));
-                        dupModal.show();
-                    }
-                } catch(err) {
+                if (response && response.duplicate) {
+                    duplicateData = response;
+                    document.getElementById('duplicateDocTitle').textContent = response.title;
+                    document.getElementById('duplicateDocTracking').textContent = response.tracking_number;
+                    bootstrap.Modal.getInstance(document.getElementById('uploadModal'))?.hide();
+                    const dupModal = new bootstrap.Modal(document.getElementById('duplicateModal'));
+                    dupModal.show();
+                } else {
                     showNotification('Duplicate file detected.', 'warning');
                 }
                 return;
             }
 
             if (xhr.status >= 200 && xhr.status < 300) {
-                const response = JSON.parse(xhr.responseText);
-                if (response.success) {
-                    showNotification(response.message || 'Upload complete!', 'success');
+                if (response && response.success) {
+                    showNotification(response.message || 'Document uploaded successfully', 'success');
                     
                     const qrTargetUrl = (response.qr_label_url || ('/documents/' + response.document_id + '/qr-label')) + '?autoprint=1';
                     let popupOpened = false;
@@ -1179,25 +1209,22 @@
                     if (preOpenedTab && !preOpenedTab.closed) {
                         try { preOpenedTab.close(); } catch(e) {}
                     }
-                    showNotification(response.message || 'Upload failed', 'danger');
+                    showNotification(response?.message || 'Upload failed', 'danger');
                 }
             } else {
                 if (preOpenedTab && !preOpenedTab.closed) {
                     try { preOpenedTab.close(); } catch(e) {}
                 }
                 let errMsg = 'Upload failed.';
-                try {
-                    const response = JSON.parse(xhr.responseText);
-                    if (response.errors) {
-                        errMsg = Object.values(response.errors).flat().join('\n');
-                    } else if (response.message) {
-                        errMsg = response.message;
-                    }
-                } catch(e) {
+                if (response && response.errors) {
+                    errMsg = Object.values(response.errors).flat().join('\n');
+                } else if (response && response.message) {
+                    errMsg = response.message;
+                } else {
                     if (xhr.status === 413) {
                         errMsg = 'File size exceeds server upload limit. Please upload a file smaller than 10MB.';
                     } else if (xhr.status === 419) {
-                        errMsg = 'CSRF session expired. Please refresh the page and try again.';
+                        errMsg = 'Session expired. Please refresh the page and try again.';
                     } else if (xhr.status === 500) {
                         try {
                             const doc = new DOMParser().parseFromString(xhr.responseText, 'text/html');
@@ -1216,11 +1243,12 @@
         };
 
         xhr.onerror = function() {
+            isUploading = false;
             if (preOpenedTab && !preOpenedTab.closed) {
                 try { preOpenedTab.close(); } catch(e) {}
             }
-            submitBtn.disabled = false;
-            progressContainer.style.display = 'none';
+            if (submitBtn) submitBtn.disabled = false;
+            if (progressContainer) progressContainer.style.display = 'none';
             showNotification('A network error occurred. Please check connection.', 'danger');
         };
 
@@ -1230,6 +1258,7 @@
     if (documentUploadForm) {
         documentUploadForm.addEventListener('submit', function(e) {
             e.preventDefault();
+            if (isUploading) return false;
             
             const file = document.getElementById('fileHidden');
             const title = document.getElementById('titleField');
@@ -1351,7 +1380,7 @@
 
     // Duplicate overwrite click handler
     document.getElementById('btnDuplicateOverwrite')?.addEventListener('click', function() {
-        if (!duplicateData) return;
+        if (!duplicateData || isUploading) return;
         bootstrap.Modal.getInstance(document.getElementById('duplicateModal'))?.hide();
 
         const form = document.getElementById('documentUploadForm');
@@ -1371,7 +1400,7 @@
 
     // Duplicate version click handler
     document.getElementById('btnDuplicateVersion')?.addEventListener('click', function() {
-        if (!duplicateData) return;
+        if (!duplicateData || isUploading) return;
         bootstrap.Modal.getInstance(document.getElementById('duplicateModal'))?.hide();
 
         const form = document.getElementById('documentUploadForm');

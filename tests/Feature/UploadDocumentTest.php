@@ -494,5 +494,65 @@ class UploadDocumentTest extends TestCase
             'uploaded_by' => $uploader->id,
         ]);
     }
+
+    public function test_document_upload_returns_fresh_csrf_token_for_ajax_client()
+    {
+        $originOffice = Office::create(['name' => 'HR Office', 'department' => 'HR']);
+        $finalOffice = Office::create(['name' => 'Finance Office', 'department' => 'Finance']);
+
+        $uploader = User::create([
+            'name' => 'Upload Staff',
+            'username' => 'upload_staff_csrf',
+            'email' => 'upload_csrf@naap.org',
+            'password' => bcrypt('Password123!'),
+            'role' => 'STAFF',
+            'office_id' => $originOffice->id,
+        ]);
+
+        $finalUser = User::create([
+            'name' => 'Finance Staff',
+            'username' => 'finance_staff_csrf',
+            'email' => 'finance_csrf@naap.org',
+            'password' => bcrypt('Password123!'),
+            'role' => 'Finance',
+            'office_id' => $finalOffice->id,
+        ]);
+
+        $mockFile = UploadedFile::fake()->create('sample_csrf_doc.pdf', 300, 'application/pdf');
+
+        $response = $this->withSession([
+            'authenticated' => true,
+            'user_id' => $uploader->id,
+            'user_role' => 'STAFF',
+            'user_name' => $uploader->name
+        ])->post(route('documents.store'), [
+            'title' => 'CSRF Verified Document',
+            'priority' => 'Normal',
+            'sla' => 'Standard',
+            'category' => 'Reports',
+            'description' => 'Document to verify CSRF token in response.',
+            'origin_office_id' => $originOffice->id,
+            'final_office_id' => $finalOffice->id,
+            'final_receiver_id' => $finalUser->id,
+            'destination_office_id' => $finalOffice->id,
+            'routing_office_ids' => [$finalOffice->id],
+            'routing_user_ids' => [$finalUser->id],
+            'routing_approval_types' => ['sequential'],
+            'routing_signatures_required' => [1],
+            'file' => $mockFile,
+        ], [
+            'X-Requested-With' => 'XMLHttpRequest',
+            'Accept' => 'application/json',
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertJson([
+            'success' => true,
+        ]);
+        $response->assertJsonStructure([
+            'csrf_token',
+        ]);
+        $this->assertNotEmpty($response->json('csrf_token'));
+    }
 }
 

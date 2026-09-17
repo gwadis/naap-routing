@@ -305,9 +305,12 @@
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}'
             },
-            body: JSON.stringify({ session_id: sessionId })
+            body: JSON.stringify({ 
+                session_id: sessionId,
+                _token: document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}'
+            })
         })
         .then(res => res.json())
         .then(data => {

@@ -206,9 +206,10 @@ class DocumentController extends Controller
 
                     if ($request->ajax() || $request->wantsJson()) {
                         return response()->json([
-                            'success' => true,
-                            'message' => $msg,
-                            'redirect' => route('documents.index')
+                            'success'    => true,
+                            'message'    => $msg,
+                            'redirect'   => route('documents.index'),
+                            'csrf_token' => csrf_token(),
                         ]);
                     }
                     return redirect()->route('documents.index')->with('success', $msg);
@@ -453,6 +454,7 @@ class DocumentController extends Controller
                         'document_id'     => $document->id,
                         'tracking_number' => $document->tracking_number ?? ('DOC-' . str_pad($document->id, 6, '0', STR_PAD_LEFT)),
                         'title'           => $document->title,
+                        'csrf_token'      => csrf_token(),
                     ]);
                 }
 

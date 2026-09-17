@@ -807,10 +807,16 @@
                     formData.append('receiver_user_ids[]', id);
                 });
 
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+                formData.set('_token', csrfToken);
+
                 fetch(this.action, {
                     method: 'POST',
                     body: formData,
-                    headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '' }
+                    headers: { 
+                        'X-CSRF-TOKEN': csrfToken,
+                        'Accept': 'application/json'
+                    }
                 })
                 .then(response => {
                     if (response.ok) {

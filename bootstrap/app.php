@@ -23,5 +23,18 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        //
+        $exceptions->render(function (\Illuminate\Session\TokenMismatchException $e, \Illuminate\Http\Request $request) {
+            \Illuminate\Support\Facades\Log::error('CSRF Mismatch', [
+                'url' => $request->fullUrl(),
+                'method' => $request->method(),
+                'user_id' => auth()->id() ?? session('user_id'),
+            ]);
+
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'message' => 'CSRF token mismatch.',
+                    'csrf_token' => csrf_token(),
+                ], 419);
+            }
+        });
     })->create();

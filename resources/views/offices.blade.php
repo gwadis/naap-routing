@@ -378,13 +378,14 @@
             return;
         }
         
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
         fetch('/api/departments/rename', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                'X-CSRF-TOKEN': csrfToken
             },
-            body: JSON.stringify({ old_name: oldName, new_name: newName })
+            body: JSON.stringify({ old_name: oldName, new_name: newName, _token: csrfToken })
         })
         .then(r => r.json())
         .then(data => {
