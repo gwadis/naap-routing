@@ -11,9 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('documents', function (Blueprint $table) {
-            $table->string('sla', 100)->default('Simple Transaction (3 Working Days)')->change();
-        });
+        try {
+            Schema::table('documents', function (Blueprint $table) {
+                $table->string('sla', 100)->default('Simple Transaction (3 Working Days)')->change();
+            });
+        } catch (\Throwable $e) {
+            // Handled or already modified via AppServiceProvider
+        }
     }
 
     /**

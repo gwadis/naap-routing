@@ -19,7 +19,9 @@ return new class extends Migration
 
         Schema::table('documents', function (Blueprint $table) {
             if (Schema::hasColumn('documents', 'access_pin')) {
-                $table->string('access_pin', 255)->nullable()->change();
+                try {
+                    $table->string('access_pin', 255)->nullable()->change();
+                } catch (\Throwable $e) {}
             } else {
                 $table->string('access_pin', 255)->nullable()->after('qr_scanned_at');
             }

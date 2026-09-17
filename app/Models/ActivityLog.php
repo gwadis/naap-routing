@@ -25,27 +25,40 @@ class ActivityLog extends Model
 
     public static function log($action, $documentId = null, array $meta = [])
     {
-        $request = request();
-        $userAgent = $request->header('User-Agent');
-        [$browser, $os] = self::parseUserAgent($userAgent);
+        try {
+            $request = request();
+            $userAgent = $request->header('User-Agent');
+            [$browser, $os] = self::parseUserAgent($userAgent);
 
-        $userId = session('user_id') ?? auth()->id();
-        if ($userId) {
-            $userModel = User::find($userId);
-            if ($userModel) {
-                $meta['department'] = $userModel->department?->name ?? 'System';
+            $userId = session('user_id') ?? auth()->id();
+            if ($userId) {
+                $userModel = User::find($userId);
+                if ($userModel) {
+                    $meta['department'] = $userModel->department?->name ?? 'System';
+                }
             }
-        }
 
-        return self::create([
-            'user' => session('user_name') ?? (auth()->user()?->name ?? 'Guest'),
-            'action' => $action,
-            'document_id' => $documentId,
-            'ip' => 'REDACTED',
-            'browser' => $browser,
-            'os' => $os,
-            'meta' => $meta,
-        ]);
+            $logData = [
+                'user' => session('user_name') ?? (auth()->user()?->name ?? 'Guest'),
+                'action' => $action,
+                'document_id' => $documentId,
+                'ip' => 'REDACTED',
+                'browser' => $browser,
+                'os' => $os,
+                'meta' => $meta,
+            ];
+
+            if (\Illuminate\Support\Facades\Schema::hasTable('activity_logs')) {
+                $columns = \Illuminate\Support\Facades\Schema::getColumnListing('activity_logs');
+                $logData = array_intersect_key($logData, array_flip($columns));
+                return self::create($logData);
+            }
+
+            return null;
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('ActivityLog failed: ' . $e->getMessage());
+            return null;
+        }
     }
 
     public static function parseUserAgent($userAgentString)

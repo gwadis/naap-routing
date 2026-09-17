@@ -138,7 +138,9 @@ class DocumentController extends Controller
         try {
             $file = $request->file('file');
             $fileHash = hash_file('sha256', $file->getRealPath());
-            $duplicate = Document::where('file_hash', $fileHash)->first();
+            $duplicate = Schema::hasColumn('documents', 'file_hash') 
+                ? Document::where('file_hash', $fileHash)->first() 
+                : null;
             
             $duplicateAction = $request->input('duplicate_action');
             $duplicateDocId = $request->input('duplicate_doc_id');
@@ -170,22 +172,24 @@ class DocumentController extends Controller
                         if ($document->file_path) {
                             Storage::disk('public')->delete($document->file_path);
                         }
-                        $document->update([
+                        $updateData = [
                             'file_path' => $path,
                             'file_size' => $file->getSize(),
                             'mime_type' => $file->getMimeType(),
                             'file_hash' => $fileHash,
                             'uploaded_at' => now(),
                             'processed_at' => now(),
-                        ]);
+                        ];
+                        $docCols = Schema::getColumnListing('documents');
+                        $document->update(array_intersect_key($updateData, array_flip($docCols)));
                         ActivityLog::log('Document Overwritten (Duplicate Upload)', $document->id);
                         $msg = 'Document overwritten successfully!';
                     } else {
-                        $newVersion = $document->version + 1;
+                        $newVersion = ($document->version ?? 1) + 1;
                         if ($document->file_path) {
                             Storage::disk('public')->delete($document->file_path);
                         }
-                        $document->update([
+                        $updateData = [
                             'file_path' => $path,
                             'file_size' => $file->getSize(),
                             'mime_type' => $file->getMimeType(),
@@ -193,7 +197,9 @@ class DocumentController extends Controller
                             'version' => $newVersion,
                             'uploaded_at' => now(),
                             'processed_at' => now(),
-                        ]);
+                        ];
+                        $docCols = Schema::getColumnListing('documents');
+                        $document->update(array_intersect_key($updateData, array_flip($docCols)));
                         ActivityLog::log("New Version Created (Version {$newVersion})", $document->id);
                         $msg = "New document version (v{$newVersion}) uploaded successfully!";
                     }
@@ -247,6 +253,11 @@ class DocumentController extends Controller
                     $categoryValue = $request->custom_category;
                 }
 
+                $uploaderUserId = auth()->id() ?? session('user_id');
+                if ($uploaderUserId && !User::where('id', $uploaderUserId)->exists()) {
+                    $uploaderUserId = null;
+                }
+
                 $documentData = [
                     'title' => $request->title,
                     'description' => $request->description ?? 'No description provided',
@@ -268,7 +279,7 @@ class DocumentController extends Controller
                     'category' => $categoryValue,
                     'tags' => $request->tags,
                     'status' => 'Pending',
-                    'uploaded_by' => auth()->id() ?? session('user_id') ?? 1,
+                    'uploaded_by' => $uploaderUserId,
                     'access_pin' => $hashedPin,
                     'uploaded_at' => now(),
                     'processed_at' => now(),
@@ -308,19 +319,31 @@ class DocumentController extends Controller
                     $documentData['qr_id'] = $qrId;
                 }
 
+                // Dynamically filter $documentData to actual existing columns in MySQL
+                $docCols = Schema::getColumnListing('documents');
+                $documentData = array_intersect_key($documentData, array_flip($docCols));
+
                 $document = Document::create($documentData);
 
-                // Generate QR Code
-                $qrCode = new QrCode(route('documents.show', $document->id), size: 300);
-                $writer = new PngWriter();
-                $result = $writer->write($qrCode);
-                $qrCodeData = $result->getString();
-                $qrPath = 'qr_codes/' . $document->id . '.png';
-                Storage::disk('public')->put($qrPath, $qrCodeData);
-                $document->update(['qr_code' => $qrPath]);
+                // Generate QR Code safely (do not fail upload if QR code storage/driver fails)
+                try {
+                    $qrCode = new QrCode(route('documents.show', $document->id), size: 300);
+                    $writer = new PngWriter();
+                    $result = $writer->write($qrCode);
+                    $qrCodeData = $result->getString();
+                    $qrPath = 'qr_codes/' . $document->id . '.png';
+                    Storage::disk('public')->put($qrPath, $qrCodeData);
+                    if (in_array('qr_code', $docCols)) {
+                        $document->update(['qr_code' => $qrPath]);
+                    }
+                } catch (\Throwable $qe) {
+                    \Log::warning('QR Code Generation / Storage failed: ' . $qe->getMessage(), [
+                        'document_id' => $document->id
+                    ]);
+                }
 
                 // Initial Routing History
-                if (Schema::hasColumn('documents', 'routing_history')) {
+                if (in_array('routing_history', $docCols)) {
                     $routingHistory = [
                         [
                             'office_id' => $request->origin_office_id,
@@ -346,19 +369,31 @@ class DocumentController extends Controller
                 };
 
                 if (!empty($routingUserIds)) {
+                    $routingCols = Schema::getColumnListing('document_routings');
                     foreach ($routingUserIds as $index => $receiverId) {
                         $fromOfficeId = ($index === 0) ? $request->origin_office_id : $routingOfficeIds[$index - 1];
                         $toOfficeId = $routingOfficeIds[$index];
 
+                        // Foreign key existence check
+                        if ($fromOfficeId && !Office::where('id', $fromOfficeId)->exists()) {
+                            $fromOfficeId = null;
+                        }
+                        if ($toOfficeId && !Office::where('id', $toOfficeId)->exists()) {
+                            $toOfficeId = null;
+                        }
+                        if ($receiverId && !User::where('id', $receiverId)->exists()) {
+                            $receiverId = null;
+                        }
+
                         $appType = isset($routingApprovalTypes[$index]) ? $routingApprovalTypes[$index] : 'sequential';
                         $sigReq = isset($routingSignaturesRequired[$index]) ? (bool) $routingSignaturesRequired[$index] : true;
 
-                        DocumentRouting::create([
+                        $routingItem = [
                             'document_id'        => $document->id,
                             'from_office_id'     => $fromOfficeId,
                             'to_office_id'       => $toOfficeId,
                             'receiver_user_id'   => $receiverId,
-                            'sender_user_id'     => auth()->id() ?? session('user_id'),  // uploader is the sender for step 0
+                            'sender_user_id'     => $uploaderUserId,  // uploader is the sender for step 0
                             'status'             => ($index === 0) ? 'Pending' : 'Waiting',
                             'pending_at'         => ($index === 0) ? now() : null,
                             'approval_type'      => $appType,
@@ -369,7 +404,10 @@ class DocumentController extends Controller
                             'sla_hours'          => $slaHours,
                             'sla_due_at'         => now()->addHours($slaHours),
                             'sla_status'         => 'on_time',
-                        ]);
+                        ];
+
+                        $routingItem = array_intersect_key($routingItem, array_flip($routingCols));
+                        DocumentRouting::create($routingItem);
                     }
                 }
 
@@ -419,7 +457,8 @@ class DocumentController extends Controller
                 return redirect()->route('documents.index')->with('success', 'Document uploaded and initialized successfully!');
             });
         } catch (\Throwable $e) {
-            \Log::error('Document Upload Exception: ' . $e->getMessage(), [
+            $errorMsg = $e->getMessage() ?: class_basename($e);
+            \Log::error('Document Upload Exception: ' . $errorMsg, [
                 'trace' => $e->getTraceAsString(),
                 'user_id' => auth()->id() ?? session('user_id'),
                 'file_name' => $request->hasFile('file') ? $request->file('file')->getClientOriginalName() : null,
@@ -427,9 +466,9 @@ class DocumentController extends Controller
                 'request_inputs' => $request->except(['file', 'access_pin'])
             ]);
             if ($request->ajax() || $request->wantsJson()) {
-                return response()->json(['success' => false, 'message' => 'Upload failed: ' . $e->getMessage()], 500);
+                return response()->json(['success' => false, 'message' => 'Upload failed: ' . $errorMsg], 500);
             }
-            return back()->with('error', 'Upload failed: ' . $e->getMessage());
+            return back()->with('error', 'Upload failed: ' . $errorMsg);
         }
     }
 

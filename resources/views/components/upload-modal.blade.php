@@ -1100,6 +1100,7 @@
                         errMsg = 'Upload failed: ' + xhr.statusText;
                     }
                 }
+                console.error('Document upload failed [status ' + xhr.status + ']:', xhr.responseText);
                 showNotification(errMsg, 'danger');
             }
         };

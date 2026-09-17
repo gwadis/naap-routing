@@ -23,7 +23,10 @@ class DocumentRoutedNotification extends Notification
 
     public function via($notifiable)
     {
-        $channels = ['database'];
+        $channels = [];
+        if (\Illuminate\Support\Facades\Schema::hasTable('notifications')) {
+            $channels[] = 'database';
+        }
         if (!empty($notifiable->email) && filter_var($notifiable->email, FILTER_VALIDATE_EMAIL)) {
             $channels[] = 'mail';
         }
