@@ -177,4 +177,141 @@ class UploadDocumentTest extends TestCase
             'duplicate' => true
         ]);
     }
+
+    public function test_normal_pdf_ajax_upload_success()
+    {
+        $originOffice = Office::create(['name' => 'Registrar Office', 'department' => 'Registrar']);
+        $finalOffice = Office::create(['name' => 'Dean Office', 'department' => 'Dean']);
+
+        $uploader = User::create([
+            'name' => 'Registrar Staff',
+            'username' => 'registrar_staff',
+            'email' => 'registrar@naap.org',
+            'password' => bcrypt('Password123!'),
+            'role' => 'STAFF',
+            'needs_password_change' => false,
+            'office_id' => $originOffice->id,
+        ]);
+
+        $finalUser = User::create([
+            'name' => 'Dean Officer',
+            'username' => 'dean_officer',
+            'email' => 'dean@naap.org',
+            'password' => bcrypt('Password123!'),
+            'role' => 'ADMIN',
+            'office_id' => $finalOffice->id,
+        ]);
+
+        $mockFile = UploadedFile::fake()->create('report_sample.pdf', 1200, 'application/pdf');
+
+        $response = $this->withSession([
+            'authenticated' => true,
+            'user_id' => $uploader->id,
+            'user_role' => 'STAFF',
+            'user_name' => $uploader->name
+        ])->post(route('documents.store'), [
+            'title' => 'Quarterly Academic Report',
+            'priority' => 'High',
+            'sla' => 'Standard',
+            'category' => 'Reports',
+            'description' => 'Comprehensive academic performance report for Q3.',
+            'origin_office_id' => $originOffice->id,
+            'final_office_id' => $finalOffice->id,
+            'final_receiver_id' => $finalUser->id,
+            'destination_office_id' => $finalOffice->id,
+            'routing_office_ids' => [$finalOffice->id],
+            'routing_user_ids' => [$finalUser->id],
+            'routing_approval_types' => ['sequential'],
+            'routing_signatures_required' => [1],
+            'file' => $mockFile,
+        ], [
+            'X-Requested-With' => 'XMLHttpRequest',
+            'Accept' => 'application/json',
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertJson([
+            'success' => true,
+        ]);
+
+        $this->assertDatabaseHas('documents', [
+            'title' => 'Quarterly Academic Report',
+            'is_confidential' => false,
+            'destination_office_id' => $finalOffice->id,
+            'type' => 'PDF',
+        ]);
+
+        $doc = Document::where('title', 'Quarterly Academic Report')->first();
+        $this->assertNotNull($doc);
+        Storage::disk('public')->assertExists($doc->file_path);
+        $this->assertDatabaseHas('document_routings', [
+            'document_id' => $doc->id,
+            'from_office_id' => $originOffice->id,
+            'to_office_id' => $finalOffice->id,
+            'receiver_user_id' => $finalUser->id,
+        ]);
+    }
+
+    public function test_confidential_document_upload_success()
+    {
+        $originOffice = Office::create(['name' => 'Legal Office', 'department' => 'Legal']);
+        $finalOffice = Office::create(['name' => 'Executive Office', 'department' => 'Executive']);
+
+        $uploader = User::create([
+            'name' => 'Legal Officer',
+            'username' => 'legal_officer',
+            'email' => 'legal@naap.org',
+            'password' => bcrypt('Password123!'),
+            'role' => 'ADMIN',
+            'office_id' => $originOffice->id,
+        ]);
+
+        $finalUser = User::create([
+            'name' => 'Executive Director',
+            'username' => 'exec_dir',
+            'email' => 'exec@naap.org',
+            'password' => bcrypt('Password123!'),
+            'role' => 'ADMIN',
+            'office_id' => $finalOffice->id,
+        ]);
+
+        $mockFile = UploadedFile::fake()->create('confidential_memo.pdf', 800, 'application/pdf');
+
+        $response = $this->withSession([
+            'authenticated' => true,
+            'user_id' => $uploader->id,
+            'user_role' => 'ADMIN',
+            'user_name' => $uploader->name
+        ])->post(route('documents.store'), [
+            'title' => 'Restricted Compliance Audit',
+            'priority' => 'Urgent',
+            'sla' => 'Critical',
+            'category' => 'Legal & Compliance',
+            'description' => 'Strictly confidential legal findings.',
+            'origin_office_id' => $originOffice->id,
+            'final_office_id' => $finalOffice->id,
+            'final_receiver_id' => $finalUser->id,
+            'destination_office_id' => $finalOffice->id,
+            'routing_office_ids' => [$finalOffice->id],
+            'routing_user_ids' => [$finalUser->id],
+            'routing_approval_types' => ['sequential'],
+            'routing_signatures_required' => [1],
+            'is_confidential' => '1',
+            'file' => $mockFile,
+        ], [
+            'X-Requested-With' => 'XMLHttpRequest',
+            'Accept' => 'application/json',
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertJson([
+            'success' => true,
+        ]);
+
+        $this->assertDatabaseHas('documents', [
+            'title' => 'Restricted Compliance Audit',
+            'is_confidential' => true,
+        ]);
+    }
 }
+

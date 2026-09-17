@@ -226,7 +226,7 @@ class DocumentController extends Controller
                 $routingOfficeIds = $request->input('routing_office_ids', []);
                 $routingUserIds   = $request->input('routing_user_ids', []);
 
-                $destinationOfficeId = !empty($routingOfficeIds) ? end($routingOfficeIds) : $request->destination_office_id;
+                $destinationOfficeId = !empty($routingOfficeIds) ? end($routingOfficeIds) : ($request->destination_office_id ?? $request->final_office_id);
                 $activeReceiverId = !empty($routingUserIds) ? $routingUserIds[0] : null;
 
                 $destinationOffices = [];
@@ -345,28 +345,35 @@ class DocumentController extends Controller
 
                 ActivityLog::log('Document Created', $document->id, ['filename' => $file->getClientOriginalName(), 'file_hash' => $fileHash]);
 
-                // 10. Notifications: Notify Uploader, Active Receiver, and Admins
-                // 1. Notify Uploader
-                if ($uploader) {
-                    $uploader->notify(new \App\Notifications\DocumentRoutedNotification($document, $senderName, 'uploader'));
-                }
-
-                // Get final recipient ID
-                $finalReceiverId = !empty($routingUserIds) ? end($routingUserIds) : null;
-
-                // 2. Notify Active Receiver
-                if ($activeReceiverId) {
-                    $receiver = User::find($activeReceiverId);
-                    if ($receiver) {
-                        $receiver->notify(new \App\Notifications\DocumentRoutedNotification($document, $senderName, 'receiver', null));
-                        ActivityLog::log('Routed Notification Sent', $document->id, ['recipient' => $receiver->email, 'email_sent' => true]);
+                // 10. Notifications: Notify Uploader, Active Receiver, and Admins (safely handled so mail transport errors do not abort document upload)
+                try {
+                    // 1. Notify Uploader
+                    if ($uploader) {
+                        $uploader->notify(new \App\Notifications\DocumentRoutedNotification($document, $senderName, 'uploader'));
                     }
-                }
 
-                // 3. Notify Administrators
-                $admins = User::where('role', 'ADMIN')->get();
-                foreach ($admins as $admin) {
-                    $admin->notify(new \App\Notifications\DocumentRoutedNotification($document, $senderName, 'admin'));
+                    // Get final recipient ID
+                    $finalReceiverId = !empty($routingUserIds) ? end($routingUserIds) : null;
+
+                    // 2. Notify Active Receiver
+                    if ($activeReceiverId) {
+                        $receiver = User::find($activeReceiverId);
+                        if ($receiver) {
+                            $receiver->notify(new \App\Notifications\DocumentRoutedNotification($document, $senderName, 'receiver', null));
+                            ActivityLog::log('Routed Notification Sent', $document->id, ['recipient' => $receiver->email, 'email_sent' => true]);
+                        }
+                    }
+
+                    // 3. Notify Administrators
+                    $admins = User::where('role', 'ADMIN')->get();
+                    foreach ($admins as $admin) {
+                        $admin->notify(new \App\Notifications\DocumentRoutedNotification($document, $senderName, 'admin'));
+                    }
+                } catch (\Exception $ne) {
+                    \Log::warning('Document notification dispatch encountered an issue: ' . $ne->getMessage(), [
+                        'document_id' => $document->id,
+                        'exception'   => $ne->getMessage(),
+                    ]);
                 }
 
                 if ($request->ajax() || $request->wantsJson()) {
@@ -384,7 +391,10 @@ class DocumentController extends Controller
         } catch (\Exception $e) {
             \Log::error('Document Upload Exception: ' . $e->getMessage(), [
                 'trace' => $e->getTraceAsString(),
-                'user_id' => session('user_id')
+                'user_id' => session('user_id'),
+                'file_name' => $request->hasFile('file') ? $request->file('file')->getClientOriginalName() : null,
+                'file_size' => $request->hasFile('file') ? $request->file('file')->getSize() : null,
+                'request_inputs' => $request->except(['file', 'access_pin'])
             ]);
             if ($request->ajax() || $request->wantsJson()) {
                 return response()->json(['success' => false, 'message' => 'Upload failed: ' . $e->getMessage()], 500);

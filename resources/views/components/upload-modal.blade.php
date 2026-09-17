@@ -244,6 +244,12 @@
         height: 28px !important;
         padding: 0 !important;
     }
+    .bg-slate-100 {
+        background-color: #f1f5f9 !important;
+    }
+    .text-slate-600 {
+        color: #475569 !important;
+    }
 </style>
 
 <div class="modal fade" id="uploadModal" tabindex="-1">
@@ -497,7 +503,7 @@
                             <div class="card p-4 border text-start mb-4 confidential-card" id="confidentialCardWrapper">
                                 <div class="d-flex align-items-center justify-content-between mb-3">
                                     <h6 class="fw-bold mb-0" style="font-size:13.5px;"><i class="bi bi-shield-lock text-primary me-1"></i> Security &amp; Permissions</h6>
-                                    <span class="badge bg-slate-100 text-slate-600 border" style="font-size:10px;">Optional</span>
+                                    <span class="badge bg-slate-100 text-slate-600 border" style="font-size:10px; color: #475569 !important; background-color: #f1f5f9 !important;">Optional</span>
                                 </div>
                                 <div class="form-check form-switch mb-3">
                                     <input class="form-check-input" type="checkbox" name="is_confidential" id="confidentialToggle" value="1">
@@ -991,6 +997,7 @@
         xhr.open('POST', documentUploadForm.action, true);
         xhr.setRequestHeader('X-CSRF-TOKEN', document.querySelector('meta[name="csrf-token"]').content);
         xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+        xhr.setRequestHeader('Accept', 'application/json');
 
         // Inject routing sequence hops into form data
         formData.delete('routing_office_ids[]');
@@ -1008,6 +1015,9 @@
         // Append Final Destination at the end of the routing hops
         const finalOffice = document.getElementById('finalOfficeSelect').value;
         const finalReceiver = document.getElementById('finalReceiverSelect').value;
+        if (finalOffice) {
+            formData.append('destination_office_id', finalOffice);
+        }
         if (finalOffice && finalReceiver) {
             formData.append('routing_office_ids[]', finalOffice);
             formData.append('routing_user_ids[]', finalReceiver);
@@ -1064,10 +1074,20 @@
                     const response = JSON.parse(xhr.responseText);
                     if (response.errors) {
                         errMsg = Object.values(response.errors).flat().join('\n');
-                    } else {
-                        errMsg = response.message || errMsg;
+                    } else if (response.message) {
+                        errMsg = response.message;
                     }
-                } catch(e) {}
+                } catch(e) {
+                    if (xhr.status === 413) {
+                        errMsg = 'File size exceeds server upload limit. Please upload a file smaller than 10MB.';
+                    } else if (xhr.status === 419) {
+                        errMsg = 'CSRF session expired. Please refresh the page and try again.';
+                    } else if (xhr.status === 500) {
+                        errMsg = 'Server error during upload. Please check server logs.';
+                    } else if (xhr.statusText) {
+                        errMsg = 'Upload failed: ' + xhr.statusText;
+                    }
+                }
                 showNotification(errMsg, 'danger');
             }
         };
@@ -1100,13 +1120,33 @@
                 const zone = document.getElementById('uploadZone');
                 if (zone) zone.classList.add('is-invalid-field');
                 const err = document.getElementById('validation-file');
-                if (err) err.style.display = 'block';
+                if (err) {
+                    err.textContent = 'Please select a file to upload.';
+                    err.style.display = 'block';
+                }
+            } else if (file.files[0].size > 10 * 1024 * 1024) {
+                isValid = false;
+                const zone = document.getElementById('uploadZone');
+                if (zone) zone.classList.add('is-invalid-field');
+                const err = document.getElementById('validation-file');
+                if (err) {
+                    err.textContent = 'File size must not exceed 10MB.';
+                    err.style.display = 'block';
+                }
             }
 
             if (!title || !title.value.trim()) {
                 isValid = false;
                 if (title) title.classList.add('is-invalid-field');
                 const err = document.getElementById('validation-title');
+                if (err) err.style.display = 'block';
+            }
+
+            const description = document.getElementById('descriptionField');
+            if (!description || !description.value.trim()) {
+                isValid = false;
+                if (description) description.classList.add('is-invalid-field');
+                const err = document.getElementById('validation-description');
                 if (err) err.style.display = 'block';
             }
 
