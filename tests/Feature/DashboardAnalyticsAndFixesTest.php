@@ -196,4 +196,66 @@ class DashboardAnalyticsAndFixesTest extends TestCase
         $view->assertSee('btn-close position-absolute top-0 end-0', false);
         $view->assertSee('data-bs-dismiss="modal"', false);
     }
+
+    /**
+     * Test 6: Security & Access Counters is converted to a chart and excludes OTP verifications.
+     */
+    public function test_security_and_access_is_chart_and_omits_otp_verifications(): void
+    {
+        $response = $this->actingAsAdmin()->get(route('dashboard'));
+
+        $response->assertStatus(200);
+        $response->assertSee('id="securityChart"', false);
+        $response->assertSee('System Security & Access', false);
+        $response->assertSee('Document File Views', false);
+        $response->assertSee('Approval Events', false);
+        $response->assertSee('Routing & Transit Movements', false);
+        // Old text counter in security counters section is gone
+        $response->assertDontSee('System Security & Access Counters', false);
+        $response->assertDontSee('Active OTP/PIN Verifications:', false);
+    }
+
+    /**
+     * Test 7: Dashboard layout places analytics and charts above Recent Activity Logs.
+     */
+    public function test_dashboard_order_places_charts_above_recent_activity_logs(): void
+    {
+        $response = $this->actingAsAdmin()->get(route('dashboard'));
+
+        $response->assertStatus(200);
+        $content = $response->getContent();
+
+        $qrTrendPos = strpos($content, 'id="qrTrendChart"');
+        $securityChartPos = strpos($content, 'id="securityChart"');
+        $calGridPos = strpos($content, 'id="calDaysGrid"');
+        $officeChartPos = strpos($content, 'id="officeChart"');
+        $recentActivityPos = strpos($content, 'Recent Activity Logs');
+
+        $this->assertNotFalse($qrTrendPos);
+        $this->assertNotFalse($securityChartPos);
+        $this->assertNotFalse($calGridPos);
+        $this->assertNotFalse($officeChartPos);
+        $this->assertNotFalse($recentActivityPos);
+
+        // All charts must appear BEFORE Recent Activity Logs
+        $this->assertLessThan($recentActivityPos, $qrTrendPos, 'qrTrendChart should be above Recent Activity Logs');
+        $this->assertLessThan($recentActivityPos, $securityChartPos, 'securityChart should be above Recent Activity Logs');
+        $this->assertLessThan($recentActivityPos, $calGridPos, 'calDaysGrid should be above Recent Activity Logs');
+        $this->assertLessThan($recentActivityPos, $officeChartPos, 'officeChart should be above Recent Activity Logs');
+    }
+
+    /**
+     * Test 8: QR scanner view includes image upload container, supported image formats, and jsQR decoder.
+     */
+    public function test_qr_scanner_has_image_upload_with_supported_formats(): void
+    {
+        $response = $this->actingAsAdmin()->get(route('qr.index'));
+
+        $response->assertStatus(200);
+        $response->assertSee('id="upload-mode"', false);
+        $response->assertSee('id="upload-scanner"', false);
+        $response->assertSee('id="qr-file-input"', false);
+        $response->assertSee('image/png, image/jpeg, image/jpg, image/webp', false);
+        $response->assertSee('jsqr', false);
+    }
 }

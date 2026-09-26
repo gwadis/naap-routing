@@ -287,31 +287,56 @@
 
         @media print {
             @page {
-                size: auto;
-                margin: 0;
+                size: portrait;
+                margin: 6mm;
+            }
+            *, *::before, *::after {
+                box-shadow: none !important;
+                text-shadow: none !important;
             }
             html, body {
                 background: #ffffff !important;
-                padding: 8mm 0 0 0 !important;
+                padding: 0 !important;
                 margin: 0 !important;
                 min-height: 0 !important;
-                height: auto !important;
+                height: 100% !important;
+                max-height: 100vh !important;
                 display: block !important;
                 overflow: hidden !important;
+                page-break-after: avoid !important;
+                break-after: avoid !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
             }
-            .label-card {
-                box-shadow: none !important;
+            body > div {
                 margin: 0 auto !important;
+                padding: 0 !important;
+                width: 100% !important;
+                max-width: 420px !important;
                 page-break-inside: avoid !important;
                 break-inside: avoid !important;
                 page-break-after: avoid !important;
                 break-after: avoid !important;
             }
+            .label-card {
+                box-shadow: none !important;
+                border: 2px solid #1e3a5f !important;
+                margin: 0 auto !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+                page-break-after: avoid !important;
+                break-after: avoid !important;
+                page-break-before: avoid !important;
+                break-before: avoid !important;
+            }
             .print-actions {
                 display: none !important;
+                visibility: hidden !important;
                 height: 0 !important;
+                max-height: 0 !important;
                 padding: 0 !important;
                 margin: 0 !important;
+                overflow: hidden !important;
             }
         }
     </style>

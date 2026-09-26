@@ -12,6 +12,7 @@
     }
 </script>
 <script src="https://cdn.jsdelivr.net/npm/signature_pad@2.3.2/dist/signature_pad.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
     :root {
@@ -404,12 +405,19 @@
                 <div id="upload-mode" style="display: none;">
                     <div class="py-5 px-3 text-center" style="border: 1.5px dashed var(--panel-border); border-radius: var(--radius-lg); background: var(--bg);">
                         <i class="bi bi-image" style="font-size: 2.5rem; color: var(--text-dim); display: block; margin-bottom: 12px;"></i>
-                        <p class="small text-slate-500 mb-3">Upload a QR code photo or screenshot</p>
-                        <input type="file" id="qr-file-input" accept="image/*" style="display: none;">
+                        <p class="small text-slate-500 mb-1">Upload a QR code photo or screenshot</p>
+                        <p class="text-secondary small mb-3" style="font-size: 11px;">Supported formats: PNG, JPG, JPEG, WEBP</p>
+                        <input type="file" id="qr-file-input" accept="image/png, image/jpeg, image/jpg, image/webp" style="display: none;">
                         <button type="button" id="upload-qr-btn" class="btn btn-primary" style="height:36px !important;">
                             <i class="bi bi-search me-1"></i> Select File
                         </button>
+                        <div id="upload-scanner-status" class="mt-3 text-center" style="display: none;">
+                            <span class="loading-spinner me-2"></span>
+                            <span class="small text-muted" id="upload-status-text">Scanning image for QR code...</span>
+                        </div>
                     </div>
+                    <!-- Hidden element for Html5Qrcode file scanner -->
+                    <div id="upload-scanner" style="width: 1px; height: 1px; opacity: 0; position: absolute; pointer-events: none; overflow: hidden;"></div>
                 </div>
             </div>
 
@@ -642,23 +650,178 @@
             const file = e.target.files[0];
             if (!file) return;
 
-            const reader = new FileReader();
-            reader.onload = function(event) {
-                const imageData = event.target.result;
-                // Try to decode QR from image using html5-qrcode
-                if (typeof Html5Qrcode !== 'undefined') {
-                    const html5qrcode = new Html5Qrcode("upload-scanner");
-                    html5qrcode.scanFile(file, true)
-                        .then(decodedText => {
-                            handleQRScan(decodedText);
-                        })
-                        .catch(err => {
-                            console.log("QR decode error:", err);
-                            showAlert('Could not read QR code from image. Please try scanning with camera or upload a clearer image.', 'error');
-                        });
-                }
+            // Reset input value so re-uploading the same file works
+            qrFileInput.value = '';
+
+            // 1. Validation: Allowed formats (PNG, JPG, JPEG, WEBP)
+            const allowedMimes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+            const fileName = (file.name || '').toLowerCase();
+            const hasValidExt = /\.(png|jpe?g|webp)$/i.test(fileName);
+            const hasValidMime = allowedMimes.includes(file.type);
+
+            if (!hasValidMime && !hasValidExt) {
+                showAlert('Invalid file format. Please upload a PNG, JPG, JPEG, or WEBP image.', 'error');
+                return;
+            }
+
+            const statusContainer = document.getElementById('upload-scanner-status');
+            const statusText = document.getElementById('upload-status-text');
+            const uploadBtn = document.getElementById('upload-qr-btn');
+
+            if (statusContainer) {
+                statusContainer.style.display = 'block';
+                if (statusText) statusText.textContent = 'Decoding QR image...';
+            }
+            if (uploadBtn) uploadBtn.disabled = true;
+
+            const resetUploadUI = () => {
+                if (statusContainer) statusContainer.style.display = 'none';
+                if (uploadBtn) uploadBtn.disabled = false;
             };
-            reader.readAsDataURL(file);
+
+            // 2. Validate image integrity (check for corrupted or unreadable images)
+            const img = new Image();
+            const objectUrl = URL.createObjectURL(file);
+
+            img.onerror = function() {
+                URL.revokeObjectURL(objectUrl);
+                resetUploadUI();
+                showAlert('The selected image is corrupted or cannot be read. Please upload a valid image file.', 'error');
+            };
+
+            img.onload = function() {
+                URL.revokeObjectURL(objectUrl);
+
+                // Multi-engine QR decoding:
+                // Engine 1: Html5Qrcode scanFile
+                decodeQrFileWithHtml5(file)
+                    .then(decodedText => {
+                        resetUploadUI();
+                        console.log("QR decoded via Html5Qrcode:", decodedText);
+                        handleQRScan(decodedText);
+                    })
+                    .catch(() => {
+                        // Engine 2: Canvas + jsQR (handles screenshots, crops, downscaling)
+                        decodeQrWithJsQR(img)
+                            .then(decodedText => {
+                                resetUploadUI();
+                                console.log("QR decoded via jsQR:", decodedText);
+                                handleQRScan(decodedText);
+                            })
+                            .catch(err => {
+                                resetUploadUI();
+                                console.warn("All QR decode attempts failed:", err);
+                                showAlert('Could not read QR code from image. Please ensure the QR code is clearly visible and not cut off, or try scanning with the camera.', 'error');
+                            });
+                    });
+            };
+
+            img.src = objectUrl;
+        });
+    }
+
+    function decodeQrFileWithHtml5(file) {
+        return new Promise((resolve, reject) => {
+            if (typeof Html5Qrcode === 'undefined') {
+                return reject(new Error("Html5Qrcode not loaded"));
+            }
+            let scannerEl = document.getElementById('upload-scanner');
+            if (!scannerEl) {
+                scannerEl = document.createElement('div');
+                scannerEl.id = 'upload-scanner';
+                scannerEl.style.cssText = 'width:1px;height:1px;opacity:0;position:absolute;pointer-events:none;';
+                document.body.appendChild(scannerEl);
+            }
+            try {
+                const html5qrcode = new Html5Qrcode("upload-scanner");
+                html5qrcode.scanFile(file, true)
+                    .then(decodedText => {
+                        try { html5qrcode.clear(); } catch(e) {}
+                        if (decodedText && decodedText.trim()) {
+                            resolve(decodedText.trim());
+                        } else {
+                            reject(new Error("Empty decoded result"));
+                        }
+                    })
+                    .catch(() => {
+                        // Retry with renderImage = false
+                        html5qrcode.scanFile(file, false)
+                            .then(decodedText => {
+                                try { html5qrcode.clear(); } catch(e) {}
+                                if (decodedText && decodedText.trim()) {
+                                    resolve(decodedText.trim());
+                                } else {
+                                    reject(new Error("Empty decoded result"));
+                                }
+                            })
+                            .catch(err2 => {
+                                try { html5qrcode.clear(); } catch(e) {}
+                                reject(err2);
+                            });
+                    });
+            } catch (ex) {
+                reject(ex);
+            }
+        });
+    }
+
+    function decodeQrWithJsQR(img) {
+        return new Promise((resolve, reject) => {
+            if (typeof jsQR === 'undefined') {
+                return reject(new Error("jsQR library not available"));
+            }
+
+            try {
+                // Try decoding at multiple scales if needed (original, max 1000px, max 800px)
+                const scales = [1.0];
+                const maxDim = Math.max(img.width, img.height);
+                if (maxDim > 1000) {
+                    scales.push(1000 / maxDim);
+                }
+                if (maxDim > 1600) {
+                    scales.push(800 / maxDim);
+                }
+
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+                for (const scale of scales) {
+                    canvas.width = Math.max(1, Math.round(img.width * scale));
+                    canvas.height = Math.max(1, Math.round(img.height * scale));
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    
+                    let code = jsQR(imageData.data, imageData.width, imageData.height, {
+                        inversionAttempts: "attemptBoth"
+                    });
+
+                    if (code && code.data && code.data.trim()) {
+                        return resolve(code.data.trim());
+                    }
+                }
+
+                // If not found, try a center crop (for mobile screenshots where QR is in the center)
+                if (img.width > 200 && img.height > 200) {
+                    const cropW = Math.round(img.width * 0.75);
+                    const cropH = Math.round(img.height * 0.75);
+                    const cropX = Math.round((img.width - cropW) / 2);
+                    const cropY = Math.round((img.height - cropH) / 2);
+
+                    canvas.width = cropW;
+                    canvas.height = cropH;
+                    ctx.drawImage(img, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+                    const cropData = ctx.getImageData(0, 0, cropW, cropH);
+                    const cropCode = jsQR(cropData.data, cropW, cropH, { inversionAttempts: "attemptBoth" });
+                    if (cropCode && cropCode.data && cropCode.data.trim()) {
+                        return resolve(cropCode.data.trim());
+                    }
+                }
+
+                reject(new Error("No QR code detected by jsQR"));
+            } catch (err) {
+                reject(err);
+            }
         });
     }
 
