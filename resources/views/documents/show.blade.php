@@ -518,7 +518,7 @@
                         <!-- 1. Profile Signature Preview -->
                         <div id="sigProfileContainer" class="p-3 bg-light rounded text-center border">
                             @if(auth()->user() && auth()->user()->signature)
-                                <img src="{{ asset('storage/' . auth()->user()->signature) }}" alt="Profile Signature" style="max-height: 80px; background:white; padding:4px; border:1px solid #ddd; border-radius:4px;">
+                                <img src="{{ asset('storage/' . auth()->user()->signature) }}" alt="Profile Signature" class="signature-img" style="max-height: 80px; background:white; padding:4px; border:1px solid #ddd; border-radius:4px;">
                                 <div class="small text-muted mt-1">Using your saved profile signature.</div>
                             @else
                                 <span class="text-danger small">No saved profile signature. Please choose another option or save one in profile.</span>
@@ -802,7 +802,7 @@
                                     @if($routing->signature)
                                     <div class="mt-2">
                                         <small class="text-muted d-block" style="font-size:0.65rem; text-transform:uppercase; letter-spacing:0.08em; font-weight:700;">Signature Proof</small>
-                                        <img src="{{ str_contains($routing->signature, 'data:image') ? $routing->signature : asset('storage/' . $routing->signature) }}" style="max-height:45px; border-radius:4px; background:white; padding:2px; border:1px solid var(--panel-border);">
+                                        <img src="{{ str_contains($routing->signature, 'data:image') ? $routing->signature : asset('storage/' . $routing->signature) }}" alt="Signature Proof" class="signature-img" style="max-height:45px; border-radius:4px; background:white; padding:2px; border:1px solid var(--panel-border);">
                                     </div>
                                     @endif
                                 </div>{{-- /card-body --}}
@@ -862,7 +862,7 @@
                                 <strong>Verification:</strong> <span class="text-success fw-bold"><i class="bi bi-patch-check-fill"></i> Digital Signature Verified</span>
                                 @if(isset($log->meta['signature']) && $log->meta['signature'])
                                     <br><strong>Signature Proof:</strong> <br>
-                                    <img src="{{ str_contains($log->meta['signature'], 'data:image') ? $log->meta['signature'] : asset('storage/' . $log->meta['signature']) }}" style="max-height:40px; border-radius:4px; background:white; padding:2px; border:1px solid var(--panel-border); margin-top:4px;">
+                                    <img src="{{ str_contains($log->meta['signature'], 'data:image') ? $log->meta['signature'] : asset('storage/' . $log->meta['signature']) }}" alt="Signature Proof" class="signature-img" style="max-height:40px; border-radius:4px; background:white; padding:2px; border:1px solid var(--panel-border); margin-top:4px;">
                                 @endif
                                 @if(isset($log->meta['notes']) && $log->meta['notes'])
                                     <br><strong>Remarks:</strong> <span class="fst-italic text-dark">"{{ $log->meta['notes'] }}"</span>
@@ -872,7 +872,7 @@
                                 <strong>Department:</strong> {{ $log->meta['department'] ?? 'System' }} <br>
                                 @if(isset($log->meta['signature']) && $log->meta['signature'])
                                     <br><strong>Signature Proof:</strong> <br>
-                                    <img src="{{ str_contains($log->meta['signature'], 'data:image') ? $log->meta['signature'] : asset('storage/' . $log->meta['signature']) }}" style="max-height:40px; border-radius:4px; background:white; padding:2px; border:1px solid var(--panel-border); margin-top:4px;">
+                                    <img src="{{ str_contains($log->meta['signature'], 'data:image') ? $log->meta['signature'] : asset('storage/' . $log->meta['signature']) }}" alt="Signature Proof" class="signature-img" style="max-height:40px; border-radius:4px; background:white; padding:2px; border:1px solid var(--panel-border); margin-top:4px;">
                                 @endif
                                 @if(isset($log->meta['notes']) && $log->meta['notes'])
                                     <br><strong>Remarks:</strong> <span class="fst-italic text-dark">"{{ $log->meta['notes'] }}"</span>
@@ -1048,7 +1048,7 @@
         if (workflowCanvas && typeof SignaturePad !== 'undefined') {
             workflowSigPad = new SignaturePad(workflowCanvas, {
                 backgroundColor: 'rgba(255, 255, 255, 0)',
-                penColor: 'rgb(0, 0, 0)'
+                penColor: '#000000'
             });
 
             document.getElementById('clearWorkflowSigBtn')?.addEventListener('click', function() {
@@ -1123,7 +1123,7 @@
         if (modalCanvas && typeof SignaturePad !== 'undefined') {
             modalSigPad = new SignaturePad(modalCanvas, {
                 backgroundColor: 'rgba(255, 255, 255, 0)',
-                penColor: 'rgb(0, 0, 0)'
+                penColor: '#000000'
             });
 
             document.getElementById('clearModalSigBtn')?.addEventListener('click', function() {

@@ -181,8 +181,8 @@ class QRController extends Controller
                         })
                         ->update(['is_used' => true, 'verification_status' => 'expired']);
 
-                    // Generate new PIN
-                    $otpDuration = (int) (\DB::table('settings')->where('key', 'otp_expiry')->value('value') ?? 10);
+                    // Generate new PIN (strictly 5 minutes / 300 seconds validity)
+                    $otpDuration = 5;
                     $pinCode = (string) random_int(100000, 999999);
                     \App\Models\DocumentPin::create([
                         'document_id' => $document->id,
@@ -240,7 +240,8 @@ class QRController extends Controller
                                     })
                                     ->update(['is_used' => true, 'verification_status' => 'expired']);
 
-                                $otpDuration = (int) (\DB::table('settings')->where('key', 'otp_expiry')->value('value') ?? 10);
+                                // Strictly 5 minutes / 300 seconds validity
+                                $otpDuration = 5;
                                 $pinCode = (string) random_int(100000, 999999);
                                 \App\Models\DocumentPin::create([
                                     'document_id' => $document->id,
@@ -296,12 +297,55 @@ class QRController extends Controller
                             ->latest()
                             ->first();
 
+                        $submittedPinRecord = \App\Models\DocumentPin::where('document_id', $document->id)
+                            ->where(function($q) use ($recipientId) {
+                                $q->where('recipient_id', $recipientId)
+                                  ->orWhere('user_id', $recipientId);
+                            })
+                            ->where(function($q) use ($request) {
+                                $q->where('pin', $request->pin)
+                                  ->orWhere('pin_code', $request->pin);
+                            })
+                            ->latest()
+                            ->first();
+
+                        if ($submittedPinRecord && $submittedPinRecord->is_used) {
+                            \Log::info("Confidential PIN verification failed: PIN already used for document ID {$document->id}");
+                            ActivityLog::log('Confidential PIN Verification Failed', $document->id, ['user' => $user?->name ?? 'Guest', 'reason' => 'OTP already used']);
+                            return response()->json([
+                                'success' => false,
+                                'message' => 'OTP already used. Please request a new OTP.',
+                                'error' => true
+                            ], 422);
+                        }
+
+                        if ($submittedPinRecord && $submittedPinRecord->expires_at && $submittedPinRecord->expires_at->isPast()) {
+                            \Log::info("Confidential PIN verification failed: submitted PIN expired for document ID {$document->id}");
+                            $submittedPinRecord->update(['verification_status' => 'expired']);
+                            ActivityLog::log('Confidential PIN Verification Failed', $document->id, ['user' => $user?->name ?? 'Guest', 'reason' => 'PIN expired']);
+                            return response()->json([
+                                'success' => false,
+                                'message' => 'The PIN has expired. Please request a new PIN.',
+                                'error' => true
+                            ], 422);
+                        }
+
                         if (!$activePin) {
                             \Log::info("Confidential PIN verification failed: no active PIN found for document ID {$document->id}");
                             ActivityLog::log('Confidential PIN Verification Failed', $document->id, ['user' => $user?->name ?? 'Guest', 'reason' => 'No active PIN found']);
                             return response()->json([
                                 'success' => false,
                                 'message' => 'No active PIN found. Please request a new PIN.',
+                                'error' => true
+                            ], 422);
+                        }
+
+                        if ($submittedPinRecord && $submittedPinRecord->id !== $activePin->id) {
+                            \Log::info("Confidential PIN verification failed: submitted PIN is not the latest generated OTP for document ID {$document->id}");
+                            ActivityLog::log('Confidential PIN Verification Failed', $document->id, ['user' => $user?->name ?? 'Guest', 'reason' => 'Not latest generated OTP']);
+                            return response()->json([
+                                'success' => false,
+                                'message' => 'This code is not the latest generated OTP. Please use the newest code sent to your email.',
                                 'error' => true
                             ], 422);
                         }

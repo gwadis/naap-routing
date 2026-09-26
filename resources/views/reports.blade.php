@@ -44,7 +44,7 @@
             <a href="{{ route('reports.export', array_merge(request()->query(), ['format' => 'excel'])) }}" class="btn btn-success text-white rounded-pill px-3" style="height: 40px !important; display: inline-flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.85rem; border: none;">
                 <i class="bi bi-file-earmark-excel me-2"></i>Export Excel
             </a>
-            <a href="{{ route('reports.export', array_merge(request()->query(), ['format' => 'pdf'])) }}" target="_blank" class="btn btn-danger text-white rounded-pill px-3" style="height: 40px !important; display: inline-flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.85rem; border: none; background: #dc2626 !important;">
+            <a href="{{ route('reports.export', array_merge(request()->query(), ['format' => 'pdf'])) }}" target="_blank" class="btn btn-primary text-white rounded-pill px-3" style="height: 40px !important; display: inline-flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.85rem; border: none; background: #1D4ED8 !important;">
                 <i class="bi bi-file-pdf me-2"></i>Print PDF
             </a>
         </div>

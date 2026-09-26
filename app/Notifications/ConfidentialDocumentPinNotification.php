@@ -40,7 +40,7 @@ class ConfidentialDocumentPinNotification extends Notification
               . "Origin Office: {$originOffice}\n"
               . "Destination Office: {$destinationOffice}\n\n"
               . "Your Access PIN:\n"
-              . "{$this->pin}\n\n"
+              . "<b>{$this->pin}</b>\n\n"
               . "Use this PIN together with the document QR code (or the Unlock Document page) to securely access the document.\n\n"
               . "Please do not share this PIN with anyone.\n\n"
               . "Regards,\n"

@@ -22,7 +22,14 @@ class SmtpProvider implements EmailProviderInterface
             $fromAddress = config('mail.from.address') ?: config('services.email.from_address');
             $fromName = config('mail.from.name') ?: config('services.email.from_name', config('app.name'));
 
-            Mail::html(nl2br(e($body)), function ($message) use ($to, $subject, $fromAddress, $fromName) {
+            $escaped = e($body);
+            $htmlBody = str_replace(
+                ['&lt;b&gt;', '&lt;/b&gt;', '&lt;strong&gt;', '&lt;/strong&gt;'],
+                ['<b>', '</b>', '<strong>', '</strong>'],
+                $escaped
+            );
+
+            Mail::html(nl2br($htmlBody), function ($message) use ($to, $subject, $fromAddress, $fromName) {
                 $message->to($to)
                         ->subject($subject);
 

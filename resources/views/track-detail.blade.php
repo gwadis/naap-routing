@@ -249,6 +249,7 @@
         max-width: 150px;
         height: auto;
         border-radius: 4px;
+        filter: grayscale(100%) contrast(150%);
     }
 
     @media (max-width: 768px) {
@@ -398,7 +399,7 @@
                             <span class="proof-value">{{ $routing->received_at?->format('M j, Y H:i') ?? 'N/A' }}</span>
                         </div>
                         <div class="signature-preview">
-                            <img src="{{ str_contains($routing->signature, 'data:image') ? $routing->signature : asset('storage/' . $routing->signature) }}" alt="Signature Proof" onerror="this.style.display='none'">
+                            <img src="{{ str_contains($routing->signature, 'data:image') ? $routing->signature : asset('storage/' . $routing->signature) }}" alt="Signature Proof" class="signature-img" onerror="this.style.display='none'">
                         </div>
                     </div>
                     @endif
@@ -438,7 +439,7 @@
                             <span class="proof-value">{{ $document->qr_scanned_at?->format('M j, Y H:i:s') ?? 'N/A' }}</span>
                         </div>
                         <div class="signature-preview">
-                            <img src="{{ str_contains($document->receiver_signature, 'data:image') ? $document->receiver_signature : asset('storage/' . $document->receiver_signature) }}" alt="Receiver Signature" onerror="this.style.display='none'">
+                            <img src="{{ str_contains($document->receiver_signature, 'data:image') ? $document->receiver_signature : asset('storage/' . $document->receiver_signature) }}" alt="Receiver Signature" class="signature-img" onerror="this.style.display='none'">
                         </div>
                     </div>
                     @endif

@@ -176,7 +176,7 @@
                     </button>
                 </div>
                 <div style="border: 1px solid var(--panel-border); border-radius: 12px; padding: 16px; margin-bottom: 16px; text-align: center; background: var(--bg);">
-                    <img src="{{ asset('storage/' . $user->signature) }}" alt="Your Signature" style="max-width: 100%; max-height: 120px; border-radius: 8px;">
+                    <img src="{{ asset('storage/' . $user->signature) }}" alt="Your Signature" class="signature-img" style="max-width: 100%; max-height: 120px; border-radius: 8px;">
                     <p class="small text-secondary mt-2 mb-0">Your current digital signature</p>
                 </div>
                 @endif
@@ -269,7 +269,7 @@
         const pos = getMousePos(e);
         ctx.lineWidth = 2;
         ctx.lineCap = 'round';
-        ctx.strokeStyle = '#22d3ee';
+        ctx.strokeStyle = '#000000';
         ctx.lineTo(pos.x, pos.y);
         ctx.stroke();
         ctx.beginPath();

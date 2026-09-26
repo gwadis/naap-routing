@@ -1031,7 +1031,7 @@
 
         signaturePad = new SignaturePad(canvas, {
             backgroundColor: 'white',
-            penColor: '#1e293b'
+            penColor: '#000000'
         });
 
         // Resize immediately now (section may already be visible if pre-scanned)

@@ -117,7 +117,7 @@ class UserController extends Controller
                 $subject = "Login Verification Code";
                 $body = "Hello {$user->name},\n\n"
                       . "Your verification code is:\n\n"
-                      . "{$otp}\n\n"
+                      . "<b>{$otp}</b>\n\n"
                       . "This code expires in 5 minutes.\n\n"
                       . "If you did not request this login, you may safely ignore this email.\n\n"
                       . "Regards,\n"
@@ -686,7 +686,7 @@ class UserController extends Controller
             $subject = "Login Verification Code";
             $body = "Hello {$user->name},\n\n"
                   . "Your verification code is:\n\n"
-                  . "{$otp}\n\n"
+                  . "<b>{$otp}</b>\n\n"
                   . "This code expires in 5 minutes.\n\n"
                   . "If you did not request this login, simply ignore this email.\n\n"
                   . "Regards,\n"

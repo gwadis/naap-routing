@@ -51,7 +51,7 @@ class BrevoProvider implements EmailProviderInterface
                         ['email' => $to]
                     ],
                     'subject' => $subject,
-                    'htmlContent' => $body,
+                    'htmlContent' => (str_contains($body, '<br') || str_contains($body, '<p') || str_contains($body, '<div')) ? $body : nl2br($body),
                 ]);
 
             $status = $response->status();

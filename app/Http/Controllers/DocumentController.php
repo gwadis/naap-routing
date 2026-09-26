@@ -986,7 +986,7 @@ class DocumentController extends Controller
             'email' => $recipient->email,
             'pin' => $otp,
             'pin_code' => $otp,
-            'expires_at' => now()->addMinutes(10),
+            'expires_at' => now()->addMinutes(5),
             'is_used' => false,
             'attempts' => 0,
             'verification_status' => 'pending',

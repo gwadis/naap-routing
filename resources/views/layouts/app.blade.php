@@ -314,6 +314,24 @@
             color: #FFFFFF !important;
         }
 
+        /* E-Signature Black Color Rendering (#000000) */
+        .signature-preview img,
+        .signature-img,
+        img[alt*="Signature"],
+        img[alt*="signature"] {
+            filter: grayscale(100%) contrast(150%);
+        }
+        @media print {
+            .signature-preview img,
+            .signature-img,
+            img[alt*="Signature"],
+            img[alt*="signature"] {
+                filter: grayscale(100%) contrast(150%) !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+        }
+
         /* CARDS - Modern Minimalist Stripe */
         .card, .doc-card, .glass-card, .chart-card {
             background: var(--panel) !important;
