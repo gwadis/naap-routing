@@ -116,28 +116,28 @@
     </div>
 
     <div class="row g-3 mb-4">
-        <div class="col-md-3">
-            <div class="glass-card text-center">
+        <div class="col-md-3 col-sm-6">
+            <div class="glass-card text-center h-100 d-flex flex-column justify-content-center" style="min-height: 110px;">
                 <div class="stat-label">Total Documents</div>
                 <div class="stat-value">{{ number_format($summary['total_processed']) }}</div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="glass-card text-center">
+        <div class="col-md-3 col-sm-6">
+            <div class="glass-card text-center h-100 d-flex flex-column justify-content-center" style="min-height: 110px;">
                 <div class="stat-label">Avg Processing Time</div>
-                <div class="stat-value" style="color: var(--accent-cyan) !important;">{{ $summary['avg_time'] }}h</div>
+                <div class="stat-value" style="color: var(--accent-cyan) !important;">{{ is_numeric($summary['avg_time']) ? $summary['avg_time'] . 'h' : 'N/A' }}</div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="glass-card text-center">
+        <div class="col-md-3 col-sm-6">
+            <div class="glass-card text-center h-100 d-flex flex-column justify-content-center" style="min-height: 110px;">
                 <div class="stat-label">Most Active Office</div>
-                <div class="stat-value" style="color: var(--accent-purple) !important;">{{ $summary['most_active'] }}</div>
+                <div class="stat-value text-truncate px-2" title="{{ $summary['most_active'] }}" style="color: var(--accent-purple) !important; font-size: 1.25rem;">{{ $summary['most_active'] }}</div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="glass-card text-center">
+        <div class="col-md-3 col-sm-6">
+            <div class="glass-card text-center h-100 d-flex flex-column justify-content-center" style="min-height: 110px;">
                 <div class="stat-label">System QR Scans</div>
-                <div class="stat-value">{{ number_format($summary['qr_scans']) }}</div>
+                <div class="stat-value">{{ is_numeric($summary['qr_scans']) ? number_format($summary['qr_scans']) : $summary['qr_scans'] }}</div>
             </div>
         </div>
     </div>

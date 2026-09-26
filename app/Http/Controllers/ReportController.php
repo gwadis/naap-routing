@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Models\{Document, Office, User, Department};
+use App\Models\{Document, Office, User, Department, ActivityLog};
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -52,22 +52,47 @@ class ReportController extends Controller
             $totalCount = $documents->count();
 
             // Calculate average processing time
-            $completedDocs = $documents->where('status', 'Completed')->whereNotNull('received_at');
-            $avgTime = 0;
-            if ($completedDocs->isNotEmpty()) {
+            // Strictly enforce chronological order: created_at < received_at
+            // Do NOT use ABS(). Only calculate if valid chronological timestamps exist; otherwise display 'N/A'
+            $validCompletedDocs = $documents->filter(function($doc) {
+                return $doc->status === 'Completed'
+                    && !empty($doc->created_at)
+                    && !empty($doc->received_at)
+                    && $doc->received_at->gt($doc->created_at);
+            });
+
+            if ($validCompletedDocs->isNotEmpty()) {
                 $totalMinutes = 0;
-                foreach ($completedDocs as $doc) {
-                    $totalMinutes += $doc->created_at->diffInMinutes($doc->received_at);
+                foreach ($validCompletedDocs as $doc) {
+                    $diff = $doc->created_at->diffInMinutes($doc->received_at, false);
+                    if ($diff > 0) {
+                        $totalMinutes += $diff;
+                    }
                 }
-                $avgTime = round(($totalMinutes / $completedDocs->count()) / 60, 1);
+                $avgTime = round(($totalMinutes / $validCompletedDocs->count()) / 60, 1);
+            } else {
+                $avgTime = 'N/A';
             }
+
+            // QR scan counts strictly from actual successful QR scan logs
+            $scanQuery = ActivityLog::where(function($q) {
+                $q->where('action', 'like', '%QR Scanned%')
+                  ->orWhere('action', 'QR Code Verified');
+            });
+            if ($request->filled('from_date')) {
+                $scanQuery->whereDate('created_at', '>=', \Carbon\Carbon::parse($request->from_date)->startOfDay());
+            }
+            if ($request->filled('to_date')) {
+                $scanQuery->whereDate('created_at', '<=', \Carbon\Carbon::parse($request->to_date)->endOfDay());
+            }
+            $qrScansTotal = (clone $scanQuery)->count();
 
             // Stat summaries
             $summary = [
                 'total_processed' => $totalCount,
                 'avg_time' => $avgTime,
                 'most_active' => Office::withCount('documents')->orderBy('documents_count', 'desc')->first()?->name ?? 'N/A',
-                'qr_scans' => DB::table('activity_logs')->count()
+                'qr_scans' => $qrScansTotal
             ];
 
             // Filter options for dropdowns
@@ -81,19 +106,45 @@ class ReportController extends Controller
             $officeNames = $offices->pluck('name')->toArray();
             $processingTimes = $offices->pluck('documents_count')->toArray();
 
-            // Daily scan activity history
-            $scans = DB::table('activity_logs')
-                ->select(DB::raw('DATE(created_at) as date'), DB::raw('count(*) as count'))
-                ->groupBy('date')
-                ->orderBy('date', 'desc')
-                ->take(5)
-                ->get()
-                ->reverse();
+            // Daily scan activity history from real QR scan logs
+            $baseScanQuery = ActivityLog::where(function($q) {
+                $q->where('action', 'like', '%QR Scanned%')
+                  ->orWhere('action', 'QR Code Verified');
+            });
 
-            $days = $scans->map(function ($s) {
-                return date('D', strtotime($s->date));
-            })->toArray();
-            $scanCounts = $scans->pluck('count')->toArray();
+            if ($request->filled('from_date')) {
+                $baseScanQuery->whereDate('created_at', '>=', \Carbon\Carbon::parse($request->from_date)->startOfDay());
+            }
+            if ($request->filled('to_date')) {
+                $baseScanQuery->whereDate('created_at', '<=', \Carbon\Carbon::parse($request->to_date)->endOfDay());
+            }
+
+            $scansByDate = (clone $baseScanQuery)
+                ->select(DB::raw('DATE(created_at) as scan_date'), DB::raw('COUNT(*) as total_scans'))
+                ->groupBy('scan_date')
+                ->orderBy('scan_date', 'asc')
+                ->get()
+                ->pluck('total_scans', 'scan_date')
+                ->toArray();
+
+            $days = [];
+            $scanCounts = [];
+
+            if (!empty($scansByDate)) {
+                // If scan records exist, show each day accurately
+                $datesToShow = count($scansByDate) > 14 ? array_slice($scansByDate, -14, 14, true) : $scansByDate;
+                foreach ($datesToShow as $dateStr => $count) {
+                    $days[] = \Carbon\Carbon::parse($dateStr)->format('M d');
+                    $scanCounts[] = (int) $count;
+                }
+            } else {
+                // Gracefully show last 7 days with 0 counts
+                for ($i = 6; $i >= 0; $i--) {
+                    $d = now()->subDays($i);
+                    $days[] = $d->format('M d');
+                    $scanCounts[] = 0;
+                }
+            }
 
             // Weekly document uploads flow
             $flowData = [];
@@ -104,28 +155,28 @@ class ReportController extends Controller
                 $flowData[] = Document::whereDate('created_at', $date->toDateString())->count();
             }
 
-                    $isSqlite = DB::connection()->getDriverName() === 'sqlite';
-                    $avgHoursRaw = $isSqlite
-                        ? 'ROUND(AVG(CASE WHEN document_routings.received_at IS NOT NULL THEN (julianday(document_routings.received_at) - julianday(document_routings.created_at)) * 24 ELSE NULL END), 1) as avg_processing_hours'
-                        : 'ROUND(AVG(CASE WHEN document_routings.received_at IS NOT NULL THEN TIMESTAMPDIFF(MINUTE, document_routings.created_at, document_routings.received_at) ELSE NULL END) / 60, 1) as avg_processing_hours';
+            $isSqlite = DB::connection()->getDriverName() === 'sqlite';
+            $avgHoursRaw = $isSqlite
+                ? 'ROUND(AVG(CASE WHEN document_routings.received_at IS NOT NULL AND document_routings.received_at > document_routings.created_at THEN (julianday(document_routings.received_at) - julianday(document_routings.created_at)) * 24 ELSE NULL END), 1) as avg_processing_hours'
+                : 'ROUND(AVG(CASE WHEN document_routings.received_at IS NOT NULL AND document_routings.received_at > document_routings.created_at THEN TIMESTAMPDIFF(MINUTE, document_routings.created_at, document_routings.received_at) ELSE NULL END) / 60, 1) as avg_processing_hours';
 
-                    $officeSlaStats = DB::table('document_routings')
-                        ->join('offices', 'document_routings.to_office_id', '=', 'offices.id')
-                        ->select(
-                            'offices.name as office_name',
-                            DB::raw('COUNT(*) as total_steps'),
-                            DB::raw('SUM(CASE WHEN document_routings.status IN ("Approved", "Completed", "Accepted", "Endorsed") THEN 1 ELSE 0 END) as completed_steps'),
-                            DB::raw('SUM(CASE WHEN document_routings.status IN ("Approved", "Completed", "Accepted", "Endorsed") AND document_routings.received_at > document_routings.sla_due_at THEN 1 ELSE 0 END) as delayed_steps'),
-                            DB::raw($avgHoursRaw)
-                        )
-                        ->groupBy('offices.id', 'offices.name')
-                        ->get()
-                        ->map(function($stat) {
-                            $stat->compliance_rate = $stat->completed_steps > 0 
-                                ? round((($stat->completed_steps - $stat->delayed_steps) / $stat->completed_steps) * 100, 1) 
-                                : 100.0;
-                            return $stat;
-                        });
+            $officeSlaStats = DB::table('document_routings')
+                ->join('offices', 'document_routings.to_office_id', '=', 'offices.id')
+                ->select(
+                    'offices.name as office_name',
+                    DB::raw('COUNT(*) as total_steps'),
+                    DB::raw('SUM(CASE WHEN document_routings.status IN ("Approved", "Completed", "Accepted", "Endorsed") THEN 1 ELSE 0 END) as completed_steps'),
+                    DB::raw('SUM(CASE WHEN document_routings.status IN ("Approved", "Completed", "Accepted", "Endorsed") AND document_routings.received_at > document_routings.sla_due_at THEN 1 ELSE 0 END) as delayed_steps'),
+                    DB::raw($avgHoursRaw)
+                )
+                ->groupBy('offices.id', 'offices.name')
+                ->get()
+                ->map(function($stat) {
+                    $stat->compliance_rate = $stat->completed_steps > 0 
+                        ? round((($stat->completed_steps - $stat->delayed_steps) / $stat->completed_steps) * 100, 1) 
+                        : 100.0;
+                    return $stat;
+                });
 
             return view('reports', compact(
                 'officeNames',

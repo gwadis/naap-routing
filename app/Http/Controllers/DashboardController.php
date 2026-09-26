@@ -66,6 +66,9 @@ class DashboardController extends Controller
                 ->count();
 
             // Average processing duration (in hours)
+            // Audit timestamp calculation process:
+            // Verify chronological order: Created Time < Received Time
+            // Calculate processing time only when timestamps are valid; if missing, null, invalid, or chronologically incorrect, display 'N/A'
             $isSqlite = DB::getDriverName() === 'sqlite';
             $diffExpr = $isSqlite 
                 ? '((strftime("%s", documents.received_at) - strftime("%s", documents.created_at)) / 60)'
@@ -73,21 +76,40 @@ class DashboardController extends Controller
             $diffExprSimple = $isSqlite
                 ? '((strftime("%s", received_at) - strftime("%s", created_at)) / 60)'
                 : 'TIMESTAMPDIFF(MINUTE, created_at, received_at)';
+            $chronoSimple = $isSqlite
+                ? 'strftime("%s", received_at) > strftime("%s", created_at)'
+                : 'received_at > created_at';
+            $chronoFull = $isSqlite
+                ? 'strftime("%s", documents.received_at) > strftime("%s", documents.created_at)'
+                : 'documents.received_at > documents.created_at';
 
-            $avgProcessingMinutes = (clone $docScope)
+            $validCompletedDocs = (clone $docScope)
                 ->where('status', 'Completed')
+                ->whereNotNull('created_at')
                 ->whereNotNull('received_at')
-                ->select(DB::raw("AVG({$diffExprSimple}) as avg_time"))
-                ->first()
-                ->avg_time ?? 0;
-            $avgProcessingHours = round($avgProcessingMinutes / 60, 1);
+                ->whereRaw($chronoSimple);
+
+            $validCompletedCount = (clone $validCompletedDocs)->count();
+            if ($validCompletedCount > 0) {
+                $avgProcessingMinutes = (clone $validCompletedDocs)
+                    ->select(DB::raw("AVG({$diffExprSimple}) as avg_time"))
+                    ->first()
+                    ->avg_time;
+                $avgProcessingHours = ($avgProcessingMinutes !== null && $avgProcessingMinutes >= 0)
+                    ? round($avgProcessingMinutes / 60, 1)
+                    : 'N/A';
+            } else {
+                $avgProcessingHours = 'N/A';
+            }
 
             // 3. Department Performance (average processing hours)
             $deptPerformance = DB::table('documents')
                 ->join('users', 'documents.uploaded_by', '=', 'users.id')
                 ->join('departments', 'users.department_id', '=', 'departments.id')
                 ->where('documents.status', 'Completed')
+                ->whereNotNull('documents.created_at')
                 ->whereNotNull('documents.received_at')
+                ->whereRaw($chronoFull)
                 ->select('departments.name', DB::raw("ROUND(AVG({$diffExpr}) / 60, 1) as avg_hours"))
                 ->groupBy('departments.name')
                 ->orderBy('avg_hours', 'asc')
@@ -97,7 +119,9 @@ class DashboardController extends Controller
             $userPerformance = DB::table('documents')
                 ->join('users', 'documents.uploaded_by', '=', 'users.id')
                 ->where('documents.status', 'Completed')
+                ->whereNotNull('documents.created_at')
                 ->whereNotNull('documents.received_at')
+                ->whereRaw($chronoFull)
                 ->select('users.name', DB::raw("ROUND(AVG({$diffExpr}) / 60, 1) as avg_hours"))
                 ->groupBy('users.name')
                 ->orderBy('avg_hours', 'asc')
@@ -156,7 +180,7 @@ class DashboardController extends Controller
             $qrScansToday = (clone $qrScansQuery)->whereDate('created_at', now()->toDateString())->count();
             $qrScansWeek = (clone $qrScansQuery)->where('created_at', '>=', now()->subDays(7))->count();
             $qrScansMonth = (clone $qrScansQuery)->where('created_at', '>=', now()->subDays(30))->count();
-            $uniqueUsersScanning = (clone $qrScansQuery)->distinct()->count('user');
+            $uniqueUsersScanning = (clone $qrScansQuery)->whereNotNull('user')->where('user', '!=', '')->distinct()->count('user');
 
             $documentViews = ActivityLog::where('action', 'DOCUMENT VIEWED')->count();
             $otpVerifications = ActivityLog::where('action', 'Confidential PIN Verified')->count();

@@ -258,4 +258,114 @@ class DashboardAnalyticsAndFixesTest extends TestCase
         $response->assertSee('image/png, image/jpeg, image/jpg, image/webp', false);
         $response->assertSee('jsqr', false);
     }
+
+    /**
+     * Test 9: Active Office Workloads and Activity Feed are side-by-side and scrollable.
+     */
+    public function test_dashboard_workloads_and_activity_feed_side_by_side_and_scrollable(): void
+    {
+        $response = $this->actingAsAdmin()->get(route('dashboard'));
+
+        $response->assertStatus(200);
+        $response->assertSee('charts-main-grid mb-4', false);
+        $response->assertSee('Active Office Workloads', false);
+        $response->assertSee('Recent Activity Logs', false);
+        $response->assertSee('overflow-y: auto;', false);
+    }
+
+    /**
+     * Test 10: Reports page summary cards have identical sizing, height, and responsive grid.
+     */
+    public function test_reports_page_summary_cards_identical_sizing(): void
+    {
+        $response = $this->actingAsAdmin()->get(route('reports.index'));
+
+        $response->assertStatus(200);
+        $response->assertSee('Total Documents', false);
+        $response->assertSee('Avg Processing Time', false);
+        $response->assertSee('Most Active Office', false);
+        $response->assertSee('System QR Scans', false);
+
+        // Verify all 4 cards share identical grid and flex classes
+        $content = $response->getContent();
+        $this->assertEquals(4, substr_count($content, 'col-md-3 col-sm-6'));
+        $this->assertEquals(4, substr_count($content, 'glass-card text-center h-100 d-flex flex-column justify-content-center'));
+        $this->assertEquals(4, substr_count($content, 'min-height: 110px;'));
+    }
+
+    /**
+     * Test 11: Average processing time displays N/A for invalid/chronologically inverted timestamps and computes accurately for valid timestamps.
+     */
+    public function test_average_processing_time_handles_chronological_validation(): void
+    {
+        // 1. Create a document with invalid chronological timestamps (received_at earlier than created_at)
+        $invalidDoc = \App\Models\Document::create([
+            'title' => 'Inverted Timestamp Doc',
+            'status' => 'Completed',
+            'received_at' => now(), // received_at < created_at
+            'origin_office_id' => $this->originOffice->id,
+            'destination_office_id' => $this->destinationOffice->id,
+            'uploaded_by' => $this->adminUser->id,
+        ]);
+        $invalidDoc->timestamps = false;
+        $invalidDoc->created_at = now()->addHours(5);
+        $invalidDoc->save();
+
+        $dashResponse = $this->actingAsAdmin()->get(route('dashboard'));
+        $dashResponse->assertStatus(200);
+        // Dashboard should display N/A for avgProcessingHours because timestamps are invalid
+        $this->assertEquals('N/A', $dashResponse->viewData('avgProcessingHours'));
+
+        $reportsResponse = $this->actingAsAdmin()->get(route('reports.index'));
+        $reportsResponse->assertStatus(200);
+        $summary = $reportsResponse->viewData('summary');
+        $this->assertEquals('N/A', $summary['avg_time']);
+
+        // 2. Now add a document with valid chronological timestamps: created_at < received_at (2 hours diff)
+        $validDoc = \App\Models\Document::create([
+            'title' => 'Valid Chronological Doc',
+            'status' => 'Completed',
+            'received_at' => now(),
+            'origin_office_id' => $this->originOffice->id,
+            'destination_office_id' => $this->destinationOffice->id,
+            'uploaded_by' => $this->adminUser->id,
+        ]);
+        $validDoc->timestamps = false;
+        $validDoc->created_at = now()->subHours(2);
+        $validDoc->save();
+
+        $dashResponse2 = $this->actingAsAdmin()->get(route('dashboard'));
+        $dashResponse2->assertStatus(200);
+        $this->assertEquals(2.0, $dashResponse2->viewData('avgProcessingHours'));
+
+        $reportsResponse2 = $this->actingAsAdmin()->get(route('reports.index'));
+        $reportsResponse2->assertStatus(200);
+        $summary2 = $reportsResponse2->viewData('summary');
+        $this->assertEquals(2.0, $summary2['avg_time']);
+    }
+
+    /**
+     * Test 12: Daily Scan Activity in Reports correctly queries real scan logs.
+     */
+    public function test_reports_daily_scan_activity_pipeline(): void
+    {
+        // Add a scan activity log
+        \App\Models\ActivityLog::create([
+            'user' => $this->adminUser->name,
+            'action' => 'QR Scanned',
+            'document_id' => $this->document->id,
+            'ip' => '127.0.0.1',
+            'created_at' => now(),
+        ]);
+
+        $response = $this->actingAsAdmin()->get(route('reports.index'));
+        $response->assertStatus(200);
+
+        $summary = $response->viewData('summary');
+        $this->assertGreaterThanOrEqual(1, $summary['qr_scans']);
+
+        $scanCounts = $response->viewData('scanCounts');
+        $this->assertIsArray($scanCounts);
+        $this->assertGreaterThanOrEqual(1, array_sum($scanCounts));
+    }
 }

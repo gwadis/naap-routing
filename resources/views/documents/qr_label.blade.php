@@ -288,7 +288,10 @@
         @media print {
             @page {
                 size: portrait;
-                margin: 6mm;
+                margin: 0;
+            }
+            @page :first {
+                margin: 0;
             }
             *, *::before, *::after {
                 box-shadow: none !important;
@@ -310,9 +313,10 @@
             }
             body > div {
                 margin: 0 auto !important;
-                padding: 0 !important;
+                padding: 10mm 0 0 0 !important;
                 width: 100% !important;
                 max-width: 420px !important;
+                height: auto !important;
                 page-break-inside: avoid !important;
                 break-inside: avoid !important;
                 page-break-after: avoid !important;
@@ -332,6 +336,10 @@
             .print-actions {
                 display: none !important;
                 visibility: hidden !important;
+                position: absolute !important;
+                top: -9999px !important;
+                left: -9999px !important;
+                width: 0 !important;
                 height: 0 !important;
                 max-height: 0 !important;
                 padding: 0 !important;

@@ -260,7 +260,7 @@
         <div class="kpi-card">
             <div>
                 <div class="label">Avg Processing SLA</div>
-                <h3 style="color: #4F46E5 !important;">{{ $avgProcessingHours }}h</h3>
+                <h3 style="color: #4F46E5 !important;">{{ $avgProcessingHours !== 'N/A' && is_numeric($avgProcessingHours) ? $avgProcessingHours . 'h' : 'N/A' }}</h3>
             </div>
             <div class="kpi-trend trend-neutral">
                 <i class="bi bi-lightning-charge"></i> Target: < 24 hours
@@ -326,7 +326,7 @@
     @endif
 
     <!-- Analytics & Activity Charts Section -->
-    <div class="charts-main-grid">
+    <div class="charts-main-grid mb-4">
         <!-- 1. Document Activity Calendar Widget -->
         <div class="chart-card">
             <div class="d-flex justify-content-between align-items-center mb-3">
@@ -391,7 +391,7 @@
                     <span class="badge fs-6 px-3 py-1 font-monospace text-white" style="background: #a855f7;" id="statRoutedDocs">{{ $selectedDateStats['routed'] ?? 0 }}</span>
                 </div>
 
-                <div class="stat-metric-row" style="background: rgba(16, 185, 129, 0.06); border: 1px solid rgba(16, 185, 129, 0.15);">
+                <div class="stat-metric-row" style="background: rgba(168, 85, 247, 0.06); border: 1px solid rgba(16, 185, 129, 0.15);">
                     <div class="d-flex align-items-center gap-2">
                         <i class="bi bi-check2-circle text-success fs-5"></i>
                         <span style="font-size: 13px; font-weight: 600; color: var(--text-main);">Total Approved Documents</span>
@@ -416,67 +416,70 @@
                 </div>
             </div>
         </div>
+    </div>
 
-        <!-- 3. Active Office Workloads -->
-        <div class="chart-card">
+    <!-- Active Office Workloads & Activity Section (Side-by-Side in the same row) -->
+    <div class="charts-main-grid mb-4">
+        <!-- Active Office Workloads -->
+        <div class="chart-card d-flex flex-column h-100">
             <h5><i class="bi bi-building"></i> Active Office Workloads</h5>
-            <div class="canvas-container">
+            <div class="canvas-container flex-grow-1" style="height: 260px; min-height: 260px;">
                 <canvas id="officeChart"></canvas>
             </div>
         </div>
-    </div>
 
-    <!-- Recent Activity Logs / My Recent Uploads (Placed below analytics/charts section) -->
-    <div class="chart-card mb-4 mt-2">
-        <h5><i class="bi bi-clock-history"></i> {{ $isAdmin ? 'Recent Activity Logs' : 'My Recent Uploads' }}</h5>
-        <div class="activity-feed">
-            @if($isAdmin)
-                @forelse($recentActivities ?? [] as $log)
-                    <div class="activity-item">
-                        <div class="activity-time">{{ $log->created_at ? $log->created_at->diffForHumans() : 'N/A' }}</div>
-                        <div class="activity-details">
-                            <strong>{{ $log->user }}</strong> — {{ $log->action }}
-                            <br><small class="text-secondary" style="font-size: 11px; opacity:0.8;">Browser: {{ $log->browser ?? 'Unknown' }} | Device: {{ $log->device ?? 'Desktop' }}</small>
+        <!-- Activity Section / My Recent Uploads -->
+        <div class="chart-card d-flex flex-column h-100">
+            <h5><i class="bi bi-clock-history"></i> {{ $isAdmin ? 'Recent Activity Logs' : 'My Recent Uploads' }}</h5>
+            <div class="activity-feed flex-grow-1" style="height: 260px; min-height: 260px; max-height: 260px; overflow-y: auto;">
+                @if($isAdmin)
+                    @forelse($recentActivities ?? [] as $log)
+                        <div class="activity-item">
+                            <div class="activity-time">{{ $log->created_at ? $log->created_at->diffForHumans() : 'N/A' }}</div>
+                            <div class="activity-details">
+                                <strong>{{ $log->user }}</strong> — {{ $log->action }}
+                                <br><small class="text-secondary" style="font-size: 11px; opacity:0.8;">Browser: {{ $log->browser ?? 'Unknown' }} | Device: {{ $log->device ?? 'Desktop' }}</small>
+                            </div>
                         </div>
-                    </div>
-                @empty
-                    <p class="text-secondary small text-center mt-5">No activity logs recorded.</p>
-                @endforelse
-            @else
-                @forelse($recentUploads ?? [] as $doc)
-                    @php
-                        $durationText = '';
-                        if ($doc->status === 'Completed' && $doc->received_at) {
-                            $durationText = 'Completed in ' . $doc->created_at->diffForHumans($doc->received_at, true);
-                        } else {
-                            $activeStep = $doc->routings->where('status', 'Pending')->first();
-                            if ($activeStep) {
-                                $start = $activeStep->pending_at ?? $activeStep->created_at;
-                                $durationText = 'Held for ' . $start->diffForHumans(null, true);
+                    @empty
+                        <p class="text-secondary small text-center mt-5">No activity logs recorded.</p>
+                    @endforelse
+                @else
+                    @forelse($recentUploads ?? [] as $doc)
+                        @php
+                            $durationText = '';
+                            if ($doc->status === 'Completed' && $doc->received_at) {
+                                $durationText = 'Completed in ' . $doc->created_at->diffForHumans($doc->received_at, true);
+                            } else {
+                                $activeStep = $doc->routings->where('status', 'Pending')->first();
+                                if ($activeStep) {
+                                    $start = $activeStep->pending_at ?? $activeStep->created_at;
+                                    $durationText = 'Held for ' . $start->diffForHumans(null, true);
+                                }
                             }
-                        }
 
-                        $status = strtolower($doc->status);
-                        $badgeClass = 'bg-warning';
-                        if ($status === 'completed' || $status === 'approved') {
-                            $badgeClass = 'bg-success';
-                        } elseif (in_array($status, ['in_transit', 'in transit', 'under review', 'received', 'on process', 'for approval'])) {
-                            $badgeClass = 'bg-info';
-                        } elseif (in_array($status, ['rejected', 'cancelled', 'held'])) {
-                            $badgeClass = 'bg-danger';
-                        }
-                    @endphp
-                    <div class="activity-item">
-                        <div class="activity-time">{{ $doc->created_at ? $doc->created_at->diffForHumans() : 'N/A' }}</div>
-                        <div class="activity-details">
-                            <strong>{{ $doc->title }}</strong>
-                            <br><small class="text-secondary" style="font-size: 11px; opacity:0.8;">Status: <span class="badge {{ $badgeClass }}" style="font-size:10px; padding:2px 6px;">{{ $doc->status }}</span> | ID: {{ $doc->tracking_number ?? $doc->qr_id }} @if($durationText) | <span class="text-warning">{{ $durationText }}</span> @endif</small>
+                            $status = strtolower($doc->status);
+                            $badgeClass = 'bg-warning';
+                            if ($status === 'completed' || $status === 'approved') {
+                                $badgeClass = 'bg-success';
+                            } elseif (in_array($status, ['in_transit', 'in transit', 'under review', 'received', 'on process', 'for approval'])) {
+                                $badgeClass = 'bg-info';
+                            } elseif (in_array($status, ['rejected', 'cancelled', 'held'])) {
+                                $badgeClass = 'bg-danger';
+                            }
+                        @endphp
+                        <div class="activity-item">
+                            <div class="activity-time">{{ $doc->created_at ? $doc->created_at->diffForHumans() : 'N/A' }}</div>
+                            <div class="activity-details">
+                                <strong>{{ $doc->title }}</strong>
+                                <br><small class="text-secondary" style="font-size: 11px; opacity:0.8;">Status: <span class="badge {{ $badgeClass }}" style="font-size:10px; padding:2px 6px;">{{ $doc->status }}</span> | ID: {{ $doc->tracking_number ?? $doc->qr_id }} @if($durationText) | <span class="text-warning">{{ $durationText }}</span> @endif</small>
+                            </div>
                         </div>
-                    </div>
-                @empty
-                    <p class="text-secondary small text-center mt-5">No uploads recorded yet.</p>
-                @endforelse
-            @endif
+                    @empty
+                        <p class="text-secondary small text-center mt-5">No uploads recorded yet.</p>
+                    @endforelse
+                @endif
+            </div>
         </div>
     </div>
 </div>
