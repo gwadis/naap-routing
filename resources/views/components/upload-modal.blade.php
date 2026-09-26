@@ -576,7 +576,8 @@
 
 <div class="modal fade" id="uploadSuccessModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" style="z-index: 1070;">
     <div class="modal-dialog modal-dialog-centered" style="max-width: 480px !important;">
-        <div class="modal-content text-center p-4" style="background:#FFFFFF; border-radius: 16px; border: 1px solid var(--panel-border); box-shadow: 0 20px 40px rgba(0,0,0,0.15); height: auto !important; max-height: none !important;">
+        <div class="modal-content text-center p-4 position-relative" style="background:#FFFFFF; border-radius: 16px; border: 1px solid var(--panel-border); box-shadow: 0 20px 40px rgba(0,0,0,0.15); height: auto !important; max-height: none !important; position: relative !important;">
+            <button type="button" class="btn-close position-absolute top-0 end-0 m-3" data-bs-dismiss="modal" aria-label="Close" id="btnCloseUploadSuccess" style="z-index: 1055; cursor: pointer;"></button>
             <div class="mb-3">
                 <div style="width: 60px; height: 60px; border-radius: 50%; background: #ecfdf5; color: #10b981; display: inline-flex; align-items: center; justify-content: center; font-size: 30px;">
                     <i class="bi bi-check-circle-fill"></i>

@@ -286,9 +286,33 @@
         .btn-close:hover { background: #f1f5f9; }
 
         @media print {
-            body { background: #ffffff; padding: 0; }
-            .label-card { box-shadow: none; margin: 0 auto; }
-            .print-actions { display: none !important; }
+            @page {
+                size: auto;
+                margin: 0;
+            }
+            html, body {
+                background: #ffffff !important;
+                padding: 8mm 0 0 0 !important;
+                margin: 0 !important;
+                min-height: 0 !important;
+                height: auto !important;
+                display: block !important;
+                overflow: hidden !important;
+            }
+            .label-card {
+                box-shadow: none !important;
+                margin: 0 auto !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+                page-break-after: avoid !important;
+                break-after: avoid !important;
+            }
+            .print-actions {
+                display: none !important;
+                height: 0 !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
         }
     </style>
 </head>

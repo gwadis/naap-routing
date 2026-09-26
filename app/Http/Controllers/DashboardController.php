@@ -66,43 +66,29 @@ class DashboardController extends Controller
                 ->count();
 
             // Average processing duration (in hours)
+            $isSqlite = DB::getDriverName() === 'sqlite';
+            $diffExpr = $isSqlite 
+                ? '((strftime("%s", documents.received_at) - strftime("%s", documents.created_at)) / 60)'
+                : 'TIMESTAMPDIFF(MINUTE, documents.created_at, documents.received_at)';
+            $diffExprSimple = $isSqlite
+                ? '((strftime("%s", received_at) - strftime("%s", created_at)) / 60)'
+                : 'TIMESTAMPDIFF(MINUTE, created_at, received_at)';
+
             $avgProcessingMinutes = (clone $docScope)
                 ->where('status', 'Completed')
                 ->whereNotNull('received_at')
-                ->select(DB::raw('AVG(TIMESTAMPDIFF(MINUTE, created_at, received_at)) as avg_time'))
+                ->select(DB::raw("AVG({$diffExprSimple}) as avg_time"))
                 ->first()
                 ->avg_time ?? 0;
             $avgProcessingHours = round($avgProcessingMinutes / 60, 1);
 
-            // 3. Monthly Trends (current year)
-            $monthlyUploadsData = (clone $docScope)
-                ->select(DB::raw('MONTH(created_at) as month'), DB::raw('COUNT(*) as count'))
-                ->whereYear('created_at', now()->year)
-                ->groupBy('month')
-                ->pluck('count', 'month')
-                ->toArray();
-
-            $monthlyRoutingData = (clone $routeScope)
-                ->select(DB::raw('MONTH(created_at) as month'), DB::raw('COUNT(*) as count'))
-                ->whereYear('created_at', now()->year)
-                ->groupBy('month')
-                ->pluck('count', 'month')
-                ->toArray();
-
-            $monthlyUploads = [];
-            $monthlyRouting = [];
-            for ($m = 1; $m <= 12; $m++) {
-                $monthlyUploads[] = $monthlyUploadsData[$m] ?? 0;
-                $monthlyRouting[] = $monthlyRoutingData[$m] ?? 0;
-            }
-
-            // 4. Department Performance (average processing hours)
+            // 3. Department Performance (average processing hours)
             $deptPerformance = DB::table('documents')
                 ->join('users', 'documents.uploaded_by', '=', 'users.id')
                 ->join('departments', 'users.department_id', '=', 'departments.id')
                 ->where('documents.status', 'Completed')
                 ->whereNotNull('documents.received_at')
-                ->select('departments.name', DB::raw('ROUND(AVG(TIMESTAMPDIFF(MINUTE, documents.created_at, documents.received_at)) / 60, 1) as avg_hours'))
+                ->select('departments.name', DB::raw("ROUND(AVG({$diffExpr}) / 60, 1) as avg_hours"))
                 ->groupBy('departments.name')
                 ->orderBy('avg_hours', 'asc')
                 ->get();
@@ -112,7 +98,7 @@ class DashboardController extends Controller
                 ->join('users', 'documents.uploaded_by', '=', 'users.id')
                 ->where('documents.status', 'Completed')
                 ->whereNotNull('documents.received_at')
-                ->select('users.name', DB::raw('ROUND(AVG(TIMESTAMPDIFF(MINUTE, documents.created_at, documents.received_at)) / 60, 1) as avg_hours'))
+                ->select('users.name', DB::raw("ROUND(AVG({$diffExpr}) / 60, 1) as avg_hours"))
                 ->groupBy('users.name')
                 ->orderBy('avg_hours', 'asc')
                 ->take(10)
@@ -142,14 +128,16 @@ class DashboardController extends Controller
             $recentUploads = (clone $docScope)->with(['uploader', 'routings'])->latest()->take(10)->get();
             $recentRouting = (clone $routeScope)->with(['document', 'receiverUser', 'fromOffice', 'toOffice'])->latest()->take(10)->get();
 
-            // Chart data: 7-day uploads count
-            $flowData = [];
-            $days = [];
-            for ($i = 6; $i >= 0; $i--) {
-                $date = now()->subDays($i);
-                $days[] = $date->format('D');
-                $flowData[] = (clone $docScope)->whereDate('created_at', $date->toDateString())->count();
-            }
+            // Calendar-based Document Activity Analytics (Current Month)
+            $calendarData = $this->getCalendarMonthData($userId, $isAdmin, (int) now()->year, (int) now()->month);
+            $todayKey = now()->toDateString();
+            $selectedDateStats = $calendarData['activity'][$todayKey] ?? [
+                'uploaded'  => 0,
+                'routed'    => 0,
+                'approved'  => 0,
+                'completed' => 0,
+                'pending'   => 0,
+            ];
 
             // Top Office Load (Current)
             $offices = Office::withCount(['documents' => function ($q) {
@@ -159,25 +147,18 @@ class DashboardController extends Controller
             ->take(5)
             ->get();
 
-            // QR Scan analytics
-            $qrScansToday = ActivityLog::whereDate('created_at', now()->toDateString())
-                ->where('action', 'like', '%QR Scanned%')
-                ->count();
+            // QR Scan analytics (accurate daily scan counting based on real scan records)
+            $qrScansQuery = ActivityLog::where(function($q) {
+                $q->where('action', 'like', '%QR Scanned%')
+                  ->orWhere('action', 'QR Code Verified');
+            });
 
-            $qrScansWeek = ActivityLog::where('created_at', '>=', now()->subDays(7))
-                ->where('action', 'like', '%QR Scanned%')
-                ->count();
-
-            $qrScansMonth = ActivityLog::where('created_at', '>=', now()->subDays(30))
-                ->where('action', 'like', '%QR Scanned%')
-                ->count();
-
-            $uniqueUsersScanning = ActivityLog::where('action', 'like', '%QR Scanned%')
-                ->distinct()
-                ->count('user');
+            $qrScansToday = (clone $qrScansQuery)->whereDate('created_at', now()->toDateString())->count();
+            $qrScansWeek = (clone $qrScansQuery)->where('created_at', '>=', now()->subDays(7))->count();
+            $qrScansMonth = (clone $qrScansQuery)->where('created_at', '>=', now()->subDays(30))->count();
+            $uniqueUsersScanning = (clone $qrScansQuery)->distinct()->count('user');
 
             $documentViews = ActivityLog::where('action', 'DOCUMENT VIEWED')->count();
-
             $otpVerifications = ActivityLog::where('action', 'Confidential PIN Verified')->count();
 
             $approvalActivities = ActivityLog::where(function($q) {
@@ -198,9 +179,7 @@ class DashboardController extends Controller
             for ($i = 6; $i >= 0; $i--) {
                 $date = now()->subDays($i);
                 $qrTrendDays[] = $date->format('D');
-                $qrTrendData[] = ActivityLog::whereDate('created_at', $date->toDateString())
-                    ->where('action', 'like', '%QR Scanned%')
-                    ->count();
+                $qrTrendData[] = (clone $qrScansQuery)->whereDate('created_at', $date->toDateString())->count();
             }
 
             return view('dashboard', compact(
@@ -219,11 +198,10 @@ class DashboardController extends Controller
                 'lowDocs',
                 'overdueDocs',
                 'avgProcessingHours',
-                'flowData',
-                'days',
+                'calendarData',
+                'selectedDateStats',
+                'todayKey',
                 'offices',
-                'monthlyUploads',
-                'monthlyRouting',
                 'deptPerformance',
                 'userPerformance',
                 'topReceivingDepts',
@@ -426,5 +404,157 @@ class DashboardController extends Controller
             }
             return back()->with('error', 'Failed to delete notification.');
         }
+    }
+
+    /**
+     * AJAX API: Get document activity breakdown for a given year & month.
+     */
+    public function calendarActivity(Request $request)
+    {
+        try {
+            $user = auth()->user() ?? User::find(session('user_id'));
+            $isAdmin = ($user && $user->isAdmin()) || User::isRoleAdmin($user?->role ?? session('user_role'));
+            $userId = $user?->id;
+
+            $year = (int) $request->input('year', now()->year);
+            $month = (int) $request->input('month', now()->month);
+
+            if ($month < 1 || $month > 12) $month = (int) now()->month;
+            if ($year < 2000 || $year > 2100) $year = (int) now()->year;
+
+            $activityData = $this->getCalendarMonthData($userId, $isAdmin, $year, $month);
+
+            return response()->json([
+                'success' => true,
+                'data'    => $activityData,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Calendar Activity Error: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Unable to fetch calendar activity'], 500);
+        }
+    }
+
+    /**
+     * Helper to compute calendar document activity by date for a given month.
+     */
+    protected function getCalendarMonthData($userId, bool $isAdmin, int $year, int $month): array
+    {
+        $startOfMonth = \Carbon\Carbon::create($year, $month, 1)->startOfMonth();
+        $endOfMonth = \Carbon\Carbon::create($year, $month, 1)->endOfMonth();
+
+        $docScope = Document::query();
+        $routeScope = DocumentRouting::query();
+
+        if (!$isAdmin) {
+            $docScope->where(function ($q) use ($userId) {
+                $q->where('uploaded_by', $userId)
+                  ->orWhere('receiver_user_id', $userId)
+                  ->orWhereHas('routings', function ($rq) use ($userId) {
+                      $rq->where('receiver_user_id', $userId);
+                  });
+            });
+
+            $routeScope->where(function ($q) use ($userId) {
+                $q->where('receiver_user_id', $userId)
+                  ->orWhereHas('document', function ($dq) use ($userId) {
+                      $dq->where('uploaded_by', $userId);
+                  });
+            });
+        }
+
+        $startStr = $startOfMonth->copy()->startOfDay()->toDateTimeString();
+        $endStr = $endOfMonth->copy()->endOfDay()->toDateTimeString();
+
+        // 1. Uploaded documents
+        $uploadedByDate = (clone $docScope)
+            ->whereBetween('created_at', [$startStr, $endStr])
+            ->select(DB::raw('DATE(created_at) as date_val'), DB::raw('count(*) as count'))
+            ->groupBy('date_val')
+            ->pluck('count', 'date_val')
+            ->toArray();
+
+        // 2. Routed documents (unique documents routed or routing records on that date)
+        $routedByDate = (clone $routeScope)
+            ->whereBetween('created_at', [$startStr, $endStr])
+            ->select(DB::raw('DATE(created_at) as date_val'), DB::raw('count(DISTINCT document_id) as count'))
+            ->groupBy('date_val')
+            ->pluck('count', 'date_val')
+            ->toArray();
+
+        // 3. Approved documents
+        $approvedByDate = (clone $docScope)
+            ->where(function($q) {
+                $q->where('status', 'Approved')
+                  ->orWhereNotNull('approved_at');
+            })
+            ->where(function($q) use ($startStr, $endStr) {
+                $q->whereBetween('approved_at', [$startStr, $endStr])
+                  ->orWhere(function($sub) use ($startStr, $endStr) {
+                      $sub->whereNull('approved_at')
+                          ->whereBetween('updated_at', [$startStr, $endStr]);
+                  });
+            })
+            ->select(DB::raw('DATE(COALESCE(approved_at, updated_at)) as date_val'), DB::raw('count(*) as count'))
+            ->groupBy('date_val')
+            ->pluck('count', 'date_val')
+            ->toArray();
+
+        // 4. Completed documents
+        $completedByDate = (clone $docScope)
+            ->where('status', 'Completed')
+            ->where(function($q) use ($startStr, $endStr) {
+                $q->whereBetween('completed_at', [$startStr, $endStr])
+                  ->orWhereBetween('received_at', [$startStr, $endStr])
+                  ->orWhere(function($sub) use ($startStr, $endStr) {
+                      $sub->whereNull('completed_at')
+                          ->whereNull('received_at')
+                          ->whereBetween('updated_at', [$startStr, $endStr]);
+                  });
+            })
+            ->select(DB::raw('DATE(COALESCE(completed_at, received_at, updated_at)) as date_val'), DB::raw('count(*) as count'))
+            ->groupBy('date_val')
+            ->pluck('count', 'date_val')
+            ->toArray();
+
+        // 5. Pending documents
+        $pendingByDate = (clone $docScope)
+            ->where('status', 'Pending')
+            ->whereBetween('created_at', [$startStr, $endStr])
+            ->select(DB::raw('DATE(created_at) as date_val'), DB::raw('count(*) as count'))
+            ->groupBy('date_val')
+            ->pluck('count', 'date_val')
+            ->toArray();
+
+        $daysInMonth = (int) $endOfMonth->day;
+        $activityMap = [];
+
+        for ($d = 1; $d <= $daysInMonth; $d++) {
+            $dateKey = sprintf('%04d-%02d-%02d', $year, $month, $d);
+            $u = (int) ($uploadedByDate[$dateKey] ?? 0);
+            $r = (int) ($routedByDate[$dateKey] ?? 0);
+            $a = (int) ($approvedByDate[$dateKey] ?? 0);
+            $c = (int) ($completedByDate[$dateKey] ?? 0);
+            $p = (int) ($pendingByDate[$dateKey] ?? 0);
+
+            $activityMap[$dateKey] = [
+                'date'         => $dateKey,
+                'day'          => $d,
+                'uploaded'     => $u,
+                'routed'       => $r,
+                'approved'     => $a,
+                'completed'    => $c,
+                'pending'      => $p,
+                'has_activity' => ($u > 0 || $r > 0),
+            ];
+        }
+
+        return [
+            'year'              => $year,
+            'month'             => $month,
+            'month_name'        => $startOfMonth->format('F Y'),
+            'days_in_month'     => $daysInMonth,
+            'first_day_of_week' => (int) $startOfMonth->dayOfWeek, // 0 = Sunday, 1 = Monday, etc.
+            'activity'          => $activityMap,
+        ];
     }
 }

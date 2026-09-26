@@ -75,6 +75,7 @@ Route::middleware([\App\Http\Middleware\EnsureAuthenticated::class, \App\Http\Mi
 
     // --- Core Admin Dashboard ---
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/api/dashboard/calendar-activity', [DashboardController::class, 'calendarActivity'])->name('api.dashboard.calendarActivity');
     Route::get('/api/notifications', [DashboardController::class, 'notifications'])->name('api.notifications');
     Route::post('/api/notifications/mark-read', [DashboardController::class, 'markAllRead'])->name('api.notifications.markRead');
 

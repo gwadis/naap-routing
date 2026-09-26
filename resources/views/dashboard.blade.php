@@ -95,6 +95,78 @@
         height: 260px; 
         width: 100%; 
     }
+
+    /* Calendar Widget Styling */
+    .cal-grid-header {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        text-align: center;
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--text-dim);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 6px;
+    }
+    .cal-grid-body {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 3px;
+    }
+    .cal-day-cell {
+        aspect-ratio: 1 / 1;
+        max-height: 34px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        position: relative;
+        border: 1.5px solid transparent;
+        transition: all 0.15s ease;
+        color: var(--text-main);
+        background: transparent;
+        user-select: none;
+    }
+    .cal-day-cell:hover:not(.cal-empty) {
+        background: rgba(37, 99, 235, 0.08);
+        border-color: rgba(37, 99, 235, 0.25);
+    }
+    .cal-day-cell.cal-today {
+        border-color: #2563eb;
+    }
+    .cal-day-cell.cal-active {
+        background: #2563eb !important;
+        color: #ffffff !important;
+        border-color: #2563eb !important;
+        box-shadow: 0 2px 6px rgba(37, 99, 235, 0.35);
+    }
+    .cal-day-cell.cal-empty {
+        cursor: default;
+        pointer-events: none;
+        opacity: 0.15;
+    }
+    .cal-dot {
+        width: 4px;
+        height: 4px;
+        border-radius: 50%;
+        background: #2563eb;
+        position: absolute;
+        bottom: 2px;
+    }
+    .cal-day-cell.cal-active .cal-dot {
+        background: #ffffff;
+    }
+    .stat-metric-row {
+        padding: 8px 12px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
     
     /* Activity Feed styling */
     .activity-feed { 
@@ -198,17 +270,93 @@
 
     <!-- Charts & Tables Grid -->
     <div class="charts-main-grid">
+        <!-- 1. Document Activity Calendar Widget -->
         <div class="chart-card">
-            <h5><i class="bi bi-graph-up"></i> 7-Day Upload Volume Flow</h5>
-            <div class="canvas-container">
-                <canvas id="flowChart"></canvas>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="mb-0"><i class="bi bi-calendar3 text-primary"></i> Document Activity Calendar</h5>
+                <div class="d-flex align-items-center gap-1">
+                    <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2" id="calPrevMonth" title="Previous Month" style="font-size: 11px; border-radius: 6px;">
+                        <i class="bi bi-chevron-left"></i>
+                    </button>
+                    <span id="calCurrentMonthLabel" class="fw-semibold px-2" style="font-size: 13px; color: var(--text-main); min-width: 120px; text-align: center;">
+                        {{ $calendarData['month_name'] ?? now()->format('F Y') }}
+                    </span>
+                    <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2" id="calNextMonth" title="Next Month" style="font-size: 11px; border-radius: 6px;">
+                        <i class="bi bi-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="cal-grid-header">
+                <div>Sun</div>
+                <div>Mon</div>
+                <div>Tue</div>
+                <div>Wed</div>
+                <div>Thu</div>
+                <div>Fri</div>
+                <div>Sat</div>
+            </div>
+            <div class="cal-grid-body" id="calDaysGrid">
+                <!-- Dynamically populated via JS from actual system records -->
+            </div>
+
+            <div class="d-flex align-items-center justify-content-between mt-3 pt-2 border-top small" style="border-color: var(--panel-border) !important; font-size: 11px; color: var(--text-dim);">
+                <span class="d-inline-flex align-items-center gap-1">
+                    <span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:#2563eb;"></span> Upload / Route Activity
+                </span>
+                <span class="d-inline-flex align-items-center gap-1">
+                    <span style="display:inline-block; width:10px; height:10px; border-radius:2px; border:1.5px solid #2563eb;"></span> Today's Date
+                </span>
             </div>
         </div>
 
+        <!-- 2. Selected Date Activity Statistics -->
         <div class="chart-card">
-            <h5><i class="bi bi-bar-chart-steps"></i> Monthly Upload vs Routing Activity</h5>
-            <div class="canvas-container">
-                <canvas id="monthlyChart"></canvas>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="mb-0"><i class="bi bi-calendar-check text-info"></i> Activity for <span id="selectedDateTitle" class="text-primary">{{ now()->format('M d, Y') }}</span></h5>
+                <span class="badge bg-light text-secondary border px-2 py-1" id="selectedDateStatusBadge" style="font-size: 11px;">Selected Date</span>
+            </div>
+
+            <div class="d-flex flex-column gap-2" style="min-height: 220px; justify-content: space-between;">
+                <div class="stat-metric-row" style="background: rgba(37, 99, 235, 0.06); border: 1px solid rgba(37, 99, 235, 0.15);">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-cloud-arrow-up text-primary fs-5"></i>
+                        <span style="font-size: 13px; font-weight: 600; color: var(--text-main);">Total Uploaded Documents</span>
+                    </div>
+                    <span class="badge bg-primary fs-6 px-3 py-1 font-monospace" id="statUploadedDocs">{{ $selectedDateStats['uploaded'] ?? 0 }}</span>
+                </div>
+
+                <div class="stat-metric-row" style="background: rgba(168, 85, 247, 0.06); border: 1px solid rgba(168, 85, 247, 0.15);">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-arrow-left-right fs-5" style="color: #a855f7;"></i>
+                        <span style="font-size: 13px; font-weight: 600; color: var(--text-main);">Total Routed Documents</span>
+                    </div>
+                    <span class="badge fs-6 px-3 py-1 font-monospace text-white" style="background: #a855f7;" id="statRoutedDocs">{{ $selectedDateStats['routed'] ?? 0 }}</span>
+                </div>
+
+                <div class="stat-metric-row" style="background: rgba(16, 185, 129, 0.06); border: 1px solid rgba(16, 185, 129, 0.15);">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-check2-circle text-success fs-5"></i>
+                        <span style="font-size: 13px; font-weight: 600; color: var(--text-main);">Total Approved Documents</span>
+                    </div>
+                    <span class="badge bg-success fs-6 px-3 py-1 font-monospace" id="statApprovedDocs">{{ $selectedDateStats['approved'] ?? 0 }}</span>
+                </div>
+
+                <div class="stat-metric-row" style="background: rgba(13, 148, 136, 0.06); border: 1px solid rgba(13, 148, 136, 0.15);">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-patch-check fs-5" style="color: #0d9488;"></i>
+                        <span style="font-size: 13px; font-weight: 600; color: var(--text-main);">Total Completed Documents</span>
+                    </div>
+                    <span class="badge fs-6 px-3 py-1 font-monospace text-white" style="background: #0d9488;" id="statCompletedDocs">{{ $selectedDateStats['completed'] ?? 0 }}</span>
+                </div>
+
+                <div class="stat-metric-row" style="background: rgba(245, 158, 11, 0.06); border: 1px solid rgba(245, 158, 11, 0.15);">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-hourglass-split text-warning fs-5"></i>
+                        <span style="font-size: 13px; font-weight: 600; color: var(--text-main);">Total Pending Documents</span>
+                    </div>
+                    <span class="badge bg-warning text-dark fs-6 px-3 py-1 font-monospace" id="statPendingDocs">{{ $selectedDateStats['pending'] ?? 0 }}</span>
+                </div>
             </div>
         </div>
 
@@ -349,49 +497,7 @@
         }
     };
 
-    // 1. Flow Chart (7 Days)
-    new Chart(document.getElementById('flowChart'), {
-        type: 'line',
-        data: {
-            labels: @json($days ?? []),
-            datasets: [{
-                data: @json($flowData ?? []),
-                borderColor: '#22d3ee',
-                backgroundColor: 'rgba(34, 211, 238, 0.08)',
-                fill: true,
-                tension: 0.4
-            }]
-        },
-        options: baseOptions
-    });
-
-    // 2. Monthly Upload vs Routing
-    new Chart(document.getElementById('monthlyChart'), {
-        type: 'bar',
-        data: {
-            labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-            datasets: [
-                {
-                    label: 'Uploaded Documents',
-                    data: @json($monthlyUploads ?? []),
-                    backgroundColor: '#3b82f6',
-                    borderRadius: 4
-                },
-                {
-                    label: 'Routed Hops',
-                    data: @json($monthlyRouting ?? []),
-                    backgroundColor: '#a855f7',
-                    borderRadius: 4
-                }
-            ]
-        },
-        options: {
-            ...baseOptions,
-            plugins: { legend: { display: true, position: 'top' } }
-        }
-    });
-
-    // 3. Workload Chart (Offices)
+    // 1. Workload Chart (Offices)
     new Chart(document.getElementById('officeChart'), {
         type: 'bar',
         data: {
@@ -425,5 +531,137 @@
         });
     }
     @endif
+
+    // --- Calendar Analytics Widget Logic ---
+    let currentCalData = @json($calendarData ?? []);
+    let activeDateKey = @json($todayKey ?? now()->toDateString());
+    let currentCalYear = currentCalData.year || (new Date()).getFullYear();
+    let currentCalMonth = currentCalData.month || ((new Date()).getMonth() + 1);
+
+    function renderCalendar(data) {
+        if (!data || !data.activity) return;
+        currentCalData = data;
+        currentCalYear = data.year;
+        currentCalMonth = data.month;
+
+        const monthLabel = document.getElementById('calCurrentMonthLabel');
+        if (monthLabel) monthLabel.textContent = data.month_name;
+
+        const gridBody = document.getElementById('calDaysGrid');
+        if (!gridBody) return;
+        gridBody.innerHTML = '';
+
+        const todayStr = @json(now()->toDateString());
+
+        // Empty cells before start of month
+        for (let i = 0; i < data.first_day_of_week; i++) {
+            const emptyCell = document.createElement('div');
+            emptyCell.className = 'cal-day-cell cal-empty';
+            gridBody.appendChild(emptyCell);
+        }
+
+        // Days of month
+        for (let d = 1; d <= data.days_in_month; d++) {
+            const dateKey = `${data.year}-${String(data.month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+            const stats = data.activity[dateKey] || { uploaded: 0, routed: 0, approved: 0, completed: 0, pending: 0, has_activity: false };
+
+            const cell = document.createElement('div');
+            cell.className = 'cal-day-cell';
+            cell.textContent = d;
+            cell.dataset.date = dateKey;
+
+            if (dateKey === todayStr) {
+                cell.classList.add('cal-today');
+            }
+            if (dateKey === activeDateKey) {
+                cell.classList.add('cal-active');
+            }
+            if (stats.has_activity) {
+                const dot = document.createElement('span');
+                dot.className = 'cal-dot';
+                cell.appendChild(dot);
+            }
+
+            cell.addEventListener('click', function() {
+                selectCalendarDate(dateKey, stats);
+            });
+
+            gridBody.appendChild(cell);
+        }
+
+        // If activeDateKey is in this month, update details
+        if (data.activity[activeDateKey]) {
+            selectCalendarDate(activeDateKey, data.activity[activeDateKey]);
+        } else {
+            const firstDateKey = `${data.year}-${String(data.month).padStart(2, '0')}-01`;
+            if (data.activity[firstDateKey]) {
+                selectCalendarDate(firstDateKey, data.activity[firstDateKey]);
+            }
+        }
+    }
+
+    function selectCalendarDate(dateKey, stats) {
+        activeDateKey = dateKey;
+
+        document.querySelectorAll('.cal-day-cell').forEach(el => {
+            el.classList.toggle('cal-active', el.dataset.date === dateKey);
+        });
+
+        try {
+            const parts = dateKey.split('-');
+            const dObj = new Date(parts[0], parseInt(parts[1], 10) - 1, parts[2]);
+            const formatted = dObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            const titleEl = document.getElementById('selectedDateTitle');
+            if (titleEl) titleEl.textContent = formatted;
+        } catch (e) {
+            const titleEl = document.getElementById('selectedDateTitle');
+            if (titleEl) titleEl.textContent = dateKey;
+        }
+
+        document.getElementById('statUploadedDocs').textContent = stats.uploaded ?? 0;
+        document.getElementById('statRoutedDocs').textContent = stats.routed ?? 0;
+        document.getElementById('statApprovedDocs').textContent = stats.approved ?? 0;
+        document.getElementById('statCompletedDocs').textContent = stats.completed ?? 0;
+        document.getElementById('statPendingDocs').textContent = stats.pending ?? 0;
+
+        const badge = document.getElementById('selectedDateStatusBadge');
+        if (badge) {
+            const total = (stats.uploaded || 0) + (stats.routed || 0) + (stats.approved || 0) + (stats.completed || 0) + (stats.pending || 0);
+            if (total > 0) {
+                badge.textContent = `${total} Document Events`;
+                badge.className = 'badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1';
+            } else {
+                badge.textContent = 'No Activity';
+                badge.className = 'badge bg-light text-secondary border px-2 py-1';
+            }
+        }
+    }
+
+    function changeMonth(delta) {
+        let newMonth = currentCalMonth + delta;
+        let newYear = currentCalYear;
+        if (newMonth < 1) {
+            newMonth = 12;
+            newYear--;
+        } else if (newMonth > 12) {
+            newMonth = 1;
+            newYear++;
+        }
+
+        fetch(`{{ route('api.dashboard.calendarActivity') }}?year=${newYear}&month=${newMonth}`)
+            .then(res => res.json())
+            .then(res => {
+                if (res.success && res.data) {
+                    renderCalendar(res.data);
+                }
+            })
+            .catch(err => console.error('Failed to change calendar month:', err));
+    }
+
+    document.getElementById('calPrevMonth')?.addEventListener('click', () => changeMonth(-1));
+    document.getElementById('calNextMonth')?.addEventListener('click', () => changeMonth(1));
+
+    // Initial render
+    renderCalendar(currentCalData);
 </script>
 @endsection

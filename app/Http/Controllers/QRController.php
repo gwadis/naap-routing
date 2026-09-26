@@ -220,6 +220,20 @@ class QRController extends Controller
                         // Update QR Status to Scanned
                         $document->update(['qr_status' => 'Scanned']);
 
+                        // Log successful QR scan (recorded once upon valid scan)
+                        ActivityLog::create([
+                            'user'        => $user?->name ?? 'System User',
+                            'action'      => 'QR Scanned',
+                            'document_id' => $document->id,
+                            'ip'          => 'REDACTED',
+                            'meta'        => json_encode([
+                                'receiver'     => $user?->name ?? 'Unknown',
+                                'office'       => $user?->department?->name ?? 'Unknown',
+                                'confidential' => true,
+                                'timestamp'    => now()->toIso8601String(),
+                            ])
+                        ]);
+
                         if ($userToNotify) {
                             $existingPin = \App\Models\DocumentPin::where('document_id', $document->id)
                                 ->where(function($q) use ($userToNotify) {
@@ -397,7 +411,6 @@ class QRController extends Controller
                             'used_at' => now(),
                             'verification_status' => 'verified',
                         ]);
-                        ActivityLog::log('Confidential PIN Verified', $document->id, ['user' => $user?->name ?? 'Guest']);
 
                         // Set session verifications
                         session(['qr_verified_' . $document->id => true]);
@@ -492,18 +505,6 @@ class QRController extends Controller
                         ]);
                     }
 
-                    // * Timeline Entry = Created (ActivityLog)
-                    ActivityLog::create([
-                        'user' => $user?->name ?? 'System User',
-                        'action' => 'QR Code Verified',
-                        'document_id' => $document->id,
-                        'ip' => 'REDACTED',
-                        'meta' => json_encode([
-                            'user' => $user?->name ?? 'Unknown',
-                            'timestamp' => now()->toIso8601String(),
-                        ])
-                    ]);
-
                     // * Notification = Created
                     if ($document->uploaded_by && $document->uploaded_by !== $user->id) {
                         try {
@@ -564,7 +565,7 @@ class QRController extends Controller
                         // Log progression activity
                         ActivityLog::create([
                             'user' => $user?->name ?? 'System User',
-                            'action' => 'Document Forwarded to Next Receiver',
+                            'action' => 'QR Scanned - Forwarded',
                             'document_id' => $document->id,
                             'ip' => 'REDACTED',
                             'meta' => json_encode([
@@ -603,20 +604,23 @@ class QRController extends Controller
                         }
                     }
                 } else {
-                    // Log scan activity (unlocked view)
-                    ActivityLog::create([
-                        'user'        => $user?->name ?? 'System User',
-                        'action'      => 'QR Scanned',
-                        'document_id' => $document->id,
-                        'ip'          => 'REDACTED',
-                        'meta'        => json_encode([
-                            'receiver'  => $user?->name ?? 'Unknown',
-                            'office'    => $user?->department?->name ?? 'Unknown',
-                            'timestamp' => now()->toIso8601String(),
-                        ])
-                    ]);
+                    // Log scan activity (unlocked view) - only if not already logged during confidential scan
+                    if (!$document->is_confidential) {
+                        ActivityLog::create([
+                            'user'        => $user?->name ?? 'System User',
+                            'action'      => 'QR Scanned',
+                            'document_id' => $document->id,
+                            'ip'          => 'REDACTED',
+                            'meta'        => json_encode([
+                                'receiver'  => $user?->name ?? 'Unknown',
+                                'office'    => $user?->department?->name ?? 'Unknown',
+                                'timestamp' => now()->toIso8601String(),
+                            ])
+                        ]);
+                    }
+                }
 
-                    // Notify uploader that document was scanned/received
+                // Notify uploader that document was scanned/received
                     try {
                         $uploader = User::find($document->uploaded_by);
                         if ($uploader && $uploader->id !== $user?->id) {
@@ -629,7 +633,6 @@ class QRController extends Controller
                     } catch (\Exception $e) {
                         \Log::warning('QR received notification failed: ' . $e->getMessage());
                     }
-                }
 
                 $receiverSig = null;
                 if ($activeRouting) {
