@@ -92,6 +92,7 @@ Route::middleware([\App\Http\Middleware\EnsureAuthenticated::class, \App\Http\Mi
     Route::get('/api/categories/suggest', [DocumentController::class, 'suggestCategory'])->name('api.categories.suggest');
 
     // --- Document Management & Tracking ---
+    Route::match(['get', 'post'], '/documents/bulk-action', [DocumentController::class, 'bulkAction'])->name('documents.bulk-action');
     Route::resource('documents', DocumentController::class);
     Route::post('/documents/{id}/regenerate-pin', [DocumentController::class, 'regeneratePin'])->name('documents.regeneratePin');
     Route::get('/documents/{id}/workflow', [DocumentController::class, 'workflowView'])->name('documents.workflow');

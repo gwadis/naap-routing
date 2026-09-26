@@ -102,9 +102,11 @@ class ReportController extends Controller
             // Charts office load
             $offices = Office::withCount(['documents' => function($q) use ($request) {
                 if ($request->filled('status')) $q->where('status', $request->status);
-            }])->get();
+                if ($request->filled('from_date')) $q->whereDate('created_at', '>=', \Carbon\Carbon::parse($request->from_date)->startOfDay());
+                if ($request->filled('to_date')) $q->whereDate('created_at', '<=', \Carbon\Carbon::parse($request->to_date)->endOfDay());
+            }])->orderBy('name', 'asc')->get();
             $officeNames = $offices->pluck('name')->toArray();
-            $processingTimes = $offices->pluck('documents_count')->toArray();
+            $processingTimes = $offices->pluck('documents_count')->map(fn($c) => (int) $c)->toArray();
 
             // Daily scan activity history from real QR scan logs
             $baseScanQuery = ActivityLog::where(function($q) {

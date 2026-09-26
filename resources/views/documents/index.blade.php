@@ -306,6 +306,8 @@
 
 <div class="container-fluid p-4">
     @if(session('success')) <div class="alert alert-success">{{ session('success') }}</div> @endif
+    @if(session('error')) <div class="alert alert-danger">{{ session('error') }}</div> @endif
+    @if(session('warning')) <div class="alert alert-warning">{{ session('warning') }}</div> @endif
     @if($errors->any())
         <div class="alert alert-danger">
             <strong>Please fix the following errors:</strong>
@@ -316,6 +318,7 @@
             </ul>
         </div>
     @endif
+    <div id="bulkActionFeedback" class="alert d-none mb-3" role="alert"></div>
 
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
         <div>
@@ -350,9 +353,18 @@
             </select>
         </div>
         <div class="d-flex align-items-center gap-2">
-            <button class="btn btn-outline-secondary btn-sm" id="btnBulkAction" style="height: 38px; border-radius: 8px;" disabled>
-                <i class="bi bi-box-arrow-right"></i> Bulk Actions
-            </button>
+            <div class="dropdown">
+                <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" id="btnBulkAction" data-bs-toggle="dropdown" aria-expanded="false" style="height: 38px; border-radius: 8px;">
+                    <i class="bi bi-box-arrow-right"></i> <span id="bulkActionText">Bulk Actions</span>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="btnBulkAction" style="border-radius: 8px; font-size: 0.9rem;">
+                    <li><button type="button" class="dropdown-item bulk-action-item" data-action="completed"><i class="bi bi-check2-circle text-success me-2"></i> Mark as Completed</button></li>
+                    <li><button type="button" class="dropdown-item bulk-action-item" data-action="archive"><i class="bi bi-archive text-warning me-2"></i> Bulk Archive</button></li>
+                    <li><button type="button" class="dropdown-item bulk-action-item" data-action="export"><i class="bi bi-file-earmark-spreadsheet text-info me-2"></i> Bulk Export (CSV)</button></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><button type="button" class="dropdown-item bulk-action-item text-danger" data-action="delete"><i class="bi bi-trash text-danger me-2"></i> Bulk Delete</button></li>
+                </ul>
+            </div>
             <div class="dropdown">
                 <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" id="columnToggleBtn" data-bs-toggle="dropdown" aria-expanded="false" style="height: 38px; border-radius: 8px;">
                     <i class="bi bi-eye"></i> Columns
@@ -762,13 +774,69 @@
             });
         });
 
-        // Bulk Selection Checkbox
+        // Bulk Selection Checkbox & Actions
         const selectAllDocs = document.getElementById('selectAllDocs');
         const docSelectChks = document.querySelectorAll('.doc-select-chk');
         const btnBulkAction = document.getElementById('btnBulkAction');
+        const bulkActionText = document.getElementById('bulkActionText');
+
+        function showBulkFeedback(type, message) {
+            const feedbackEl = document.getElementById('bulkActionFeedback');
+            if (!feedbackEl) {
+                alert(message);
+                return;
+            }
+            feedbackEl.classList.remove('d-none', 'alert-success', 'alert-danger', 'alert-warning', 'alert-info');
+            const alertClass = type === 'error' ? 'alert-danger' : (type === 'success' ? 'alert-success' : 'alert-warning');
+            const iconClass = type === 'success' ? 'bi-check-circle-fill' : (type === 'error' ? 'bi-x-circle-fill' : 'bi-exclamation-triangle-fill');
+            feedbackEl.classList.add(alertClass, 'fade', 'show');
+            feedbackEl.innerHTML = `
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi ${iconClass}"></i>
+                        <span>${message}</span>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            `;
+            feedbackEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        function updateBulkActionState() {
+            const visibleBoxes = Array.from(docSelectChks).filter(chk => {
+                const row = chk.closest('tr');
+                return !row || row.style.display !== 'none';
+            });
+            const checkedBoxes = Array.from(docSelectChks).filter(chk => chk.checked);
+            const count = checkedBoxes.length;
+
+            if (bulkActionText) {
+                bulkActionText.textContent = count > 0 ? `Bulk Actions (${count})` : 'Bulk Actions';
+            }
+
+            if (selectAllDocs) {
+                const visibleChecked = visibleBoxes.filter(chk => chk.checked);
+                if (visibleBoxes.length > 0 && visibleChecked.length === visibleBoxes.length) {
+                    selectAllDocs.checked = true;
+                    selectAllDocs.indeterminate = false;
+                } else if (visibleChecked.length > 0) {
+                    selectAllDocs.checked = false;
+                    selectAllDocs.indeterminate = true;
+                } else {
+                    selectAllDocs.checked = false;
+                    selectAllDocs.indeterminate = false;
+                }
+            }
+        }
 
         selectAllDocs?.addEventListener('change', function() {
-            docSelectChks.forEach(chk => chk.checked = this.checked);
+            const isChecked = this.checked;
+            docSelectChks.forEach(chk => {
+                const row = chk.closest('tr');
+                if (!row || row.style.display !== 'none') {
+                    chk.checked = isChecked;
+                }
+            });
             updateBulkActionState();
         });
 
@@ -776,10 +844,68 @@
             chk.addEventListener('change', updateBulkActionState);
         });
 
-        function updateBulkActionState() {
-            const selected = Array.from(docSelectChks).some(chk => chk.checked);
-            if (btnBulkAction) btnBulkAction.disabled = !selected;
-        }
+        document.querySelectorAll('.bulk-action-item').forEach(item => {
+            item.addEventListener('click', function(e) {
+                e.preventDefault();
+                const action = this.getAttribute('data-action');
+                const selectedIds = Array.from(docSelectChks).filter(chk => chk.checked).map(chk => chk.value);
+
+                if (selectedIds.length === 0) {
+                    showBulkFeedback('warning', 'No documents selected. Please select at least one document.');
+                    return;
+                }
+
+                if (action === 'export') {
+                    const params = new URLSearchParams();
+                    params.set('action', 'export');
+                    selectedIds.forEach(id => params.append('document_ids[]', id));
+                    window.location.href = `{{ route('documents.bulk-action') }}?${params.toString()}`;
+                    showBulkFeedback('success', `Exporting ${selectedIds.length} document(s)...`);
+                    return;
+                }
+
+                let confirmMsg = '';
+                if (action === 'delete') {
+                    confirmMsg = `Are you sure you want to permanently delete ${selectedIds.length} selected document(s)? This action cannot be undone.`;
+                } else if (action === 'archive') {
+                    confirmMsg = `Are you sure you want to archive ${selectedIds.length} selected document(s)?`;
+                } else if (action === 'completed') {
+                    confirmMsg = `Are you sure you want to mark ${selectedIds.length} selected document(s) as completed?`;
+                }
+
+                if (confirmMsg && !confirm(confirmMsg)) {
+                    return;
+                }
+
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}';
+
+                fetch('{{ route('documents.bulk-action') }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken,
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        action: action,
+                        document_ids: selectedIds
+                    })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        showBulkFeedback('success', data.message || 'Bulk action executed successfully.');
+                        setTimeout(() => window.location.reload(), 900);
+                    } else {
+                        showBulkFeedback('error', data.message || 'An error occurred while executing bulk action.');
+                    }
+                })
+                .catch(err => {
+                    console.error('Bulk action error:', err);
+                    showBulkFeedback('error', 'Network error or server error. Please try again.');
+                });
+            });
+        });
 
         const officeSelect = document.getElementById('officeSelect');
         if (officeSelect) {

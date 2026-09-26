@@ -288,10 +288,10 @@
         @media print {
             @page {
                 size: portrait;
-                margin: 0;
+                margin: 0mm;
             }
             @page :first {
-                margin: 0;
+                margin: 0mm;
             }
             *, *::before, *::after {
                 box-shadow: none !important;
@@ -301,9 +301,10 @@
                 background: #ffffff !important;
                 padding: 0 !important;
                 margin: 0 !important;
+                width: 100% !important;
+                height: auto !important;
                 min-height: 0 !important;
-                height: 100% !important;
-                max-height: 100vh !important;
+                max-height: none !important;
                 display: block !important;
                 overflow: hidden !important;
                 page-break-after: avoid !important;
@@ -313,14 +314,17 @@
             }
             body > div {
                 margin: 0 auto !important;
-                padding: 10mm 0 0 0 !important;
+                padding: 5mm 0 0 0 !important;
                 width: 100% !important;
                 max-width: 420px !important;
                 height: auto !important;
+                box-sizing: border-box !important;
                 page-break-inside: avoid !important;
                 break-inside: avoid !important;
                 page-break-after: avoid !important;
                 break-after: avoid !important;
+                page-break-before: avoid !important;
+                break-before: avoid !important;
             }
             .label-card {
                 box-shadow: none !important;
@@ -333,7 +337,11 @@
                 page-break-before: avoid !important;
                 break-before: avoid !important;
             }
-            .print-actions {
+            .label-card, .label-card * {
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+            }
+            .print-actions, script {
                 display: none !important;
                 visibility: hidden !important;
                 position: absolute !important;

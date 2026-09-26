@@ -204,13 +204,13 @@
         <div class="col-md-6">
             <div class="glass-card h-100">
                 <h6 class="fw-bold mb-3" style="color: var(--accent-navy) !important;">Documents per Office</h6>
-                <div style="height:250px;"><canvas id="reportBar"></canvas></div>
+                <div style="position: relative; height: 260px; width: 100%;"><canvas id="reportBar"></canvas></div>
             </div>
         </div>
         <div class="col-md-6">
             <div class="glass-card h-100">
                 <h6 class="fw-bold mb-3" style="color: var(--accent-navy) !important;">Daily Scan Activity</h6>
-                <div style="height:250px;"><canvas id="reportLine"></canvas></div>
+                <div style="position: relative; height: 260px; width: 100%;"><canvas id="reportLine"></canvas></div>
             </div>
         </div>
     </div>
@@ -249,18 +249,72 @@ window.onload = function () {
         options: commonOptions
     });
 
-    // 2. Bar Chart
+    // 2. Bar Chart (Documents per Office) - fully rendered with offset and padding to prevent clipping
     new Chart(document.getElementById('reportBar'), {
         type: 'bar',
         data: {
             labels: @json($officeNames),
             datasets: [{
+                label: 'Documents',
                 data: @json($processingTimes),
                 backgroundColor: '#1E3A8A',
-                borderRadius: 8
+                borderRadius: 6,
+                maxBarThickness: 45,
+                barPercentage: 0.75,
+                categoryPercentage: 0.85
             }]
         },
-        options: commonOptions
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            layout: {
+                padding: {
+                    left: 10,
+                    right: 25,
+                    top: 15,
+                    bottom: 5
+                }
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        title: function(items) {
+                            return items[0]?.label || '';
+                        },
+                        label: function(item) {
+                            return 'Documents: ' + (item.parsed.y ?? 0);
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    grid: { color: 'rgba(0,0,0,0.05)' },
+                    beginAtZero: true,
+                    ticks: {
+                        precision: 0
+                    }
+                },
+                x: {
+                    offset: true,
+                    grid: { display: false },
+                    ticks: {
+                        autoSkip: false,
+                        maxRotation: 45,
+                        minRotation: 0,
+                        font: { size: 10 },
+                        callback: function(val, index) {
+                            let label = this.getLabelForValue(val);
+                            if (typeof label === 'string' && label.length > 18) {
+                                return label.substring(0, 16) + '…';
+                            }
+                            return label;
+                        }
+                    }
+                }
+            }
+        }
     });
 
     // 3. Line Chart

@@ -368,4 +368,155 @@ class DashboardAnalyticsAndFixesTest extends TestCase
         $this->assertIsArray($scanCounts);
         $this->assertGreaterThanOrEqual(1, array_sum($scanCounts));
     }
+
+    /**
+     * Test 13: Reports Documents Per Office chart contains responsive options, offset, and correct data.
+     */
+    public function test_reports_documents_per_office_chart_renders_with_responsive_container_and_offset(): void
+    {
+        // Create an office with a long name and several documents to test representation
+        $longOffice = Office::create([
+            'name' => 'Department of Computer Studies and Systems Development',
+            'department' => 'CSSD',
+        ]);
+
+        Document::create([
+            'title' => 'Long Office Document 1',
+            'type' => 'Letter',
+            'priority' => 'High',
+            'origin_office_id' => $longOffice->id,
+            'current_office_id' => $longOffice->id,
+            'destination_office_id' => $this->destinationOffice->id,
+            'uploaded_by' => $this->adminUser->id,
+            'status' => 'Pending',
+        ]);
+
+        $response = $this->actingAsAdmin()->get(route('reports.index'));
+        $response->assertStatus(200);
+
+        // Assert chart options prevent cut off
+        $response->assertSee('offset: true', false);
+        $response->assertSee('maxBarThickness: 45', false);
+        $response->assertSee('right: 25', false);
+        $response->assertSee('reportBar', false);
+
+        $officeNames = $response->viewData('officeNames');
+        $processingTimes = $response->viewData('processingTimes');
+        $this->assertIsArray($officeNames);
+        $this->assertContains('Department of Computer Studies and Systems Development', $officeNames);
+        $this->assertIsArray($processingTimes);
+        $this->assertNotEmpty($processingTimes);
+    }
+
+    /**
+     * Test 14: QR Label page auto-print template has single-page CSS and break-inside avoidance.
+     */
+    public function test_qr_label_autoprint_has_single_page_print_rules(): void
+    {
+        $response = $this->actingAsAdmin()->get(route('documents.qr-label', $this->document->id));
+        $response->assertStatus(200);
+
+        // Ensure single-sheet print rules
+        $response->assertSee('break-inside: avoid !important', false);
+        $response->assertSee('page-break-inside: avoid !important', false);
+        $response->assertSee('margin: 0mm;', false);
+        $response->assertSee('window.print()', false);
+    }
+
+    /**
+     * Test 15: Bulk action returns 422 warning if no documents are selected.
+     */
+    public function test_bulk_action_validates_empty_selection(): void
+    {
+        $response = $this->actingAsAdmin()->postJson(route('documents.bulk-action'), [
+            'action' => 'archive',
+            'document_ids' => [],
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJson([
+            'success' => false,
+            'message' => 'No documents selected.',
+        ]);
+    }
+
+    /**
+     * Test 16: Bulk action marks documents as completed.
+     */
+    public function test_bulk_action_marks_documents_completed(): void
+    {
+        $doc2 = Document::create([
+            'title' => 'Bulk Complete Target 2',
+            'type' => 'Report',
+            'priority' => 'Normal',
+            'origin_office_id' => $this->originOffice->id,
+            'current_office_id' => $this->originOffice->id,
+            'destination_office_id' => $this->destinationOffice->id,
+            'uploaded_by' => $this->adminUser->id,
+            'status' => 'Pending',
+        ]);
+
+        $response = $this->actingAsAdmin()->postJson(route('documents.bulk-action'), [
+            'action' => 'completed',
+            'document_ids' => [$this->document->id, $doc2->id],
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertJson([
+            'success' => true,
+            'count' => 2,
+        ]);
+
+        $this->assertEquals('Completed', $this->document->fresh()->status);
+        $this->assertEquals('Completed', $doc2->fresh()->status);
+    }
+
+    /**
+     * Test 17: Bulk action archives documents.
+     */
+    public function test_bulk_action_archives_documents(): void
+    {
+        $response = $this->actingAsAdmin()->postJson(route('documents.bulk-action'), [
+            'action' => 'archive',
+            'document_ids' => [$this->document->id],
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertJson([
+            'success' => true,
+            'count' => 1,
+        ]);
+
+        $this->assertEquals('Archived', $this->document->fresh()->status);
+        $this->assertNotNull($this->document->fresh()->archived_at);
+    }
+
+    /**
+     * Test 18: Bulk action deletes documents and exports CSV.
+     */
+    public function test_bulk_action_delete_and_export(): void
+    {
+        // Test CSV Export
+        $exportResponse = $this->actingAsAdmin()->get(route('documents.bulk-action', [
+            'action' => 'export',
+            'ids' => (string) $this->document->id,
+        ]));
+
+        $exportResponse->assertStatus(200);
+        $this->assertStringContainsString('text/csv', $exportResponse->headers->get('Content-Type'));
+
+        // Test Bulk Delete
+        $deleteResponse = $this->actingAsAdmin()->postJson(route('documents.bulk-action'), [
+            'action' => 'delete',
+            'document_ids' => [$this->document->id],
+        ]);
+
+        $deleteResponse->assertStatus(200);
+        $deleteResponse->assertJson([
+            'success' => true,
+            'count' => 1,
+        ]);
+
+        $this->assertNull(Document::find($this->document->id));
+    }
 }

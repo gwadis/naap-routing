@@ -897,6 +897,156 @@ class DocumentController extends Controller
     }
 
     /**
+     * Execute enterprise bulk actions on selected documents.
+     */
+    public function bulkAction(Request $request)
+    {
+        $user = auth()->user() ?? User::find(session('user_id'));
+        if (!$user) {
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['success' => false, 'message' => 'Unauthenticated.'], 401);
+            }
+            return redirect()->route('login')->with('error', 'Please log in to perform this action.');
+        }
+
+        $isAdmin = ($user && $user->isAdmin()) || User::isRoleAdmin(session('user_role'));
+
+        // Handle document IDs from either array (POST) or comma-separated string (GET / export)
+        $ids = $request->input('document_ids', []);
+        if (empty($ids) && $request->filled('ids')) {
+            $ids = explode(',', $request->input('ids'));
+        }
+        if (!is_array($ids)) {
+            $ids = [$ids];
+        }
+        $ids = array_filter(array_map('intval', $ids));
+
+        if (empty($ids)) {
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['success' => false, 'message' => 'No documents selected.'], 422);
+            }
+            return back()->with('warning', 'No documents selected.');
+        }
+
+        $action = strtolower(trim((string) $request->input('action', '')));
+
+        // 1. Bulk Export (CSV)
+        if ($action === 'export') {
+            $documents = Document::with(['originOffice', 'destinationOffice', 'uploader', 'receiverUser'])
+                ->whereIn('id', $ids)
+                ->get();
+
+            $fileName = 'documents_export_' . date('Ymd_His') . '.csv';
+            $headers = [
+                'Content-Type' => 'text/csv',
+                'Content-Disposition' => "attachment; filename=\"{$fileName}\"",
+                'Pragma' => 'no-cache',
+                'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
+                'Expires' => '0'
+            ];
+
+            return response()->stream(function () use ($documents) {
+                $file = fopen('php://output', 'w');
+                fputcsv($file, ['ID', 'Tracking Number', 'Title', 'Type', 'Priority', 'Status', 'Origin Office', 'Destination Office', 'Receiver', 'Uploader', 'Created At']);
+                foreach ($documents as $doc) {
+                    fputcsv($file, [
+                        $doc->id,
+                        $doc->tracking_number ?: $doc->qr_id,
+                        $doc->title,
+                        $doc->type,
+                        $doc->priority,
+                        $doc->status,
+                        $doc->originOffice?->name ?? 'N/A',
+                        $doc->destinationOffice?->name ?? 'N/A',
+                        $doc->receiverUser?->name ?? 'Unassigned',
+                        $doc->uploader?->name ?? 'System',
+                        $doc->created_at?->format('Y-m-d H:i:s'),
+                    ]);
+                }
+                fclose($file);
+            }, 200, $headers);
+        }
+
+        // 2. Fetch documents to operate on
+        $query = Document::whereIn('id', $ids);
+        if (!$isAdmin) {
+            // Non-admin can only alter documents they uploaded or are assigned as receiver
+            $query->where(function($q) use ($user) {
+                $q->where('uploaded_by', $user->id)
+                  ->orWhere('receiver_user_id', $user->id);
+            });
+        }
+        $targetDocs = $query->get();
+
+        if ($targetDocs->isEmpty()) {
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['success' => false, 'message' => 'No authorized documents found to process.'], 403);
+            }
+            return back()->with('error', 'You are not authorized to perform bulk actions on the selected documents.');
+        }
+
+        $processedCount = 0;
+
+        switch ($action) {
+            case 'delete':
+                foreach ($targetDocs as $doc) {
+                    if ($doc->file_path) {
+                        Storage::disk('public')->delete($doc->file_path);
+                    }
+                    if ($doc->qr_code) {
+                        Storage::disk('public')->delete($doc->qr_code);
+                    }
+                    $doc->delete();
+                    $processedCount++;
+                }
+                $message = "Successfully deleted {$processedCount} document(s).";
+                break;
+
+            case 'archive':
+                foreach ($targetDocs as $doc) {
+                    $doc->update([
+                        'status' => 'Archived',
+                        'archived_at' => now(),
+                    ]);
+                    ActivityLog::log('Document Archived (Bulk)', $doc->id, ['user' => $user->name]);
+                    $processedCount++;
+                }
+                $message = "Successfully archived {$processedCount} document(s).";
+                break;
+
+            case 'completed':
+            case 'mark_completed':
+                foreach ($targetDocs as $doc) {
+                    $doc->update([
+                        'status' => 'Completed',
+                        'received_at' => $doc->received_at ?? now(),
+                        'completed_at' => now(),
+                    ]);
+                    ActivityLog::log('Document Marked Completed (Bulk)', $doc->id, ['user' => $user->name]);
+                    $processedCount++;
+                }
+                $message = "Successfully marked {$processedCount} document(s) as completed.";
+                break;
+
+            default:
+                if ($request->wantsJson() || $request->ajax()) {
+                    return response()->json(['success' => false, 'message' => "Invalid bulk action '{$action}'."], 422);
+                }
+                return back()->with('error', 'Invalid bulk action specified.');
+        }
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => $message,
+                'count' => $processedCount,
+            ]);
+        }
+
+        return redirect()->route('documents.index')->with('success', $message);
+    }
+
+    /**
      * Remove the specified document from storage.
      */
     public function destroy($id)
