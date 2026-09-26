@@ -148,13 +148,25 @@ class ReportController extends Controller
                 }
             }
 
-            // Weekly document uploads flow
+            // Weekly document volume flow (Monday to Sunday for current week)
+            $startOfWeek = now()->startOfWeek(); // Monday
+            if ($request->filled('from_date')) {
+                $startOfWeek = \Carbon\Carbon::parse($request->from_date)->startOfWeek();
+            }
+
+            $flowLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
             $flowData = [];
-            $flowLabels = [];
-            for ($i = 6; $i >= 0; $i--) {
-                $date = now()->subDays($i);
-                $flowLabels[] = $date->format('D');
-                $flowData[] = Document::whereDate('created_at', $date->toDateString())->count();
+
+            for ($i = 0; $i < 7; $i++) {
+                $dayDate = (clone $startOfWeek)->addDays($i);
+                $flowDayQuery = Document::whereDate('created_at', $dayDate->toDateString());
+                if ($request->filled('status')) {
+                    $flowDayQuery->where('status', $request->status);
+                }
+                if ($request->filled('user_id')) {
+                    $flowDayQuery->where('uploaded_by', $request->user_id);
+                }
+                $flowData[] = $flowDayQuery->count();
             }
 
             $isSqlite = DB::connection()->getDriverName() === 'sqlite';

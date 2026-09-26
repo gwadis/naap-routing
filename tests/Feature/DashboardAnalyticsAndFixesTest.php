@@ -519,4 +519,47 @@ class DashboardAnalyticsAndFixesTest extends TestCase
 
         $this->assertNull(Document::find($this->document->id));
     }
+
+    /**
+     * Test 19: Weekly Volume Flow chart displays Monday–Sunday day labels in chronological order with 0-padded days.
+     */
+    public function test_reports_weekly_volume_flow_has_monday_to_sunday_day_labels_and_correct_mapping(): void
+    {
+        // Place a document on this week's Wednesday
+        $startOfWeek = now()->startOfWeek();
+        $wednesday = $startOfWeek->copy()->addDays(2)->setHour(10);
+
+        $wedDoc = Document::create([
+            'title' => 'Wednesday Document',
+            'type' => 'Invoice',
+            'priority' => 'Normal',
+            'origin_office_id' => $this->originOffice->id,
+            'current_office_id' => $this->originOffice->id,
+            'destination_office_id' => $this->destinationOffice->id,
+            'uploaded_by' => $this->adminUser->id,
+            'status' => 'Pending',
+        ]);
+        $wedDoc->timestamps = false;
+        $wedDoc->created_at = $wednesday;
+        $wedDoc->save();
+
+        $response = $this->actingAsAdmin()->get(route('reports.index'));
+        $response->assertStatus(200);
+
+        $flowLabels = $response->viewData('flowLabels');
+        $flowData = $response->viewData('flowData');
+
+        $this->assertIsArray($flowLabels);
+        $this->assertEquals(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], $flowLabels);
+
+        $this->assertIsArray($flowData);
+        $this->assertCount(7, $flowData);
+
+        // Wednesday is index 2
+        $this->assertGreaterThanOrEqual(1, $flowData[2]);
+
+        // Assert chart canvas and JS labels are in view output
+        $response->assertSee('flowChart', false);
+        $response->assertSee('Weekly Volume Flow', false);
+    }
 }

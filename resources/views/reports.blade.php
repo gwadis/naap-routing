@@ -233,12 +233,13 @@ window.onload = function () {
         }
     };
 
-    // 1. Flow Chart
+    // 1. Flow Chart (Weekly Volume Flow with Monday–Sunday Day Labels)
     new Chart(document.getElementById('flowChart'), {
         type: 'line',
         data: {
             labels: @json($flowLabels),
             datasets: [{
+                label: 'Documents',
                 data: @json($flowData),
                 borderColor: '#3B82F6',
                 backgroundColor: 'rgba(59, 130, 246, 0.08)',
@@ -246,7 +247,42 @@ window.onload = function () {
                 tension: 0.4
             }]
         },
-        options: commonOptions
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        title: function(items) {
+                            return items[0]?.label || '';
+                        },
+                        label: function(item) {
+                            const count = item.parsed.y ?? 0;
+                            return count + (count === 1 ? ' document' : ' documents');
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    grid: { color: 'rgba(0,0,0,0.05)' },
+                    beginAtZero: true,
+                    ticks: {
+                        precision: 0
+                    }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: {
+                        color: '#64748b',
+                        font: {
+                            weight: '500'
+                        }
+                    }
+                }
+            }
+        }
     });
 
     // 2. Bar Chart (Documents per Office) - fully rendered with offset and padding to prevent clipping
