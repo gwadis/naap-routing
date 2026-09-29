@@ -157,13 +157,13 @@
             <div class="dashboard-panel">
                 <h5 class="fw-bold mb-4 text-start"><i class="bi bi-shield-exclamation me-2 text-warning"></i>Suspicious Activities & Lockouts</h5>
                 <div class="table-responsive text-start">
-                    <table class="table table-borderless align-middle mb-0" style="font-size: 0.85rem;">
+                    <table class="table table-borderless align-middle mb-0" style="font-size: 0.85rem; min-width: 540px;">
                         <thead>
                             <tr class="border-bottom text-muted">
                                 <th>Actor</th>
                                 <th>Alert Action</th>
-                                <th>IP Address</th>
-                                <th>Timestamp</th>
+                                <th style="white-space: nowrap;">IP Address</th>
+                                <th style="white-space: nowrap; min-width: 145px;">Timestamp</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -171,8 +171,8 @@
                                 <tr class="border-bottom">
                                     <td class="fw-bold text-dark">{{ $activity->user }}</td>
                                     <td class="text-danger fw-bold">{{ $activity->action }}</td>
-                                    <td><code>{{ $activity->ip_address }}</code></td>
-                                    <td class="text-muted">{{ $activity->created_at }}</td>
+                                    <td><code style="white-space: nowrap;">{{ $activity->ip_address }}</code></td>
+                                    <td class="text-muted" style="white-space: nowrap; min-width: 145px;">{{ $activity->created_at }}</td>
                                 </tr>
                             @empty
                                 <tr>

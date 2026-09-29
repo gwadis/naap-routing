@@ -183,7 +183,6 @@ class DashboardController extends Controller
             $uniqueUsersScanning = (clone $qrScansQuery)->whereNotNull('user')->where('user', '!=', '')->distinct()->count('user');
 
             $documentViews = ActivityLog::where('action', 'DOCUMENT VIEWED')->count();
-            $otpVerifications = ActivityLog::where('action', 'Confidential PIN Verified')->count();
 
             $approvalActivities = ActivityLog::where(function($q) {
                 $q->where('action', 'like', '%Approved%')
@@ -238,7 +237,6 @@ class DashboardController extends Controller
                 'qrScansMonth',
                 'uniqueUsersScanning',
                 'documentViews',
-                'otpVerifications',
                 'approvalActivities',
                 'routingActivities',
                 'qrTrendData',

@@ -269,7 +269,7 @@
     </div>
 
     @if($isAdmin)
-        <h4 class="fw-bold mb-3 mt-4 text-start"><i class="bi bi-qr-code-scan text-primary me-2"></i>QR Code Scan & OTP Activity Monitoring</h4>
+        <h4 class="fw-bold mb-3 mt-4 text-start"><i class="bi bi-qr-code-scan text-primary me-2"></i>QR Code Scan Activity Monitoring</h4>
         <div class="kpi-grid">
             <div class="kpi-card">
                 <div>
@@ -296,15 +296,6 @@
                 </div>
                 <div class="kpi-trend trend-neutral">
                     <i class="bi bi-people"></i> Distinct accounts
-                </div>
-            </div>
-            <div class="kpi-card">
-                <div>
-                    <div class="label">OTP Verifications</div>
-                    <h3>{{ $otpVerifications }}</h3>
-                </div>
-                <div class="kpi-trend trend-up">
-                    <i class="bi bi-shield-check-fill"></i> PIN verifications
                 </div>
             </div>
         </div>

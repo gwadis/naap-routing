@@ -5,15 +5,13 @@
 @section('content')
 <style>
     :root {
-        --primary-bg: var(--panel);
-        --secondary-bg: var(--bg);
-        --accent-cyan: var(--accent-cyan);
+        --primary-bg: var(--panel, #FFFFFF);
+        --secondary-bg: var(--bg, #F8FAFC);
         --accent-success: #10b981;
-        --border-color: var(--panel-border);
+        --border-color: var(--panel-border, #E2E8F0);
         --text-primary: inherit;
-        --text-secondary: var(--text-dim);
-        --text-muted: var(--text-dim);
-        --accent-navy: var(--accent-navy);
+        --text-secondary: var(--text-dim, #64748B);
+        --text-muted: var(--text-dim, #64748B);
     }
 
     .filter-panel {
@@ -102,17 +100,27 @@
     }
 
     .btn-search {
-        background: var(--accent-navy) !important;
-        border: none;
+        background: var(--accent-navy, #0F172A) !important;
+        background-color: var(--accent-navy, #0F172A) !important;
+        border: 1px solid var(--accent-navy, #0F172A) !important;
         color: #FFFFFF !important;
         font-weight: 600;
         border-radius: 8px;
         height: 44px;
         padding: 10px 24px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        position: relative;
+        z-index: 2;
         transition: 0.2s;
     }
     .btn-search:hover {
         background: #1D4ED8 !important;
+        background-color: #1D4ED8 !important;
+        border-color: #1D4ED8 !important;
+        color: #FFFFFF !important;
         box-shadow: 0 4px 12px rgba(30, 58, 138, 0.15);
     }
     .btn-reset {
@@ -185,7 +193,7 @@
             </select>
         </div>
 
-        <div class="col-md-12 d-flex gap-2 pt-3">
+        <div class="col-md-12 d-flex gap-2 pt-3 flex-wrap">
             <button type="submit" class="btn btn-search">
                 <i class="bi bi-search me-2"></i>Search
             </button>
