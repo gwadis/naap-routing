@@ -23,7 +23,37 @@ class DocumentAcceptedNotification extends Notification
 
     public function via($notifiable): array
     {
-        return ['database', 'mail'];
+        $channels = ['database'];
+        if (!empty($notifiable->email)) {
+            $channels[] = 'mail';
+        }
+        if (method_exists($notifiable, 'isTelegramConnected') && $notifiable->isTelegramConnected() && app(\App\Services\TelegramService::class)->isConfigured()) {
+            $channels[] = \App\Channels\TelegramChannel::class;
+        }
+        return $channels;
+    }
+
+    public function toTelegram($notifiable): string
+    {
+        $tracking = $this->document->tracking_number ?? $this->document->qr_id ?? ('DOC-' . $this->document->id);
+        $title = htmlspecialchars(\Illuminate\Support\Str::limit($this->document->title, 40));
+        $receiver = htmlspecialchars($this->receiverName);
+        $office = htmlspecialchars($this->officeName);
+        $remarks = $this->remarks ? ("\n<b>Remarks:</b> " . htmlspecialchars($this->remarks)) : '';
+        $naapUrl = url('/track?tracking_number=' . $tracking);
+
+        return "✅ <b>NAAP DOCUMENT ACCEPTED</b>\n\n"
+             . "Document <b>{$title}</b> was accepted by <b>{$receiver}</b> at <b>{$office}</b>.{$remarks}\n\n"
+             . "<b>Tracking ID:</b> <code>{$tracking}</code>\n\n"
+             . "👉 <a href=\"{$naapUrl}\">View Document Details</a>";
+    }
+
+    public function toSms($notifiable): string
+    {
+        $tracking = $this->document->tracking_number ?? $this->document->qr_id ?? ('DOC-' . $this->document->id);
+        $title = \Illuminate\Support\Str::limit($this->document->title, 25);
+        $remarks = $this->remarks ? (' Remarks: ' . \Illuminate\Support\Str::limit($this->remarks, 40)) : '';
+        return "NAAP UPDATE: Document [{$tracking}] '{$title}' was accepted by {$this->receiverName} at {$this->officeName}.{$remarks}";
     }
 
     public function toDatabase($notifiable): array

@@ -2,17 +2,16 @@
 @section('title', 'QR Scanner & Document Delivery')
 
 @section('head')
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" onerror="loadScannerFallback()"></script>
+<script src="https://cdn.jsdelivr.net/npm/signature_pad@2.3.2/dist/signature_pad.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js" onerror="loadJsQRFallback()"></script>
 <script>
-    function loadScannerFallback() {
-        console.log("Unpkg failed, loading html5-qrcode from jsDelivr CDN...");
-        const script = document.createElement('script');
-        script.src = "https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js";
-        document.head.appendChild(script);
+    function loadJsQRFallback() {
+        console.warn("jsDelivr jsQR CDN failed, loading fallback from unpkg...");
+        const s = document.createElement('script');
+        s.src = "https://unpkg.com/jsqr@1.4.0/dist/jsQR.js";
+        document.head.appendChild(s);
     }
 </script>
-<script src="https://cdn.jsdelivr.net/npm/signature_pad@2.3.2/dist/signature_pad.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
     :root {
@@ -46,19 +45,100 @@
     .scanner-box {
         border: 1.5px solid var(--panel-border);
         border-radius: var(--radius-lg);
-        min-height: 320px;
-        display: grid;
-        place-items: center;
-        background: var(--bg);
+        min-height: 340px;
+        height: 380px;
+        max-height: 420px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #0f172a;
         overflow: hidden;
         position: relative;
     }
 
-    #reader {
+    #scannerVideo {
         width: 100%;
         height: 100%;
-        min-height: 320px;
-        background: #000;
+        object-fit: cover;
+        display: none;
+    }
+
+    .scanner-target-overlay {
+        position: absolute;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        pointer-events: none;
+        z-index: 5;
+    }
+
+    .scanner-frame {
+        width: 220px;
+        height: 220px;
+        position: relative;
+        box-shadow: 0 0 0 9999px rgba(15, 23, 42, 0.45);
+        border-radius: 12px;
+    }
+
+    .scanner-frame .corner {
+        position: absolute;
+        width: 24px;
+        height: 24px;
+        border-color: #38bdf8;
+        border-style: solid;
+    }
+
+    .scanner-frame .corner-tl { top: -2px; left: -2px; border-width: 3.5px 0 0 3.5px; border-top-left-radius: 8px; }
+    .scanner-frame .corner-tr { top: -2px; right: -2px; border-width: 3.5px 3.5px 0 0; border-top-right-radius: 8px; }
+    .scanner-frame .corner-bl { bottom: -2px; left: -2px; border-width: 0 0 3.5px 3.5px; border-bottom-left-radius: 8px; }
+    .scanner-frame .corner-br { bottom: -2px; right: -2px; border-width: 0 3.5px 3.5px 0; border-bottom-right-radius: 8px; }
+
+    .scanner-laser {
+        position: absolute;
+        top: 6%;
+        left: 5%;
+        width: 90%;
+        height: 2px;
+        background: linear-gradient(90deg, transparent, #38bdf8, transparent);
+        box-shadow: 0 0 8px #38bdf8;
+        animation: laserScan 2.4s ease-in-out infinite;
+    }
+
+    @keyframes laserScan {
+        0%, 100% { top: 6%; opacity: 0.2; }
+        50% { top: 92%; opacity: 1; }
+    }
+
+    .scanner-status-pill {
+        margin-top: 14px;
+        background: rgba(15, 23, 42, 0.85);
+        color: #f8fafc;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        padding: 4px 14px;
+        border-radius: 20px;
+        font-size: 11.5px;
+        font-weight: 600;
+        letter-spacing: 0.03em;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        backdrop-filter: blur(4px);
+    }
+
+    .status-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #10b981;
+        box-shadow: 0 0 6px #10b981;
+        animation: pulseDot 1.6s infinite;
+    }
+
+    @keyframes pulseDot {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.4; transform: scale(0.8); }
     }
 
     .scanner-placeholder {
@@ -67,11 +147,13 @@
         align-items: center;
         justify-content: center;
         gap: 12px;
+        padding: 24px;
+        text-align: center;
     }
 
     .scanner-icon {
-        font-size: 2.5rem;
-        opacity: 0.6;
+        font-size: 2.8rem;
+        opacity: 0.75;
     }
 
     .scanner-text {
@@ -369,35 +451,51 @@
                 </div>
                 
                 <div id="scan-mode">
-                    <div class="scanner-box">
-                        <div id="reader"></div>
+                    <div class="scanner-box" id="scannerBox">
+                        <!-- Native Video Feed -->
+                        <video id="scannerVideo" playsinline autoplay muted></video>
+                        <canvas id="scannerCanvas" style="display: none;"></canvas>
+
+                        <!-- Viewfinder Targeting Overlay -->
+                        <div id="scannerTargetOverlay" class="scanner-target-overlay">
+                            <div class="scanner-frame">
+                                <div class="corner corner-tl"></div>
+                                <div class="corner corner-tr"></div>
+                                <div class="corner corner-bl"></div>
+                                <div class="corner corner-br"></div>
+                                <div class="scanner-laser"></div>
+                            </div>
+                            <div class="scanner-status-pill" id="scannerStatusPill">
+                                <span class="status-dot"></span>
+                                <span id="scannerStatusText">Scanning...</span>
+                            </div>
+                        </div>
+
+                        <!-- Placeholder / State Display -->
                         <div id="scanner-placeholder" class="scanner-placeholder">
-                            <div class="scanner-icon"><i class="bi bi-camera" style="font-size: 2.5rem; color: var(--text-dim);"></i></div>
+                            <div class="scanner-icon" id="placeholderIcon"><i class="bi bi-camera" style="font-size: 2.8rem; color: var(--text-dim);"></i></div>
                             <div class="scanner-text">
-                                <p class="mb-0 text-slate-500">Camera stream inactive.</p>
-                                <p class="small text-slate-400">Click "Start Camera" to scan.</p>
+                                <p class="mb-1 fw-bold" id="placeholderTitle" style="color: var(--text-main); font-size: 14px;">Camera Ready</p>
+                                <p class="small mb-0" id="placeholderMessage" style="color: var(--text-dim); font-size: 12px;">Click "Start Camera" to scan document QR codes.</p>
                             </div>
                         </div>
                     </div>
 
                     <!-- Camera Select Container -->
                     <div id="camera-select-container" class="mt-3 text-start" style="display: none;">
-                        <label class="form-label small fw-bold text-secondary mb-1">Select Camera Device</label>
-                        <select id="cameraSelect" class="form-select"></select>
+                        <label for="cameraSelect" class="form-label small fw-bold text-secondary mb-1">
+                            <i class="bi bi-camera-video me-1"></i> Select Camera Device
+                        </label>
+                        <select id="cameraSelect" class="form-select form-select-sm" style="background: var(--bg); border: 1px solid var(--panel-border); color: var(--text-main);"></select>
                     </div>
 
-                    <!-- Camera Access HTTPS Insecure Context Warning -->
-                    <div id="camera-help-box" class="alert alert-info mt-3 small text-start border-0 shadow-sm" style="display: none; background: rgba(59, 130, 246, 0.08); border-left: 4px solid var(--accent-cyan) !important;">
-                        <p class="mb-1 text-dark fw-bold"><i class="bi bi-info-circle-fill me-1" style="color:var(--accent-cyan);"></i> Insecure Origin (HTTP)</p>
-                        <p class="mb-2" style="font-size:12px; color:var(--text-dim);">Camera stream requires HTTPS. To test over HTTP:</p>
-                        <ol class="mb-0 ps-3" style="font-size:11.5px; color:var(--text-dim);">
-                            <li class="mb-1">Navigate to <code>chrome://flags/#unsafely-treat-insecure-origin-as-secure</code></li>
-                            <li class="mb-1">Enter your test host <code>http://naaprouting_system.test</code>.</li>
-                            <li>Relaunch browser and try again!</li>
-                        </ol>
+                    <!-- Camera Access Insecure Context Warning -->
+                    <div id="camera-help-box" class="alert alert-warning mt-3 small text-start border-0 shadow-sm" style="display: none; background: rgba(245, 158, 11, 0.08); border-left: 4px solid var(--accent-warning) !important; color: #b45309;">
+                        <p class="mb-1 fw-bold"><i class="bi bi-shield-exclamation me-1"></i> Camera Requires Secure Context</p>
+                        <p class="mb-0" style="font-size:12px;">Modern browsers only allow camera access on HTTPS or localhost. If camera access is blocked, please access NAAP over HTTPS or verify site permissions.</p>
                     </div>
 
-                    <button type="button" id="start-scan" class="btn btn-scan">
+                    <button type="button" id="start-scan" class="btn btn-scan" aria-label="Start Camera Scanner">
                         <i class="bi bi-camera me-1"></i> Start Camera
                     </button>
                 </div>
@@ -416,8 +514,6 @@
                             <span class="small text-muted" id="upload-status-text">Scanning image for QR code...</span>
                         </div>
                     </div>
-                    <!-- Hidden element for Html5Qrcode file scanner -->
-                    <div id="upload-scanner" style="width: 1px; height: 1px; opacity: 0; position: absolute; pointer-events: none; overflow: hidden;"></div>
                 </div>
             </div>
 
@@ -610,6 +706,42 @@
         }
     }
 
+    let activeMediaStream = null;
+    let scanIntervalId = null;
+    let isScanningActive = false;
+    let isCameraStarting = false;
+    let isProcessingScan = false;
+    let selectedCameraDeviceId = null;
+
+    function updateScannerState(title, message, iconClass, isError = false) {
+        const placeholder = document.getElementById('scanner-placeholder');
+        const placeholderTitle = document.getElementById('placeholderTitle');
+        const placeholderMessage = document.getElementById('placeholderMessage');
+        const placeholderIcon = document.getElementById('placeholderIcon');
+        const video = document.getElementById('scannerVideo');
+        const overlay = document.getElementById('scannerTargetOverlay');
+
+        if (video) video.style.display = 'none';
+        if (overlay) overlay.style.display = 'none';
+        if (placeholder) placeholder.style.display = 'flex';
+        
+        if (placeholderTitle) placeholderTitle.textContent = title;
+        if (placeholderMessage) placeholderMessage.textContent = message;
+        if (placeholderIcon) {
+            placeholderIcon.innerHTML = `<i class="bi ${iconClass}" style="font-size: 2.8rem; color: ${isError ? 'var(--accent-danger)' : 'var(--text-dim)'};"></i>`;
+        }
+    }
+
+    function updateStatusPill(text, isScanning = true) {
+        const pillText = document.getElementById('scannerStatusText');
+        const dot = document.querySelector('.status-dot');
+        if (pillText) pillText.textContent = text;
+        if (dot) {
+            dot.style.background = isScanning ? '#10b981' : '#f59e0b';
+            dot.style.boxShadow = isScanning ? '0 0 6px #10b981' : '0 0 6px #f59e0b';
+        }
+    }
+
     function initializeTabs() {
         const tabScan = document.getElementById('tab-scan');
         const tabUpload = document.getElementById('tab-upload');
@@ -622,24 +754,23 @@
             scanMode.style.display = 'block';
             uploadMode.style.display = 'none';
             tabScan.style.background = 'var(--accent-cyan)';
-            tabScan.style.color = '#000';
-            tabUpload.style.background = 'rgba(0, 215, 255, 0.2)';
-            tabUpload.style.color = 'var(--accent-cyan)';
-            
-            // Auto start camera scanning if not already scanning
-            const startBtn = document.getElementById('start-scan');
-            if (startBtn && !(html5QrCode && html5QrCode.isScanning)) {
-                startBtn.click();
-            }
+            tabScan.style.color = '#FFFFFF';
+            tabUpload.style.background = 'var(--bg)';
+            tabUpload.style.color = 'var(--text-main)';
         });
 
         tabUpload.addEventListener('click', function() {
+            // Stop camera when leaving camera mode to conserve battery and release hardware
+            if (isScanningActive || activeMediaStream) {
+                stopCameraStream();
+            }
+
             scanMode.style.display = 'none';
             uploadMode.style.display = 'block';
-            tabScan.style.background = 'rgba(0, 215, 255, 0.2)';
-            tabScan.style.color = 'var(--accent-cyan)';
+            tabScan.style.background = 'var(--bg)';
+            tabScan.style.color = 'var(--text-main)';
             tabUpload.style.background = 'var(--accent-cyan)';
-            tabUpload.style.color = '#000';
+            tabUpload.style.color = '#FFFFFF';
         });
 
         uploadQrBtn.addEventListener('click', function() {
@@ -653,7 +784,6 @@
             // Reset input value so re-uploading the same file works
             qrFileInput.value = '';
 
-            // 1. Validation: Allowed formats (PNG, JPG, JPEG, WEBP)
             const allowedMimes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
             const fileName = (file.name || '').toLowerCase();
             const hasValidExt = /\.(png|jpe?g|webp)$/i.test(fileName);
@@ -679,7 +809,6 @@
                 if (uploadBtn) uploadBtn.disabled = false;
             };
 
-            // 2. Validate image integrity (check for corrupted or unreadable images)
             const img = new Image();
             const objectUrl = URL.createObjectURL(file);
 
@@ -692,76 +821,21 @@
             img.onload = function() {
                 URL.revokeObjectURL(objectUrl);
 
-                // Multi-engine QR decoding:
-                // Engine 1: Html5Qrcode scanFile
-                decodeQrFileWithHtml5(file)
+                decodeQrWithJsQR(img)
                     .then(decodedText => {
                         resetUploadUI();
-                        console.log("QR decoded via Html5Qrcode:", decodedText);
+                        console.log("QR decoded from image via jsQR:", decodedText);
+                        isProcessingScan = true;
                         handleQRScan(decodedText);
                     })
-                    .catch(() => {
-                        // Engine 2: Canvas + jsQR (handles screenshots, crops, downscaling)
-                        decodeQrWithJsQR(img)
-                            .then(decodedText => {
-                                resetUploadUI();
-                                console.log("QR decoded via jsQR:", decodedText);
-                                handleQRScan(decodedText);
-                            })
-                            .catch(err => {
-                                resetUploadUI();
-                                console.warn("All QR decode attempts failed:", err);
-                                showAlert('Could not read QR code from image. Please ensure the QR code is clearly visible and not cut off, or try scanning with the camera.', 'error');
-                            });
+                    .catch(err => {
+                        resetUploadUI();
+                        console.warn("All QR decode attempts failed for image:", err);
+                        showAlert('Could not detect a valid QR code from the uploaded image. Please ensure the QR code is clearly visible and not cropped or blurry.', 'error');
                     });
             };
 
             img.src = objectUrl;
-        });
-    }
-
-    function decodeQrFileWithHtml5(file) {
-        return new Promise((resolve, reject) => {
-            if (typeof Html5Qrcode === 'undefined') {
-                return reject(new Error("Html5Qrcode not loaded"));
-            }
-            let scannerEl = document.getElementById('upload-scanner');
-            if (!scannerEl) {
-                scannerEl = document.createElement('div');
-                scannerEl.id = 'upload-scanner';
-                scannerEl.style.cssText = 'width:1px;height:1px;opacity:0;position:absolute;pointer-events:none;';
-                document.body.appendChild(scannerEl);
-            }
-            try {
-                const html5qrcode = new Html5Qrcode("upload-scanner");
-                html5qrcode.scanFile(file, true)
-                    .then(decodedText => {
-                        try { html5qrcode.clear(); } catch(e) {}
-                        if (decodedText && decodedText.trim()) {
-                            resolve(decodedText.trim());
-                        } else {
-                            reject(new Error("Empty decoded result"));
-                        }
-                    })
-                    .catch(() => {
-                        // Retry with renderImage = false
-                        html5qrcode.scanFile(file, false)
-                            .then(decodedText => {
-                                try { html5qrcode.clear(); } catch(e) {}
-                                if (decodedText && decodedText.trim()) {
-                                    resolve(decodedText.trim());
-                                } else {
-                                    reject(new Error("Empty decoded result"));
-                                }
-                            })
-                            .catch(err2 => {
-                                try { html5qrcode.clear(); } catch(e) {}
-                                reject(err2);
-                            });
-                    });
-            } catch (ex) {
-                reject(ex);
-            }
         });
     }
 
@@ -772,15 +846,11 @@
             }
 
             try {
-                // Try decoding at multiple scales if needed (original, max 1000px, max 800px)
                 const scales = [1.0];
                 const maxDim = Math.max(img.width, img.height);
-                if (maxDim > 1000) {
-                    scales.push(1000 / maxDim);
-                }
-                if (maxDim > 1600) {
-                    scales.push(800 / maxDim);
-                }
+                if (maxDim > 1000) scales.push(1000 / maxDim);
+                if (maxDim > 1600) scales.push(800 / maxDim);
+                if (maxDim < 400 && maxDim > 50) scales.push(2.0);
 
                 const canvas = document.createElement('canvas');
                 const ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -791,7 +861,6 @@
                     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
                     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                    
                     let code = jsQR(imageData.data, imageData.width, imageData.height, {
                         inversionAttempts: "attemptBoth"
                     });
@@ -801,20 +870,23 @@
                     }
                 }
 
-                // If not found, try a center crop (for mobile screenshots where QR is in the center)
-                if (img.width > 200 && img.height > 200) {
-                    const cropW = Math.round(img.width * 0.75);
-                    const cropH = Math.round(img.height * 0.75);
-                    const cropX = Math.round((img.width - cropW) / 2);
-                    const cropY = Math.round((img.height - cropH) / 2);
+                // Center crop pass (handles mobile screenshots where QR is centered)
+                if (img.width > 120 && img.height > 120) {
+                    const cropFractions = [0.8, 0.6];
+                    for (const frac of cropFractions) {
+                        const cropW = Math.round(img.width * frac);
+                        const cropH = Math.round(img.height * frac);
+                        const cropX = Math.round((img.width - cropW) / 2);
+                        const cropY = Math.round((img.height - cropH) / 2);
 
-                    canvas.width = cropW;
-                    canvas.height = cropH;
-                    ctx.drawImage(img, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
-                    const cropData = ctx.getImageData(0, 0, cropW, cropH);
-                    const cropCode = jsQR(cropData.data, cropW, cropH, { inversionAttempts: "attemptBoth" });
-                    if (cropCode && cropCode.data && cropCode.data.trim()) {
-                        return resolve(cropCode.data.trim());
+                        canvas.width = cropW;
+                        canvas.height = cropH;
+                        ctx.drawImage(img, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+                        const cropData = ctx.getImageData(0, 0, cropW, cropH);
+                        const cropCode = jsQR(cropData.data, cropW, cropH, { inversionAttempts: "attemptBoth" });
+                        if (cropCode && cropCode.data && cropCode.data.trim()) {
+                            return resolve(cropCode.data.trim());
+                        }
                     }
                 }
 
@@ -827,129 +899,260 @@
 
     function initializeScanner() {
         const scannerBtn = document.getElementById('start-scan');
-        const placeholder = document.getElementById('scanner-placeholder');
-        const cameraSelectContainer = document.getElementById('camera-select-container');
-        const cameraSelect = document.getElementById('cameraSelect');
         const cameraHelpBox = document.getElementById('camera-help-box');
 
-        // Check if page is served over HTTP and is not localhost (secure context check)
+        // Check secure context
         if (!window.isSecureContext && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
             if (cameraHelpBox) cameraHelpBox.style.display = 'block';
         }
 
-        scannerBtn.addEventListener('click', function() {
-            try {
-                if (html5QrCode && html5QrCode.isScanning) {
-                    html5QrCode.stop().then(() => {
-                        placeholder.style.display = 'flex';
-                        if (cameraSelectContainer) cameraSelectContainer.style.display = 'none';
-                        scannerBtn.innerHTML = '<i class="bi bi-camera me-1"></i> Start Camera';
-                    }).catch(err => {
-                        console.error("Stop error:", err);
-                        showAlert("Stop error: " + err.message, "error");
-                    });
-                    return;
-                }
+        scannerBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            if (isCameraStarting) return;
 
-                placeholder.style.display = 'none';
-                scannerBtn.innerHTML = '<span class="loading-spinner me-2"></span> Initializing...';
-
-                if (typeof Html5Qrcode === 'undefined') {
-                    throw new Error("Html5Qrcode library not loaded. Check internet/CDN connections.");
-                }
-
-                if (!html5QrCode) {
-                    html5QrCode = new Html5Qrcode("reader");
-                }
-
-                // Start scanning with facingMode environment by default
-                startScanning({ facingMode: "environment" });
-            } catch (error) {
-                console.error("Scanner initialization error:", error);
-                placeholder.style.display = 'flex';
-                if (cameraSelectContainer) cameraSelectContainer.style.display = 'none';
-                scannerBtn.innerHTML = '<i class="bi bi-camera me-1"></i> Start Camera';
-                showAlert("Initialization error: " + error.message, "error");
+            if (isScanningActive) {
+                stopCameraStream();
+            } else {
+                startCameraStream(selectedCameraDeviceId);
             }
         });
 
-        function startScanning(cameraConstraint) {
+        // Window lifecycle hooks to release camera
+        window.addEventListener('beforeunload', stopCameraStream);
+        window.addEventListener('pagehide', stopCameraStream);
+    }
+
+    async function startCameraStream(preferredDeviceId = null) {
+        if (isCameraStarting) return;
+        if (isScanningActive) {
+            stopCameraStream();
+            return;
+        }
+
+        const scannerBtn = document.getElementById('start-scan');
+        const video = document.getElementById('scannerVideo');
+        const overlay = document.getElementById('scannerTargetOverlay');
+        const placeholder = document.getElementById('scanner-placeholder');
+        const cameraHelpBox = document.getElementById('camera-help-box');
+
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            if (cameraHelpBox) cameraHelpBox.style.display = 'block';
+            updateScannerState('Camera Access Unavailable', 'Your browser does not support camera access or requires a secure HTTPS connection.', 'bi-shield-x', true);
+            return;
+        }
+
+        isCameraStarting = true;
+        if (scannerBtn) {
+            scannerBtn.innerHTML = '<span class="loading-spinner me-2"></span> Initializing...';
+            scannerBtn.disabled = true;
+        }
+        updateScannerState('Camera Permission Required', 'Please allow camera permission in your browser prompt...', 'bi-camera-video');
+
+        // Build video constraints: prefer environment / rear camera on mobile, available webcam on desktop
+        let constraints = null;
+        if (preferredDeviceId) {
+            constraints = {
+                video: { deviceId: { exact: preferredDeviceId } },
+                audio: false
+            };
+        } else {
+            constraints = {
+                video: {
+                    facingMode: { ideal: "environment" },
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                },
+                audio: false
+            };
+        }
+
+        let stream = null;
+        try {
+            stream = await navigator.mediaDevices.getUserMedia(constraints);
+        } catch (firstErr) {
+            console.warn("Primary camera constraints failed, attempting fallback to any video device:", firstErr);
             try {
-                scannerBtn.innerHTML = '<span class="loading-spinner me-2"></span> Starting feed...';
-                html5QrCode.start(
-                    cameraConstraint,
-                    { 
-                        fps: 10, 
-                        qrbox: function(width, height) {
-                            const size = Math.min(width, height) * 0.7;
-                            return { width: size, height: size };
-                        },
-                        aspectRatio: 1.0
-                    },
-                    (decodedText) => {
-                        console.log("QR scanned successfully:", decodedText);
-                        handleQRScan(decodedText);
-                    },
-                    (errorMessage) => {
-                        // Suppress verbose scanner matching log errors
-                    }
-                ).then(() => {
-                    scannerBtn.innerHTML = '<i class="bi bi-camera me-1"></i> Stop Camera';
-
-                    // Populate available cameras dropdown once permission is granted
-                    Html5Qrcode.getCameras().then(devices => {
-                        if (devices && devices.length > 0) {
-                            cameraSelect.innerHTML = '';
-                            devices.forEach(device => {
-                                const opt = document.createElement('option');
-                                opt.value = device.id;
-                                opt.textContent = device.label || `Camera ${cameraSelect.options.length + 1}`;
-                                cameraSelect.appendChild(opt);
-                            });
-
-                            if (cameraSelectContainer) cameraSelectContainer.style.display = 'block';
-
-                            // Bind change listener to switch device
-                            cameraSelect.onchange = function() {
-                                const selectedId = this.value;
-                                if (html5QrCode.isScanning) {
-                                    html5QrCode.stop().then(() => {
-                                        startScanning(selectedId);
-                                    }).catch(err => {
-                                        console.error("Camera switch error:", err);
-                                        showAlert("Camera switch error: " + err.message, "error");
-                                    });
-                                }
-                            };
-                        }
-                    }).catch(err => {
-                        console.log("Enumerate cameras failed:", err);
-                    });
-                }).catch(err => {
-                    console.error("Camera start error:", err);
-                    placeholder.style.display = 'flex';
-                    if (cameraSelectContainer) cameraSelectContainer.style.display = 'none';
+                // Graceful fallback without strict facingMode
+                stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+            } catch (fallbackErr) {
+                isCameraStarting = false;
+                if (scannerBtn) {
                     scannerBtn.innerHTML = '<i class="bi bi-camera me-1"></i> Start Camera';
+                    scannerBtn.disabled = false;
+                }
 
-                    // Detailed permission error parsing
-                    let errorMsg = 'Failed to start camera feed. Access may be blocked.';
-                    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                        errorMsg = 'Media devices not supported. Browser requires HTTPS to access camera.';
-                    } else if (err.name === 'NotAllowedError' || err.message?.toLowerCase().includes('permission') || err.message?.toLowerCase().includes('allowed')) {
-                        errorMsg = 'Camera permission denied. Please reset permissions in your browser.';
-                    } else if (err.name === 'NotFoundError' || err.message?.toLowerCase().includes('device')) {
-                        errorMsg = 'No camera device detected.';
-                    }
-                    showAlert(errorMsg + ' (Details: ' + err.message + ')', 'error');
-                });
-            } catch (innerError) {
-                console.error("Scanner execution error:", innerError);
-                placeholder.style.display = 'flex';
-                if (cameraSelectContainer) cameraSelectContainer.style.display = 'none';
-                scannerBtn.innerHTML = '<i class="bi bi-camera me-1"></i> Start Camera';
-                showAlert("Execution error: " + innerError.message, "error");
+                const errName = fallbackErr.name || '';
+                const errMsg = (fallbackErr.message || '').toLowerCase();
+
+                if (errName === 'NotAllowedError' || errName === 'PermissionDeniedError' || errMsg.includes('permission') || errMsg.includes('denied')) {
+                    updateScannerState('Camera Permission Denied', 'Camera access was denied. Please allow camera permissions in your browser address bar and try again.', 'bi-slash-circle', true);
+                } else if (errName === 'NotFoundError' || errName === 'DevicesNotFoundError' || errMsg.includes('not found') || errMsg.includes('no camera')) {
+                    updateScannerState('No Camera Detected', 'No active camera hardware was found on this device.', 'bi-camera-video-off', true);
+                } else if (errName === 'NotReadableError' || errName === 'TrackStartError' || errMsg.includes('in use') || errMsg.includes('busy')) {
+                    updateScannerState('Camera Currently Unavailable', 'The camera is currently in use by another application or browser tab. Please close other apps and try again.', 'bi-exclamation-triangle', true);
+                } else if (errName === 'OverconstrainedError') {
+                    updateScannerState('Camera Unavailable', 'The requested camera resolution or facing mode is not supported by your hardware.', 'bi-sliders', true);
+                } else {
+                    updateScannerState('Unable to Start Camera', 'Unable to access video stream. Ensure your device has an enabled camera and is using HTTPS.', 'bi-camera-video-off', true);
+                }
+                return;
             }
         }
+
+        activeMediaStream = stream;
+        video.srcObject = stream;
+
+        video.onloadedmetadata = () => {
+            video.play().then(() => {
+                isScanningActive = true;
+                isCameraStarting = false;
+                if (placeholder) placeholder.style.display = 'none';
+                video.style.display = 'block';
+                if (overlay) overlay.style.display = 'flex';
+
+                if (scannerBtn) {
+                    scannerBtn.innerHTML = '<i class="bi bi-stop-circle me-1"></i> Stop Camera';
+                    scannerBtn.classList.remove('btn-scan');
+                    scannerBtn.classList.add('btn-outline-danger');
+                    scannerBtn.disabled = false;
+                }
+
+                updateStatusPill('Scanning...', true);
+                startDetectionLoop();
+                refreshCameraDevicesList();
+            }).catch(playErr => {
+                console.error("Video play error:", playErr);
+                isCameraStarting = false;
+                stopCameraStream();
+                updateScannerState('Unable to Start Camera', 'Video playback could not be started.', 'bi-exclamation-triangle', true);
+            });
+        };
+    }
+
+    function stopCameraStream() {
+        isScanningActive = false;
+        isCameraStarting = false;
+
+        if (scanIntervalId) {
+            clearInterval(scanIntervalId);
+            scanIntervalId = null;
+        }
+
+        if (activeMediaStream) {
+            activeMediaStream.getTracks().forEach(track => {
+                try {
+                    track.stop();
+                } catch (e) {
+                    console.warn("Track stop error:", e);
+                }
+            });
+            activeMediaStream = null;
+        }
+
+        const video = document.getElementById('scannerVideo');
+        if (video) {
+            video.pause();
+            video.srcObject = null;
+            video.style.display = 'none';
+        }
+
+        const overlay = document.getElementById('scannerTargetOverlay');
+        if (overlay) overlay.style.display = 'none';
+
+        const placeholder = document.getElementById('scanner-placeholder');
+        if (placeholder) placeholder.style.display = 'flex';
+        updateScannerState('Camera Ready', 'Click "Start Camera" to scan document QR codes.', 'bi-camera');
+
+        const scannerBtn = document.getElementById('start-scan');
+        if (scannerBtn) {
+            scannerBtn.innerHTML = '<i class="bi bi-camera me-1"></i> Start Camera';
+            scannerBtn.classList.remove('btn-outline-danger');
+            scannerBtn.classList.add('btn-scan');
+            scannerBtn.disabled = false;
+        }
+    }
+
+    function startDetectionLoop() {
+        if (scanIntervalId) clearInterval(scanIntervalId);
+
+        const video = document.getElementById('scannerVideo');
+        const canvas = document.getElementById('scannerCanvas');
+        if (!video || !canvas) return;
+
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+        // Scan interval: 120ms (approx 8-9 FPS, optimal balance of snappy QR detection and light CPU)
+        scanIntervalId = setInterval(() => {
+            if (!isScanningActive || isProcessingScan) return;
+            if (video.readyState < video.HAVE_CURRENT_DATA) return;
+
+            const width = video.videoWidth;
+            const height = video.videoHeight;
+            if (!width || !height) return;
+
+            canvas.width = width;
+            canvas.height = height;
+            ctx.drawImage(video, 0, 0, width, height);
+
+            const imageData = ctx.getImageData(0, 0, width, height);
+            let code = null;
+
+            if (typeof jsQR !== 'undefined') {
+                code = jsQR(imageData.data, imageData.width, imageData.height, {
+                    inversionAttempts: "attemptBoth"
+                });
+            }
+
+            if (code && code.data && code.data.trim()) {
+                const detectedPayload = code.data.trim();
+                console.log("QR detected by camera:", detectedPayload);
+
+                // Immediate duplicate scan prevention
+                isProcessingScan = true;
+                updateStatusPill('QR Detected! Verifying...', false);
+
+                // Stop camera feed immediately to prevent duplicate camera requests
+                stopCameraStream();
+
+                handleQRScan(detectedPayload);
+            }
+        }, 120);
+    }
+
+    function refreshCameraDevicesList() {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+
+        navigator.mediaDevices.enumerateDevices().then(devices => {
+            const videoDevices = devices.filter(d => d.kind === 'videoinput');
+            const selectContainer = document.getElementById('camera-select-container');
+            const cameraSelect = document.getElementById('cameraSelect');
+
+            if (!selectContainer || !cameraSelect) return;
+
+            if (videoDevices.length > 1) {
+                cameraSelect.innerHTML = '';
+                videoDevices.forEach((dev, idx) => {
+                    const opt = document.createElement('option');
+                    opt.value = dev.deviceId;
+                    opt.textContent = dev.label || `Camera ${idx + 1}`;
+                    if (selectedCameraDeviceId && dev.deviceId === selectedCameraDeviceId) {
+                        opt.selected = true;
+                    }
+                    cameraSelect.appendChild(opt);
+                });
+                selectContainer.style.display = 'block';
+
+                cameraSelect.onchange = function() {
+                    selectedCameraDeviceId = this.value;
+                    stopCameraStream();
+                    startCameraStream(selectedCameraDeviceId);
+                };
+            } else {
+                selectContainer.style.display = 'none';
+            }
+        }).catch(err => {
+            console.warn("Could not enumerate camera devices:", err);
+        });
     }
 
     let scanPinModal = null;
@@ -1052,13 +1255,7 @@
                 if (data.success) {
                     scanPinModal.hide();
                     showAlert(data.message, 'success');
-                    
-                    if (html5QrCode && html5QrCode.isScanning) {
-                        html5QrCode.stop().then(() => {
-                            const startBtn = document.getElementById('start-scan');
-                            if (startBtn) startBtn.innerHTML = '<i class="fas fa-camera me-2"></i> Start Camera';
-                        });
-                    }
+                    stopCameraStream();
                     const targetUrl = data.redirect_url || ('/track/' + data.document.id);
                     console.log("Before redirect: target URL =", targetUrl);
                     window.location.href = targetUrl;
@@ -1073,12 +1270,7 @@
         });
     }
 
-    let isProcessingScan = false;
-
     function handleQRScan(qrData) {
-        if (isProcessingScan) return;
-        isProcessingScan = true;
-
         // Send QR data to server
         fetch('{{ route("qr.scan", [], false) }}', {
             method: 'POST',
@@ -1093,26 +1285,14 @@
             isProcessingScan = false;
             if (data.pin_required) {
                 // Stop scanning immediately to prevent duplicate scans while PIN modal is open
-                if (html5QrCode && html5QrCode.isScanning) {
-                    html5QrCode.stop().then(() => {
-                        const startBtn = document.getElementById('start-scan');
-                        if (startBtn) startBtn.innerHTML = '<i class="fas fa-camera me-2"></i> Start Camera';
-                    });
-                }
+                stopCameraStream();
                 showPinModal(qrData, data.email);
                 return;
             }
 
             if (data.success) {
                 showAlert(data.message, 'success');
-                
-                // Stop scanning after successful scan
-                if (html5QrCode && html5QrCode.isScanning) {
-                    html5QrCode.stop().then(() => {
-                        const startBtn = document.getElementById('start-scan');
-                        if (startBtn) startBtn.innerHTML = '<i class="fas fa-camera me-2"></i> Start Camera';
-                    });
-                }
+                stopCameraStream();
                 
                 // Redirect immediately to document details page
                 window.location.href = data.redirect_url || ('/track/' + data.document.id);

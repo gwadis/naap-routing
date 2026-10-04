@@ -19,7 +19,35 @@ class DocumentSignedNotification extends Notification
 
     public function via($notifiable)
     {
-        return ['database', 'mail'];
+        $channels = ['database'];
+        if (!empty($notifiable->email)) {
+            $channels[] = 'mail';
+        }
+        if (method_exists($notifiable, 'isTelegramConnected') && $notifiable->isTelegramConnected() && app(\App\Services\TelegramService::class)->isConfigured()) {
+            $channels[] = \App\Channels\TelegramChannel::class;
+        }
+        return $channels;
+    }
+
+    public function toTelegram($notifiable): string
+    {
+        $tracking = $this->document->tracking_number ?? $this->document->qr_id ?? ('DOC-' . $this->document->id);
+        $title = htmlspecialchars(\Illuminate\Support\Str::limit($this->document->title, 40));
+        $signer = htmlspecialchars($this->signerName ?? 'an authorized signatory');
+        $naapUrl = url('/track?tracking_number=' . $tracking);
+
+        return "✍️ <b>NAAP DOCUMENT SIGNED</b>\n\n"
+             . "Document <b>{$title}</b> has been signed by <b>{$signer}</b>.\n\n"
+             . "<b>Tracking ID:</b> <code>{$tracking}</code>\n\n"
+             . "👉 <a href=\"{$naapUrl}\">View Signed Document</a>";
+    }
+
+    public function toSms($notifiable): string
+    {
+        $tracking = $this->document->tracking_number ?? $this->document->qr_id ?? ('DOC-' . $this->document->id);
+        $title = \Illuminate\Support\Str::limit($this->document->title, 25);
+        $signer = $this->signerName ?? 'an authorized signatory';
+        return "NAAP UPDATE: Document [{$tracking}] '{$title}' was successfully signed by {$signer}.";
     }
 
     public function toDatabase($notifiable)

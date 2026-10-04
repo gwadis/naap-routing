@@ -72,29 +72,79 @@ class DashboardAnalyticsAndFixesTest extends TestCase
     }
 
     /**
-     * Test 1: Dashboard loads calendar widget and does NOT contain removed charts.
+     * Test 1: Dashboard has Document Activity Calendar, Action Required, and Reports has detailed metrics.
      */
-    public function test_dashboard_replaces_removed_charts_with_calendar_widget(): void
+    public function test_dashboard_streamlined_and_reports_has_calendar_and_detailed_qr_metrics(): void
     {
-        $response = $this->actingAsAdmin()->get(route('dashboard'));
+        $dashResponse = $this->actingAsAdmin()->get(route('dashboard'));
+        $dashResponse->assertStatus(200);
+
+        // Assert Document Activity Calendar is present on main dashboard
+        $dashResponse->assertSee('Document Activity Calendar');
+        $dashResponse->assertSee('id="calDaysGrid"', false);
+        $dashResponse->assertSee('Action Required');
+        $dashResponse->assertDontSee('System Security & Access Counters', false);
+        $dashResponse->assertDontSee('id="securityChart"', false);
+
+        // Assert primary enterprise sections exist on dashboard
+        $dashResponse->assertSee('System Analytics Dashboard');
+        $dashResponse->assertSee('Total Documents');
+        $dashResponse->assertSee('In Process');
+        $dashResponse->assertSee('For Approval');
+        $dashResponse->assertSee('Completed');
+        $dashResponse->assertSee('Overdue Items');
+        $dashResponse->assertSee('Active QR Documents');
+        $dashResponse->assertSee('QR Code Scan Activity');
+        $dashResponse->assertSee('Document Operations');
+        $dashResponse->assertSee('Document Aging');
+        $dashResponse->assertSee('Recent Activity');
+
+        // Assert Reports has calendar widget and detailed QR metrics
+        $reportsResponse = $this->actingAsAdmin()->get(route('reports.index'));
+        $reportsResponse->assertStatus(200);
+        $reportsResponse->assertSee('Document Activity Calendar');
+        $reportsResponse->assertSee('Total Uploaded Documents');
+        $reportsResponse->assertSee('Total Routed Documents');
+        $reportsResponse->assertSee('id="calDaysGrid"', false);
+        $reportsResponse->assertSee('Total QR Generated');
+        $reportsResponse->assertSee('Unique Users Scanning');
+        $reportsResponse->assertSee('QR Accessed Documents');
+    }
+
+    /**
+     * Test 1b: Calendar date events API returns real events for a selected date.
+     */
+    public function test_calendar_date_events_api_returns_documents_and_grouped_events(): void
+    {
+        $todayStr = now()->toDateString();
+
+        $response = $this->actingAsAdmin()->getJson(route('api.dashboard.calendarDateEvents', [
+            'date' => $todayStr,
+        ]));
 
         $response->assertStatus(200);
+        $response->assertJsonStructure([
+            'success',
+            'data' => [
+                'date',
+                'formatted_date',
+                'full_date_label',
+                'total_events',
+                'stats' => [
+                    'uploaded',
+                    'routed',
+                    'received',
+                    'approved',
+                    'completed',
+                ],
+                'documents',
+            ],
+        ]);
 
-        // Assert removed charts are absent
-        $response->assertDontSee('7-Day Upload Volume Flow');
-        $response->assertDontSee('Monthly Upload vs Routing Activity');
-        $response->assertDontSee('id="flowChart"', false);
-        $response->assertDontSee('id="monthlyChart"', false);
-
-        // Assert calendar analytics widget and date breakdown exist
-        $response->assertSee('Document Activity Calendar');
-        $response->assertSee('Total Uploaded Documents');
-        $response->assertSee('Total Routed Documents');
-        $response->assertSee('Total Approved Documents');
-        $response->assertSee('Total Completed Documents');
-        $response->assertSee('Total Pending Documents');
-        $response->assertSee('id="calDaysGrid"', false);
-        $response->assertSee('id="statUploadedDocs"', false);
+        $docs = $response->json('data.documents');
+        $this->assertNotEmpty($docs);
+        $this->assertEquals($this->document->id, $docs[0]['id']);
+        $this->assertNotEmpty($docs[0]['events']);
     }
 
     /**
@@ -198,21 +248,20 @@ class DashboardAnalyticsAndFixesTest extends TestCase
     }
 
     /**
-     * Test 6: Security & Access Counters is converted to a chart and excludes OTP verifications.
+     * Test 6: Security and access analytics belong in Security Console, not Dashboard.
      */
-    public function test_security_and_access_is_chart_and_omits_otp_verifications(): void
+    public function test_security_and_access_belongs_in_security_console(): void
     {
-        $response = $this->actingAsAdmin()->get(route('dashboard'));
+        // 1. Dashboard does not have security counters or security charts
+        $dashResponse = $this->actingAsAdmin()->get(route('dashboard'));
+        $dashResponse->assertStatus(200);
+        $dashResponse->assertDontSee('System Security & Access Counters', false);
+        $dashResponse->assertDontSee('System Security & Access', false);
+        $dashResponse->assertDontSee('id="securityChart"', false);
 
-        $response->assertStatus(200);
-        $response->assertSee('id="securityChart"', false);
-        $response->assertSee('System Security & Access', false);
-        $response->assertSee('Document File Views', false);
-        $response->assertSee('Approval Events', false);
-        $response->assertSee('Routing & Transit Movements', false);
-        // Old text counter in security counters section is gone
-        $response->assertDontSee('System Security & Access Counters', false);
-        $response->assertDontSee('Active OTP/PIN Verifications:', false);
+        // 2. Security Dashboard is active and authorized for admin
+        $secResponse = $this->actingAsAdmin()->get(route('security.dashboard'));
+        $secResponse->assertStatus(200);
     }
 
     /**
@@ -226,22 +275,19 @@ class DashboardAnalyticsAndFixesTest extends TestCase
         $content = $response->getContent();
 
         $qrTrendPos = strpos($content, 'id="qrTrendChart"');
-        $securityChartPos = strpos($content, 'id="securityChart"');
-        $calGridPos = strpos($content, 'id="calDaysGrid"');
-        $officeChartPos = strpos($content, 'id="officeChart"');
+        $lifecyclePos = strpos($content, 'id="lifecycleChart"');
+        $agingPos = strpos($content, 'id="agingChart"');
         $recentActivityPos = strpos($content, 'Recent Activity Logs');
 
         $this->assertNotFalse($qrTrendPos);
-        $this->assertNotFalse($securityChartPos);
-        $this->assertNotFalse($calGridPos);
-        $this->assertNotFalse($officeChartPos);
+        $this->assertNotFalse($lifecyclePos);
+        $this->assertNotFalse($agingPos);
         $this->assertNotFalse($recentActivityPos);
 
-        // All charts must appear BEFORE Recent Activity Logs
+        // All operational charts must appear BEFORE Recent Activity Logs
         $this->assertLessThan($recentActivityPos, $qrTrendPos, 'qrTrendChart should be above Recent Activity Logs');
-        $this->assertLessThan($recentActivityPos, $securityChartPos, 'securityChart should be above Recent Activity Logs');
-        $this->assertLessThan($recentActivityPos, $calGridPos, 'calDaysGrid should be above Recent Activity Logs');
-        $this->assertLessThan($recentActivityPos, $officeChartPos, 'officeChart should be above Recent Activity Logs');
+        $this->assertLessThan($recentActivityPos, $lifecyclePos, 'lifecycleChart should be above Recent Activity Logs');
+        $this->assertLessThan($recentActivityPos, $agingPos, 'agingChart should be above Recent Activity Logs');
     }
 
     /**
@@ -260,15 +306,14 @@ class DashboardAnalyticsAndFixesTest extends TestCase
     }
 
     /**
-     * Test 9: Active Office Workloads and Activity Feed are side-by-side and scrollable.
+     * Test 9: Office Bottleneck & Workload Intelligence and Activity Feed are active and scrollable.
      */
     public function test_dashboard_workloads_and_activity_feed_side_by_side_and_scrollable(): void
     {
         $response = $this->actingAsAdmin()->get(route('dashboard'));
 
         $response->assertStatus(200);
-        $response->assertSee('charts-main-grid mb-4', false);
-        $response->assertSee('Active Office Workloads', false);
+        $response->assertSee('Office Bottleneck & Workload Intelligence', false);
         $response->assertSee('Recent Activity Logs', false);
         $response->assertSee('overflow-y: auto;', false);
     }
@@ -419,7 +464,6 @@ class DashboardAnalyticsAndFixesTest extends TestCase
         // Ensure single-sheet print rules
         $response->assertSee('break-inside: avoid !important', false);
         $response->assertSee('page-break-inside: avoid !important', false);
-        $response->assertSee('margin: 0mm;', false);
         $response->assertSee('window.print()', false);
     }
 
@@ -550,7 +594,10 @@ class DashboardAnalyticsAndFixesTest extends TestCase
         $flowData = $response->viewData('flowData');
 
         $this->assertIsArray($flowLabels);
-        $this->assertEquals(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], $flowLabels);
+        $this->assertCount(7, $flowLabels);
+        $this->assertStringContainsString('Monday', $flowLabels[0]);
+        $this->assertStringContainsString('Wednesday', $flowLabels[2]);
+        $this->assertStringContainsString('Sunday', $flowLabels[6]);
 
         $this->assertIsArray($flowData);
         $this->assertCount(7, $flowData);
@@ -561,5 +608,50 @@ class DashboardAnalyticsAndFixesTest extends TestCase
         // Assert chart canvas and JS labels are in view output
         $response->assertSee('flowChart', false);
         $response->assertSee('Weekly Volume Flow', false);
+    }
+
+    /**
+     * Test 21: Mutual synchronization between User/Staff workflow actions and Admin Dashboard analytics.
+     */
+    public function test_user_workflow_actions_synchronize_with_admin_dashboard_and_calendar(): void
+    {
+        // 1. Initially document is Pending, completed is 0
+        $dash1 = $this->actingAsAdmin()->get(route('dashboard'));
+        $dash1->assertStatus(200);
+        $dash1->assertViewHas('completedDocs', 0);
+
+        // 2. Staff user receives and completes document
+        $this->document->update([
+            'status' => 'Completed',
+            'completed_at' => now(),
+            'received_at' => now()->subMinutes(30),
+        ]);
+
+        ActivityLog::create([
+            'user' => 'Staff Officer',
+            'action' => 'Document Completed',
+            'document_id' => $this->document->id,
+            'ip' => '127.0.0.1',
+            'browser' => 'Chrome',
+            'os' => 'Windows',
+            'meta' => ['department' => 'Registrar Office'],
+        ]);
+
+        // 3. Admin dashboard immediately reflects completed count = 1 and recent activity
+        $dash2 = $this->actingAsAdmin()->get(route('dashboard'));
+        $dash2->assertStatus(200);
+        $dash2->assertViewHas('completedDocs', 1);
+        $dash2->assertSee('Document Completed');
+        $dash2->assertSee('Staff Officer');
+
+        // 4. Calendar date events API reflects the event for today
+        $calResponse = $this->actingAsAdmin()->getJson(route('api.dashboard.calendarDateEvents', [
+            'date' => now()->toDateString(),
+        ]));
+        $calResponse->assertStatus(200);
+        $events = $calResponse->json('data.documents.0.events');
+        $this->assertNotEmpty($events);
+        $actionNames = array_column($events, 'action');
+        $this->assertTrue(in_array('Document Completed', $actionNames) || in_array('Document Uploaded', $actionNames));
     }
 }

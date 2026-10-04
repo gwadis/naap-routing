@@ -9,6 +9,8 @@ use App\Models\Office;
 use App\Models\ActivityLog;
 use App\Models\AuditTrail;
 use Illuminate\Support\Facades\{Hash, Auth, Storage, DB, Mail, Log};
+use Illuminate\Support\Str;
+use App\Mail\SecurityMail;
 
 class UserController extends Controller
 {
@@ -37,6 +39,12 @@ class UserController extends Controller
             $diff = $user->locked_until->diffInMinutes(now()) + 1;
             Log::channel('authentication')->warning("Login blocked for locked user {$input} from IP {$ip}");
             return back()->with('error', "This account is locked due to multiple failed login attempts. Please try again in {$diff} minute(s).");
+        }
+
+        // 2. Check account active status
+        if ($user && strtolower((string) $user->status) === 'inactive') {
+            Log::channel('authentication')->warning("Login blocked for deactivated account {$input} from IP {$ip}");
+            return back()->with('error', 'This account has been deactivated. Please contact your system administrator.')->withInput($request->only('username'));
         }
 
         // 2. Count failed logins for this IP to enforce Google reCAPTCHA (if enabled)
@@ -103,7 +111,6 @@ class UserController extends Controller
                 ]);
 
                 Log::channel('email')->info('OTP Generated and Stored (Login):', [
-                    'generated_otp' => $otp,
                     'record_id' => $record->id,
                     'user_id' => $user->id,
                 ]);
@@ -125,10 +132,19 @@ class UserController extends Controller
 
                 $sent = $emailService->send($user->email, $subject, $body);
                 if ($sent) {
-                    Log::channel('email')->info("Login OTP email successfully sent/logged for {$user->email}");
+                    Log::channel('email')->info("Login OTP email successfully sent for user ID {$user->id}");
                 } else {
                     $sendError = 'Provider returned failure status.';
-                    Log::channel('email')->error("Failed to send login OTP email to {$user->email}: {$sendError}");
+                    Log::channel('email')->error("Failed to send login OTP email to user ID {$user->id}: {$sendError}");
+                }
+
+                // Optional SMS OTP only if SMS provider is explicitly enabled and configured
+                if (config('services.sms.enabled', false) && app(\App\Services\SmsService::class)->isConfigured() && !empty($user->phone)) {
+                    try {
+                        app(\App\Services\SmsService::class)->sendOtp($user, $otp);
+                    } catch (\Throwable $smsEx) {
+                        Log::warning("Login OTP SMS skipped: " . $smsEx->getMessage());
+                    }
                 }
             } catch (\Exception $e) {
                 $sendError = $e->getMessage();
@@ -244,7 +260,7 @@ class UserController extends Controller
                 'department_id' => $user->department_id,
             ]);
 
-            return redirect()->route('dashboard')->with('success', 'Successfully logged in!');
+            return redirect()->intended(route('dashboard'))->with('success', 'Successfully logged in!');
         }
 
         return back()->withErrors([
@@ -345,14 +361,20 @@ class UserController extends Controller
             'department_id' => 'required|exists:departments,id',
             'office_id'     => 'nullable|exists:offices,id',
             'status'        => 'nullable|string|in:active,inactive',
+            'phone'         => 'nullable|string|max:50',
         ], [
             'password.min' => 'Password must be at least 10 characters long.',
             'password.regex' => 'Password must contain uppercase, lowercase, numbers, and a special character.',
         ]);
 
+        $phone = !empty($validated['phone'])
+            ? (\App\Services\SmsService::normalizePhoneNumber($validated['phone']) ?? $validated['phone'])
+            : null;
+
         $user = User::create([
             'name'                  => $validated['name'],
             'email'                 => $validated['email'],
+            'phone'                 => $phone,
             'employee_id'           => $validated['employee_id'] ?? null,
             'position'              => $validated['position'] ?? null,
             'role'                  => $validated['role'],
@@ -402,6 +424,7 @@ class UserController extends Controller
             'department_id' => 'required|exists:departments,id',
             'office_id'     => 'nullable|exists:offices,id',
             'status'        => 'nullable|string|in:active,inactive',
+            'phone'         => 'nullable|string|max:50',
         ], [
             'password.min' => 'Password must be at least 10 characters long.',
             'password.regex' => 'Password must contain uppercase, lowercase, numbers, and a special character.',
@@ -409,9 +432,14 @@ class UserController extends Controller
 
         $oldValues = $user->toArray();
 
+        $phone = !empty($validated['phone'])
+            ? (\App\Services\SmsService::normalizePhoneNumber($validated['phone']) ?? $validated['phone'])
+            : $user->phone;
+
         $user->fill([
             'name'          => $validated['name'],
             'email'         => $validated['email'],
+            'phone'         => $phone,
             'employee_id'   => $validated['employee_id'] ?? null,
             'position'      => $validated['position'] ?? null,
             'role'          => $validated['role'],
@@ -454,15 +482,105 @@ class UserController extends Controller
 
         $user = User::findOrFail($id);
         
-        if (Auth::id() == $user->id) {
+        if (Auth::id() == $user->id || session('user_id') == $user->id) {
             return back()->with('error', 'You cannot delete your own account.');
+        }
+
+        $currentAuthUser = auth()->user() ?? User::find(session('user_id'));
+        if ($user->isSuperAdmin() && (!$currentAuthUser || !$currentAuthUser->isSuperAdmin())) {
+            return back()->with('error', 'Only a Super Administrator can remove another Super Administrator.');
         }
 
         $oldValues = $user->toArray();
         $user->delete();
 
         AuditTrail::log("User Account Deleted: {$user->email}", "users/{$id}", $oldValues, null);
+        ActivityLog::log('User removed: ' . $user->name, null, [
+            'email' => $user->email,
+            'role' => $user->role,
+        ]);
         return redirect()->route('users.index')->with('success', 'User removed from the system.');
+    }
+
+    /**
+     * Toggle active/inactive account status.
+     */
+    public function toggleStatus($id)
+    {
+        $this->authorizeAdmin();
+        $user = User::findOrFail($id);
+
+        if (Auth::id() == $user->id || session('user_id') == $user->id) {
+            return back()->with('error', 'You cannot deactivate your own account.');
+        }
+
+        $currentAuthUser = auth()->user() ?? User::find(session('user_id'));
+        if ($user->isSuperAdmin() && (!$currentAuthUser || !$currentAuthUser->isSuperAdmin())) {
+            return back()->with('error', 'Only a Super Administrator can change the status of another Super Administrator.');
+        }
+
+        $oldStatus = $user->status ?? 'active';
+        $newStatus = ($oldStatus === 'active') ? 'inactive' : 'active';
+        $user->status = $newStatus;
+        $user->save();
+
+        $actionName = ($newStatus === 'active') ? 'User Activated' : 'User Deactivated';
+        AuditTrail::log("{$actionName}: {$user->email}", "users/{$user->id}", ['status' => $oldStatus], ['status' => $newStatus]);
+        ActivityLog::log("{$actionName}: {$user->name}", null, [
+            'email' => $user->email,
+            'role' => $user->role,
+            'status' => $newStatus,
+        ]);
+
+        $statusMsg = ($newStatus === 'active')
+            ? "Account for {$user->name} has been activated."
+            : "Account for {$user->name} has been deactivated. The user is now prevented from logging in.";
+
+        return redirect()->route('users.index')->with('success', $statusMsg);
+    }
+
+    /**
+     * Admin action to trigger a secure password reset for a user.
+     */
+    public function resetPassword($id)
+    {
+        $this->authorizeAdmin();
+        $user = User::findOrFail($id);
+
+        $currentAuthUser = auth()->user() ?? User::find(session('user_id'));
+        if ($user->isSuperAdmin() && (!$currentAuthUser || !$currentAuthUser->isSuperAdmin())) {
+            return back()->with('error', 'Only a Super Administrator can reset the password of another Super Administrator.');
+        }
+
+        // Generate strong temporary password complying with security requirements
+        $randomPart = Str::random(6);
+        $tempPassword = 'Naap!' . $randomPart . '8#';
+
+        $user->password = $tempPassword;
+        $user->needs_password_change = true;
+        $user->failed_login_attempts = 0;
+        $user->locked_until = null;
+        $user->save();
+
+        AuditTrail::log("Password Reset by Admin: {$user->email}", "users/{$user->id}");
+        ActivityLog::log("Password reset issued for user: {$user->name}", null, [
+            'email' => $user->email,
+            'user_id' => $user->id,
+        ]);
+
+        try {
+            Mail::to($user->email)->send(new SecurityMail(
+                "🔑 Your Account Password Has Been Reset",
+                $user->name,
+                "<p>An administrator has reset your password for the NAAP Document Routing System.</p>"
+                . "<p>Your temporary password is: <code style='font-size:16px; font-weight:bold; background:#F1F5F9; padding:4px 8px; border-radius:4px;'>{$tempPassword}</code></p>"
+                . "<p><strong>Security Notice:</strong> You will be required to change your password immediately upon your next login.</p>"
+            ));
+        } catch (\Exception $e) {
+            Log::channel('email')->error("Failed to send password reset email to {$user->email}: " . $e->getMessage());
+        }
+
+        return redirect()->route('users.index')->with('success', "Password for {$user->name} has been reset. A temporary password was emailed and mandatory password change is enforced on next login.");
     }
 
     protected function authorizeAdmin()
@@ -568,10 +686,8 @@ class UserController extends Controller
         $inputOtp = $request->input('otp');
         $checkResult = Hash::check($inputOtp, $otpRecord->otp);
         Log::channel('email')->info('OTP Verification Attempt:', [
-            'input_otp' => $inputOtp,
             'record_id' => $otpRecord->id,
             'user_id' => $user->id,
-            'stored_otp_hash' => $otpRecord->otp,
             'check_result' => $checkResult ? 'TRUE' : 'FALSE',
         ]);
 
@@ -631,7 +747,7 @@ class UserController extends Controller
         Log::channel('authentication')->info("Successful OTP login verified for user {$user->email} from IP {$ip}");
         AuditTrail::log("User Logged In", "users/{$user->id}");
 
-        return redirect()->route('dashboard')->with('success', 'Welcome back, ' . $user->name . '.');
+        return redirect()->intended(route('dashboard'))->with('success', 'Welcome back, ' . $user->name . '.');
     }
 
     public function resendOtp(Request $request)
@@ -672,7 +788,6 @@ class UserController extends Controller
             ]);
 
             Log::channel('email')->info('OTP Generated and Stored (Resend):', [
-                'generated_otp' => $otp,
                 'record_id' => $record->id,
                 'user_id' => $user->id,
             ]);
@@ -698,6 +813,15 @@ class UserController extends Controller
             } else {
                 $sendError = 'Provider returned failure status.';
                 Log::channel('email')->error("Failed to resend login OTP email to {$user->email}: {$sendError}");
+            }
+
+            // Emergency/Fallback SMS OTP only if SMS provider is explicitly enabled and configured
+            if (config('services.sms.enabled', false) && app(\App\Services\SmsService::class)->isConfigured() && !empty($user->phone)) {
+                try {
+                    app(\App\Services\SmsService::class)->sendOtp($user, $otp);
+                } catch (\Throwable $smsEx) {
+                    Log::warning("Resend OTP SMS skipped: " . $smsEx->getMessage());
+                }
             }
         } catch (\Exception $e) {
             $sendError = $e->getMessage();

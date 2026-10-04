@@ -13,6 +13,11 @@ use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SecuritySettingsController;
 use App\Http\Controllers\SecurityDashboardController;
+use App\Http\Controllers\TelegramController;
+use App\Http\Controllers\PasswordResetController;
+
+// --- Telegram Webhook (Public API Endpoint) ---
+Route::match(['get', 'post'], '/api/telegram/webhook', [TelegramController::class, 'webhook'])->name('telegram.webhook');
 
 // --- Public Routes ---
 Route::get('/', function() {
@@ -54,6 +59,12 @@ Route::get('/login/otp-verify', [UserController::class, 'showOtpVerify'])->name(
 Route::post('/login/otp-verify', [UserController::class, 'verifyOtp'])->name('login.otp.verify.submit');
 Route::post('/login/otp-resend', [UserController::class, 'resendOtp'])->name('login.otp.resend');
 
+// Self-Service Password Reset routes
+Route::get('/forgot-password', [PasswordResetController::class, 'showForgotPassword'])->name('password.request');
+Route::post('/forgot-password', [PasswordResetController::class, 'sendResetLinkEmail'])->name('password.email');
+Route::get('/reset-password/{token}', [PasswordResetController::class, 'showResetPassword'])->name('password.reset');
+Route::post('/reset-password', [PasswordResetController::class, 'resetPassword'])->name('password.update');
+
 // Forced password reset on first login
 Route::get('/login/password-reset', [UserController::class, 'showForcePasswordReset'])->name('login.password.reset');
 Route::post('/login/password-reset', [UserController::class, 'forcePasswordReset'])->name('login.password.update');
@@ -76,10 +87,13 @@ Route::middleware([\App\Http\Middleware\EnsureAuthenticated::class, \App\Http\Mi
     // --- Core Admin Dashboard ---
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/api/dashboard/calendar-activity', [DashboardController::class, 'calendarActivity'])->name('api.dashboard.calendarActivity');
+    Route::get('/api/dashboard/calendar-date-events', [DashboardController::class, 'calendarDateEvents'])->name('api.dashboard.calendarDateEvents');
     Route::get('/api/notifications', [DashboardController::class, 'notifications'])->name('api.notifications');
     Route::post('/api/notifications/mark-read', [DashboardController::class, 'markAllRead'])->name('api.notifications.markRead');
 
     // --- Resource Management (Users & Offices) ---
+    Route::post('/users/{id}/toggle-status', [UserController::class, 'toggleStatus'])->name('users.toggle-status');
+    Route::post('/users/{id}/reset-password', [UserController::class, 'resetPassword'])->name('users.reset-password');
     Route::resource('users', UserController::class);
     Route::resource('offices', OfficeController::class);
 
@@ -100,6 +114,7 @@ Route::middleware([\App\Http\Middleware\EnsureAuthenticated::class, \App\Http\Mi
     Route::post('/documents/{id}/forward', [DocumentController::class, 'forwardDocument'])->name('documents.forward');
     Route::get('/documents/{id}/download', [DocumentController::class, 'download'])->name('documents.download');
     Route::get('/documents/{id}/qr-label', [DocumentController::class, 'qrLabel'])->name('documents.qr-label');
+    Route::get('/documents/{id}/passport', [DocumentController::class, 'passport'])->name('documents.passport');
     Route::get('/track', [DocumentController::class, 'trackIndex'])->name('track.index');
     Route::get('/track/{id}', [DocumentController::class, 'show'])->name('track.detail');
     Route::get('/api/documents/{id}/status', [DocumentController::class, 'checkStatus'])->name('documents.status');
@@ -117,6 +132,8 @@ Route::middleware([\App\Http\Middleware\EnsureAuthenticated::class, \App\Http\Mi
     Route::get('/scan-qr', [QRController::class, 'index'])->name('qr.index');
     Route::post('/scan-qr/process', [QRController::class, 'scan'])->name('qr.scan');
     Route::post('/scan-qr/store', [QRController::class, 'store'])->name('qr.store');
+    Route::get('/document/qr/{code}', [QRController::class, 'handleExternalScan'])->name('qr.external');
+    Route::get('/documents/qr/{code}', [QRController::class, 'handleExternalScan']);
 
     // --- Reports & Analytics ---
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
@@ -125,6 +142,7 @@ Route::middleware([\App\Http\Middleware\EnsureAuthenticated::class, \App\Http\Mi
     // --- System Settings ---
     Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
     Route::put('/settings/update', [SettingsController::class, 'update'])->name('settings.update');
+    Route::post('/settings/test-sms', [SettingsController::class, 'testSms'])->name('settings.test-sms');
 
     // --- Profile Management ---
     Route::get('/profile', [ProfileController::class, 'index'])->name('profile');
@@ -142,4 +160,11 @@ Route::middleware([\App\Http\Middleware\EnsureAuthenticated::class, \App\Http\Mi
 
     // --- Security Dashboard (Admin Only) ---
     Route::get('/security/dashboard', [SecurityDashboardController::class, 'index'])->name('security.dashboard');
+
+    // --- Telegram Notifications (Optional Channel) ---
+    Route::get('/telegram/connect', [TelegramController::class, 'connect'])->name('telegram.connect');
+    Route::get('/telegram/status', [TelegramController::class, 'status'])->name('telegram.status');
+    Route::post('/telegram/disconnect', [TelegramController::class, 'disconnect'])->name('telegram.disconnect');
+    Route::post('/telegram/preferences', [TelegramController::class, 'updatePreferences'])->name('telegram.preferences');
+    Route::post('/telegram/announcement', [TelegramController::class, 'sendAnnouncement'])->name('telegram.announcement');
 });

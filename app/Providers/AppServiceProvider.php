@@ -34,6 +34,11 @@ class AppServiceProvider extends ServiceProvider
         \Illuminate\Support\Facades\Gate::define('view-workflow', [\App\Policies\DocumentPolicy::class, 'viewWorkflow']);
         \Illuminate\Support\Facades\Gate::define('perform-workflow', [\App\Policies\DocumentPolicy::class, 'performWorkflow']);
 
+        // Register custom Brevo mail driver for Laravel Mailer
+        \Illuminate\Support\Facades\Mail::extend('brevo', function () {
+            return new \App\Mail\Transport\BrevoTransport();
+        });
+
         // Auto-heal legacy SLA column schema in production if migrations have not run yet
         if (!app()->environment('testing')) {
             try {

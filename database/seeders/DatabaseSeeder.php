@@ -66,6 +66,7 @@ class DatabaseSeeder extends Seeder
             'name' => 'Gladys Marmol',
             'username' => 'gladys.marmol',
             'role' => 'ADMIN',
+            'phone' => '09690222557',
             'status' => 'Active',
             'email_verified_at' => now(),
             'password' => 'Admin@12345',
@@ -73,10 +74,11 @@ class DatabaseSeeder extends Seeder
             'office_id' => $presidentOffice ? $presidentOffice->id : null,
         ]);
 
-        if ($gladys->role !== 'ADMIN' || $gladys->username !== 'gladys.marmol' || !$gladys->office_id) {
+        if ($gladys->role !== 'ADMIN' || $gladys->username !== 'gladys.marmol' || !$gladys->office_id || $gladys->phone !== '09690222557') {
             $gladys->fill([
                 'role' => 'ADMIN',
                 'username' => 'gladys.marmol',
+                'phone' => '09690222557',
                 'status' => 'Active',
                 'department_id' => $adminDept ? $adminDept->id : null,
                 'office_id' => $presidentOffice ? $presidentOffice->id : null,

@@ -24,6 +24,9 @@ class User extends Authenticatable
     protected $fillable = [
         'name', 'email', 'employee_id', 'position', 'username', 'password', 'role', 'department_id', 'office_id', 'signature', 'phone', 'avatar', 'status', 'two_factor_secret', 'two_factor_confirmed_at',
         'failed_login_attempts', 'locked_until', 'needs_password_change', 'login_otp', 'login_otp_expires_at', 'login_otp_sent_at', 'recovery_email',
+        'telegram_chat_id', 'telegram_username', 'telegram_connected_at', 'telegram_connection_status',
+        'telegram_connect_token', 'telegram_connect_token_expires_at',
+        'telegram_notif_announcements', 'telegram_notif_documents', 'telegram_notif_urgent',
     ];
 
     protected $casts = [
@@ -31,7 +34,17 @@ class User extends Authenticatable
         'login_otp_expires_at' => 'datetime',
         'login_otp_sent_at' => 'datetime',
         'needs_password_change' => 'boolean',
+        'telegram_connected_at' => 'datetime',
+        'telegram_connect_token_expires_at' => 'datetime',
+        'telegram_notif_announcements' => 'boolean',
+        'telegram_notif_documents' => 'boolean',
+        'telegram_notif_urgent' => 'boolean',
     ];
+
+    public function isTelegramConnected(): bool
+    {
+        return $this->telegram_connection_status === 'connected' && !empty($this->telegram_chat_id);
+    }
 
     protected $hidden = [
         'password',
@@ -50,6 +63,40 @@ class User extends Authenticatable
             ? Hash::make($value)
             : $value;
     }
+
+    /**
+     * Route notifications for the mail channel.
+     * Always resolves strictly to this user's registered designated email address.
+     *
+     * @param  \Illuminate\Notifications\Notification|null  $notification
+     * @return string|null
+     */
+    public function routeNotificationForMail($notification = null): ?string
+    {
+        return $this->email;
+    }
+
+    /**
+     * Get the e-mail address where password reset links are sent.
+     *
+     * @return string
+     */
+    public function getEmailForPasswordReset(): string
+    {
+        return (string) $this->email;
+    }
+
+    /**
+     * Send the password reset notification.
+     *
+     * @param  string  $token
+     * @return void
+     */
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new \App\Notifications\ResetPasswordNotification($token));
+    }
+
 
     protected static function boot()
     {

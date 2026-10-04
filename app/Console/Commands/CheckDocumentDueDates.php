@@ -45,11 +45,17 @@ class CheckDocumentDueDates extends Command
             }
         }
 
-        // Mark overdue documents
-        $overdue = Document::where('due_date', '<', Carbon::now())
-                           ->where('status', '!=', 'Overdue')
-                           ->update(['status' => 'Overdue']);
+        // Audit overdue active documents without overwriting workflow status
+        $overdueActiveDocs = Document::where('due_date', '<', Carbon::now())
+            ->whereNotIn('status', ['Completed', 'Archived', 'Cancelled'])
+            ->get();
 
-        $this->info("Marked {$overdue} documents as overdue.");
+        // Update routing SLA status where applicable
+        \App\Models\DocumentRouting::where('sla_due_at', '<', Carbon::now())
+            ->whereIn('status', ['Pending', 'In Transit', 'Under Review', 'Processing'])
+            ->where('sla_status', '!=', 'delayed')
+            ->update(['sla_status' => 'delayed']);
+
+        $this->info("Identified {$overdueActiveDocs->count()} active documents past SLA due date.");
     }
 }

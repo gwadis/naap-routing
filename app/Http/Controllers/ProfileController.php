@@ -12,15 +12,36 @@ class ProfileController extends Controller
     public function index()
     {
         try {
-            $user = User::where('email', session('user_email'))->first();
+            $user = User::with(['department', 'office'])->where('email', session('user_email'))->first();
 
             if (!$user) {
                 return redirect()->route('home')->with('error', 'Please log in again.');
             }
 
             $departments = \App\Models\Department::all();
+            $offices = \App\Models\Office::orderBy('name', 'asc')->get();
 
-            return view('profile', compact('user', 'departments'));
+            // Fetch last login history if available
+            $lastLogin = null;
+            if (\Illuminate\Support\Facades\Schema::hasTable('login_histories')) {
+                $lastLogin = \Illuminate\Support\Facades\DB::table('login_histories')
+                    ->where('user_id', $user->id)
+                    ->orderBy('id', 'desc')
+                    ->first();
+            }
+
+            // Fetch last password change audit if available
+            $lastPasswordChange = null;
+            if (\Illuminate\Support\Facades\Schema::hasTable('audit_trails')) {
+                $lastPasswordChange = \App\Models\AuditTrail::where('affected_record', "users/{$user->id}")
+                    ->where(function($q) {
+                        $q->where('action', 'like', '%Password%');
+                    })
+                    ->latest()
+                    ->first();
+            }
+
+            return view('profile', compact('user', 'departments', 'offices', 'lastLogin', 'lastPasswordChange'));
 
         } catch (\Exception $e) {
             Log::error('Profile Load Error: ' . $e->getMessage());
@@ -55,6 +76,10 @@ class ProfileController extends Controller
             }
 
             $validated = $request->validate($rules);
+
+            if (!empty($validated['phone'])) {
+                $validated['phone'] = \App\Services\SmsService::normalizePhoneNumber($validated['phone']) ?? $validated['phone'];
+            }
 
             if ($request->hasFile('avatar')) {
                 if ($user->avatar) {

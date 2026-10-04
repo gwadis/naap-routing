@@ -21,7 +21,31 @@ class ConfidentialDocumentPinNotification extends Notification
 
     public function via($notifiable)
     {
-        return [\App\Channels\BrevoMailChannel::class];
+        $channels = [\App\Channels\BrevoMailChannel::class];
+        if (method_exists($notifiable, 'isTelegramConnected') && $notifiable->isTelegramConnected() && app(\App\Services\TelegramService::class)->isConfigured()) {
+            $channels[] = \App\Channels\TelegramChannel::class;
+        }
+        return $channels;
+    }
+
+    public function toTelegram($notifiable): string
+    {
+        $trackingNumber = $this->document->tracking_number ?? $this->document->qr_id ?? ('DOC-' . $this->document->id);
+        $naapUrl = url('/track?tracking_number=' . $trackingNumber);
+
+        return "🔒 <b>NAAP SECURITY NOTIFICATION</b>\n\n"
+             . "A <b>confidential document</b> requires your attention.\n\n"
+             . "<b>Tracking ID:</b> <code>{$trackingNumber}</code>\n"
+             . "<b>Sender:</b> " . htmlspecialchars($this->senderName ?? 'Authorized Office') . "\n\n"
+             . "<i>Confidential content and access PIN are not sent via Telegram. Please open NAAP and verify via your registered Email OTP.</i>\n\n"
+             . "👉 <a href=\"{$naapUrl}\">Open NAAP Secure Portal</a>";
+    }
+
+    public function toSms($notifiable): string
+    {
+        $trackingNumber = $this->document->tracking_number ?? $this->document->qr_id;
+        $title = \Illuminate\Support\Str::limit($this->document->title, 25);
+        return "NAAP SECURITY: Your access PIN code for confidential document [{$trackingNumber}] '{$title}' is: {$this->pin}. Do NOT share this PIN.";
     }
 
     public function toBrevoMail($notifiable)

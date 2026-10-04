@@ -62,15 +62,15 @@ class RoutingController extends Controller
                 $targetOffice  = Office::findOrFail($request->office_id);
                 $oldOfficeName = $document->currentOffice->name ?? 'Unknown';
 
-                $newStatus = ($request->office_id == $document->destination_office_id)
-                    ? 'Completed'
-                    : 'In Transit';
+                $newStatus = 'In Transit';
+
+                $currentUserId = (int) (auth()->id() ?? session('user_id'));
 
                 // Build the receiver list — strip current user to avoid self-routing
                 $receiverUserIds = collect($request->input('receiver_user_ids', []))
                     ->filter()
                     ->map(fn($uid) => (int) $uid)
-                    ->reject(fn($uid) => $uid === (int) session('user_id'))
+                    ->reject(fn($uid) => $uid === $currentUserId)
                     ->unique()
                     ->values()
                     ->all();
@@ -104,7 +104,7 @@ class RoutingController extends Controller
                             'from_office_id'   => $fromOfficeId,
                             'to_office_id'     => $request->office_id,
                             'receiver_user_id' => $receiverId,
-                            'sender_user_id'   => (int) session('user_id'),
+                            'sender_user_id'   => $currentUserId,
                             'status'           => $newStatus,
                             'pending_at'       => ($newStatus === 'Pending') ? now() : null,
                             'sort_order'       => $index + 1,
@@ -120,7 +120,7 @@ class RoutingController extends Controller
                         'document_id'    => $document->id,
                         'from_office_id' => $fromOfficeId,
                         'to_office_id'   => $request->office_id,
-                        'sender_user_id' => (int) session('user_id'),
+                        'sender_user_id' => $currentUserId,
                         'status'         => $newStatus,
                         'pending_at'     => ($newStatus === 'Pending') ? now() : null,
                         'sort_order'     => 1,

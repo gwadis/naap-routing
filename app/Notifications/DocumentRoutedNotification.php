@@ -30,7 +30,44 @@ class DocumentRoutedNotification extends Notification
         if (!empty($notifiable->email) && filter_var($notifiable->email, FILTER_VALIDATE_EMAIL)) {
             $channels[] = 'mail';
         }
+        if (method_exists($notifiable, 'isTelegramConnected') && $notifiable->isTelegramConnected() && app(\App\Services\TelegramService::class)->isConfigured()) {
+            $channels[] = \App\Channels\TelegramChannel::class;
+        }
         return $channels;
+    }
+
+    public function toTelegram($notifiable): string
+    {
+        $tracking = $this->document->tracking_number ?? $this->document->qr_id ?? ('DOC-' . $this->document->id);
+        $title = htmlspecialchars(\Illuminate\Support\Str::limit($this->document->title, 40));
+        $naapUrl = url('/track?tracking_number=' . $tracking);
+
+        if ($this->recipientType === 'uploader') {
+            return "📄 <b>NAAP DOCUMENT NOTIFICATION</b>\n\n"
+                 . "Your document has been uploaded and is now routing.\n\n"
+                 . "<b>Document:</b> {$title}\n"
+                 . "<b>Tracking ID:</b> <code>{$tracking}</code>\n\n"
+                 . "👉 <a href=\"{$naapUrl}\">Track Document</a>";
+        }
+
+        $sender = htmlspecialchars($this->sender ?? 'System');
+        return "📄 <b>NAAP DOCUMENT NOTIFICATION</b>\n\n"
+             . "A document has been routed to you by <b>{$sender}</b>.\n\n"
+             . "<b>Document:</b> {$title}\n"
+             . "<b>Tracking ID:</b> <code>{$tracking}</code>\n"
+             . "<b>Priority:</b> {$this->document->priority}\n\n"
+             . "👉 <a href=\"{$naapUrl}\">Open NAAP to Review</a>";
+    }
+
+    public function toSms($notifiable): string
+    {
+        $tracking = $this->document->tracking_number ?? $this->document->qr_id ?? ('DOC-' . $this->document->id);
+        $title = \Illuminate\Support\Str::limit($this->document->title, 25);
+        if ($this->recipientType === 'uploader') {
+            return "NAAP ALERT: Your document [{$tracking}] '{$title}' is in transit.";
+        }
+        $sender = $this->sender ?? 'another office';
+        return "NAAP NOTICE: Document [{$tracking}] '{$title}' has been routed to you by {$sender}.";
     }
 
     public function toDatabase($notifiable)

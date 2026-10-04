@@ -56,6 +56,53 @@ class SettingsController extends Controller
         return back()->with('success', 'System settings updated successfully!');
     }
 
+    public function testSms(Request $request)
+    {
+        $this->authorizeAdmin();
+        $smsService = app(\App\Services\SmsService::class);
+        $phone = $request->input('phone', '09690222557');
+        $message = "NAAP Routing Alert: Document TRK-TEST requires your attention.";
+
+        if (!$smsService->isConfigured()) {
+            $deviceUri = \App\Services\SmsService::getDeviceSmsUri($phone, $message);
+
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'status' => 'SMS_UNAVAILABLE',
+                    'provider' => 'none',
+                    'info' => 'SMS unavailable — no SMS provider configured.',
+                    'device_sms_uri' => $deviceUri,
+                    'draft_label' => 'Open SMS',
+                    'recipient' => \App\Services\SmsService::normalizePhoneNumber($phone),
+                ]);
+            }
+
+            return back()->with('info', "SMS unavailable — no SMS provider configured. Core routing operates via Email & In-App.");
+        }
+
+        $result = $smsService->send($phone, $message);
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => $result['success'],
+                'status' => $result['status'] ?? ($result['success'] ? 'SMS_SENT' : 'SMS_UNAVAILABLE'),
+                'provider' => $result['provider'] ?? 'none',
+                'info' => $result['info'] ?? '',
+                'recipient' => $result['recipient'] ?? $phone,
+                'device_sms_uri' => $result['device_sms_uri'] ?? null,
+                'draft_label' => 'Open SMS',
+            ]);
+        }
+
+        if ($result['success']) {
+            $provider = strtoupper($result['provider'] ?? 'SMS');
+            return back()->with('success', "SMS SENT: Verified cellular delivery via [{$provider}] to {$phone}!");
+        }
+
+        return back()->with('warning', "SMS unavailable — " . ($result['info'] ?? 'no SMS provider configured.'));
+    }
+
     protected function authorizeAdmin()
     {
         $role = session('user_role') ?? auth()->user()?->role;

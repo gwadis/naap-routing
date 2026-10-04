@@ -259,4 +259,20 @@ class Document extends Model
     {
         return $this->hasMany(DocumentView::class);
     }
+
+    /**
+     * Get the standardized external-compatible HTTPS URL to encode into the QR code.
+     */
+    public function getQrPayloadUrl(): string
+    {
+        $code = $this->tracking_number ?: ($this->qr_id ?: (string) $this->id);
+        $url = route('qr.external', ['code' => $code]);
+
+        // Standardize to HTTPS scheme for external QR scanners
+        if (str_starts_with($url, 'http://')) {
+            $url = 'https://' . substr($url, 7);
+        }
+
+        return $url;
+    }
 }

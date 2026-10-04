@@ -60,22 +60,46 @@ class QRController extends Controller
 
                 if (!$document) {
                     // Try looking up by qr_code, tracking_number, or qr_id
+                    // Also parse URL or path tokens if qrData contains a full URL
+                    $token = $qrData;
+                    if (filter_var($qrData, FILTER_VALIDATE_URL) || str_contains($qrData, '/')) {
+                        $path = parse_url($qrData, PHP_URL_PATH);
+                        $token = basename($path ?: $qrData);
+                    }
                     $basename = basename($qrData);
+
                     $document = Document::with(['receiverUser', 'currentOffice', 'destinationOffice'])
-                        ->where(function($q) use ($qrData, $basename) {
+                        ->where(function($q) use ($qrData, $basename, $token) {
                             $q->where('qr_code', $qrData)
                               ->orWhere('qr_code', strtoupper($qrData))
                               ->orWhere('qr_code', 'like', '%' . $basename)
+                              ->orWhere('qr_code', 'like', '%' . $token)
                               ->orWhere('tracking_number', $qrData)
                               ->orWhere('tracking_number', strtoupper($qrData))
+                              ->orWhere('tracking_number', $token)
+                              ->orWhere('tracking_number', strtoupper($token))
                               ->orWhere('qr_id', $qrData)
-                              ->orWhere('qr_id', strtoupper($qrData));
+                              ->orWhere('qr_id', strtoupper($qrData))
+                              ->orWhere('qr_id', $token)
+                              ->orWhere('qr_id', strtoupper($token));
                         })
                         ->lockForUpdate()
                         ->first();
                 }
 
                 if (!$document) {
+                    $currentUser = auth()->user() ?? User::find(session('user_id'));
+                    ActivityLog::create([
+                        'user'        => $currentUser?->name ?? 'Guest',
+                        'action'      => 'QR Verification Failed',
+                        'document_id' => null,
+                        'ip'          => 'REDACTED',
+                        'meta'        => [
+                            'reason'    => 'Invalid QR Code / Document not found',
+                            'timestamp' => now()->toIso8601String(),
+                        ]
+                    ]);
+
                     return response()->json([
                         'success' => false,
                         'message' => 'Invalid QR Code. Document not found.',
@@ -85,6 +109,18 @@ class QRController extends Controller
 
                 // Check document is active
                 if (in_array(strtolower($document->status ?? ''), ['cancelled'])) {
+                    $currentUser = auth()->user() ?? User::find(session('user_id'));
+                    ActivityLog::create([
+                        'user'        => $currentUser?->name ?? 'Guest',
+                        'action'      => 'QR Verification Failed',
+                        'document_id' => $document->id,
+                        'ip'          => 'REDACTED',
+                        'meta'        => [
+                            'reason'    => 'Document cancelled',
+                            'timestamp' => now()->toIso8601String(),
+                        ]
+                    ]);
+
                     return response()->json([
                         'success' => false,
                         'message' => 'This document has been cancelled and is no longer active.',
@@ -103,6 +139,19 @@ class QRController extends Controller
                 if ($request->filled('target_document_id')) {
                     $targetId = (int) $request->target_document_id;
                     if ((int) $document->id !== $targetId) {
+                        $currentUser = auth()->user() ?? User::find(session('user_id'));
+                        ActivityLog::create([
+                            'user'        => $currentUser?->name ?? 'Guest',
+                            'action'      => 'QR Verification Failed',
+                            'document_id' => $document->id,
+                            'ip'          => 'REDACTED',
+                            'meta'        => [
+                                'reason'    => 'QR Code mismatch',
+                                'target_id' => $targetId,
+                                'timestamp' => now()->toIso8601String(),
+                            ]
+                        ]);
+
                         return response()->json([
                             'success' => false,
                             'message' => 'QR Code mismatch. The scanned QR code does not belong to the document you are trying to verify. Please scan the correct QR code.',
@@ -114,8 +163,8 @@ class QRController extends Controller
                 // Resolve the authenticated user
                 $user = auth()->user() ?? User::find(session('user_id'));
 
-                // Locate active Pending routing step if present (for updating scanned_at or tracking)
-                // Note: Workflow action authorization checks are removed from QR scanning process.
+                // Locate active routing step if present (for updating scanned_at or tracking)
+                $activeRoutingStatuses = ['Pending', 'pending', 'In Transit', 'in_transit', 'Under Review', 'under_review', 'Processing', 'processing', 'On Process', 'on_process', 'For Approval', 'for_approval'];
                 $activeRouting = DocumentRouting::where('document_id', $document->id)
                     ->where(function ($q) use ($user) {
                         if ($user) {
@@ -123,17 +172,19 @@ class QRController extends Controller
                               ->orWhere(function ($sub) use ($user) {
                                   if ($user->office_id) {
                                       $sub->whereNull('receiver_user_id')
-                                          ->where('to_office_id', $user->office_id);
+                                          ->orWhere('to_office_id', $user->office_id);
                                   }
                               });
                         }
                     })
-                    ->where('status', 'Pending')
+                    ->whereIn('status', $activeRoutingStatuses)
+                    ->orderBy('sort_order', 'asc')
                     ->first();
 
                 if (!$activeRouting) {
                     $activeRouting = DocumentRouting::where('document_id', $document->id)
-                        ->where('status', 'Pending')
+                        ->whereIn('status', $activeRoutingStatuses)
+                        ->orderBy('sort_order', 'asc')
                         ->first();
                 }
 
@@ -290,7 +341,7 @@ class QRController extends Controller
                             'message' => 'This document is secured with a PIN code. Please enter the PIN to unlock.',
                         ]);
                     } else {
-                        \Log::info("Confidential PIN submitted for document ID {$document->id} by user ID " . ($user->id ?? 'Guest') . " with PIN: {$request->pin}");
+                        \Log::info("Confidential PIN submitted for document ID {$document->id} by user ID " . ($user->id ?? 'Guest'));
                         // Reject PIN verification if QR has not been scanned/verified first in this session
                         if (!app()->environment('testing') && !session('qr_verified_' . $document->id)) {
                             return response()->json([
@@ -703,7 +754,7 @@ class QRController extends Controller
                 ]);
 
                 // 2. Generate QR Code
-                $qrCode = new QrCode(route('documents.show', $document->id), size: 300);
+                $qrCode = new QrCode($document->getQrPayloadUrl(), size: 300);
                 $writer = new PngWriter();
                 $result = $writer->write($qrCode);
                 $qrCodeData = $result->getString();
@@ -751,13 +802,138 @@ class QRController extends Controller
     }
 
     /**
+     * Handle incoming QR scan from external QR scanner (e.g. phone camera, Google Lens).
+     * Decodes the tracking number, secure token, or document ID, verifies authentication & permissions,
+     * logs the scan event, and redirects to the document or confidential OTP prompt.
+     */
+    public function handleExternalScan(Request $request, $code)
+    {
+        $code = trim(urldecode((string) $code));
+
+        $document = null;
+        if (is_numeric($code)) {
+            $document = Document::with(['receiverUser', 'currentOffice', 'destinationOffice', 'uploader'])->find((int) $code);
+        }
+
+        if (!$document) {
+            $document = Document::with(['receiverUser', 'currentOffice', 'destinationOffice', 'uploader'])
+                ->where('tracking_number', $code)
+                ->orWhere('tracking_number', strtoupper($code))
+                ->orWhere('qr_id', $code)
+                ->orWhere('qr_id', strtoupper($code))
+                ->first();
+        }
+
+        if (!$document) {
+            ActivityLog::create([
+                'user'        => auth()->user()?->name ?? 'Guest',
+                'action'      => 'External QR Verification Failed',
+                'document_id' => null,
+                'ip'          => $request->ip() ?? '127.0.0.1',
+                'meta'        => [
+                    'reason'    => 'Document not found for external QR scan',
+                    'code'      => $code,
+                    'timestamp' => now()->toIso8601String(),
+                ]
+            ]);
+
+            return redirect()->route('track.index')->with('error', 'Document not found for the scanned QR code.');
+        }
+
+        // Check if document is cancelled
+        if (in_array(strtolower($document->status ?? ''), ['cancelled'])) {
+            ActivityLog::create([
+                'user'        => auth()->user()?->name ?? 'User',
+                'action'      => 'External QR Verification Failed',
+                'document_id' => $document->id,
+                'ip'          => $request->ip() ?? '127.0.0.1',
+                'meta'        => [
+                    'reason'    => 'Document cancelled',
+                    'timestamp' => now()->toIso8601String(),
+                ]
+            ]);
+
+            return redirect()->route('track.index')->with('error', 'This document has been cancelled and is no longer active.');
+        }
+
+        // Log the scan event
+        \Illuminate\Support\Facades\Log::info('QR Scan Access', [
+            'user_id' => auth()->id() ?? session('user_id'),
+            'document_id' => $document->id,
+            'tracking_number' => $document->tracking_number,
+            'route' => $request->path(),
+            'source' => 'external_scanner',
+        ]);
+
+        ActivityLog::create([
+            'user'        => auth()->user()?->name ?? 'User',
+            'action'      => 'QR Code Scanned',
+            'document_id' => $document->id,
+            'ip'          => $request->ip() ?? '127.0.0.1',
+            'meta'        => [
+                'source'          => 'external_phone_scanner',
+                'tracking_number' => $document->tracking_number,
+                'timestamp'       => now()->toIso8601String(),
+            ]
+        ]);
+
+        $user = auth()->user() ?? User::find(session('user_id'));
+
+        // Update active routing scan timestamp if scanned by pending recipient
+        $activeRoutingStatuses = ['Pending', 'pending', 'In Transit', 'in_transit'];
+        $activeRouting = DocumentRouting::where('document_id', $document->id)
+            ->where(function ($q) use ($user) {
+                if ($user) {
+                    $q->where('receiver_user_id', $user->id)
+                      ->orWhere(function ($sub) use ($user) {
+                          if ($user->office_id) {
+                              $sub->whereNull('receiver_user_id')
+                                  ->orWhere('to_office_id', $user->office_id);
+                          }
+                      });
+                }
+            })
+            ->whereIn('status', $activeRoutingStatuses)
+            ->orderBy('sort_order', 'asc')
+            ->first();
+
+        if ($activeRouting && is_null($activeRouting->scanned_at)) {
+            $activeRouting->update(['scanned_at' => now()]);
+        }
+        if (is_null($document->qr_scanned_at)) {
+            $document->update(['qr_scanned_at' => now(), 'qr_status' => 'Verified']);
+        }
+
+        // Mark QR verified in current session
+        session(['qr_verified_' . $document->id => true]);
+
+        // Authorization check using existing DocumentPolicy
+        $policy = app(\App\Policies\DocumentPolicy::class);
+        if (!$policy->viewWorkflow($user, $document)) {
+            return redirect()->route('track.index')->with('error', 'You are not authorized to view this document.');
+        }
+
+        // Confidential protection & OTP check
+        if ($document->is_confidential) {
+            $isAdmin = $policy->isUserAdmin($user);
+            $isUploader = $document->uploaded_by === $user?->id;
+            if (!$isAdmin && !$isUploader && !session('otp_verified_' . $document->id)) {
+                return redirect()->route('qr.index', ['document_id' => $document->id])
+                    ->with('info', 'This document is confidential. Please verify your 6-digit access PIN to view details.');
+            }
+        }
+
+        return redirect()->route('documents.show', $document->id);
+    }
+
+    /**
      * Extract document ID from QR data
      */
     private function extractDocumentIdFromQR($qrData)
     {
         // 1. Try to extract ID from standard URL paths (case-insensitive)
-        // Example: https://example.com/documents/123 or track/123
-        if (preg_match('/(?:documents|track|qr_codes)(?:\/|%2F)+(\d+)/i', $qrData, $matches)) {
+        // Example: https://example.com/documents/123, /track/123, /document/qr/123
+        if (preg_match('/(?:documents|track|qr_codes|document\/qr)(?:\/|%2F)+(\d+)/i', $qrData, $matches)) {
             return (int) $matches[1];
         }
 
@@ -798,8 +974,12 @@ class QRController extends Controller
         if ($document->receiver_user_id) {
             try {
                 $receiver = User::find($document->receiver_user_id);
-                // TODO: Implement your notification system (email, SMS, database notification, etc.)
-                \Log::info("Notification: Document '{$document->title}' sent to {$receiver->name}");
+                if ($receiver) {
+                    \Log::info("Notification: Document '{$document->title}' sent to {$receiver->name}");
+                    if (!empty($receiver->phone)) {
+                        app(\App\Services\SmsService::class)->sendDocumentRoutedAlert($receiver, $document, $document->originOffice);
+                    }
+                }
             } catch (\Exception $e) {
                 \Log::error('Notification failed: ' . $e->getMessage());
             }
@@ -813,8 +993,12 @@ class QRController extends Controller
     {
         try {
             $uploader = User::find($document->uploaded_by);
-            // TODO: Implement your notification system
-            \Log::info("Notification to uploader: {$message} - Document: {$document->title}");
+            if ($uploader) {
+                \Log::info("Notification to uploader: {$message} - Document: {$document->title}");
+                if (!empty($uploader->phone)) {
+                    app(\App\Services\SmsService::class)->sendDocumentStatusAlert($uploader, $document, 'Received', $message);
+                }
+            }
         } catch (\Exception $e) {
             \Log::error('Uploader notification failed: ' . $e->getMessage());
         }

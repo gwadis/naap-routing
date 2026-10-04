@@ -23,7 +23,37 @@ class DocumentRejectedNotification extends Notification
 
     public function via($notifiable): array
     {
-        return ['database', 'mail'];
+        $channels = ['database'];
+        if (!empty($notifiable->email)) {
+            $channels[] = 'mail';
+        }
+        if (method_exists($notifiable, 'isTelegramConnected') && $notifiable->isTelegramConnected() && app(\App\Services\TelegramService::class)->isConfigured()) {
+            $channels[] = \App\Channels\TelegramChannel::class;
+        }
+        return $channels;
+    }
+
+    public function toTelegram($notifiable): string
+    {
+        $tracking = $this->document->tracking_number ?? $this->document->qr_id ?? ('DOC-' . $this->document->id);
+        $title = htmlspecialchars(\Illuminate\Support\Str::limit($this->document->title, 40));
+        $rejecter = htmlspecialchars($this->rejecterName);
+        $office = htmlspecialchars($this->officeName);
+        $reason = $this->reason ? ("\n<b>Reason:</b> " . htmlspecialchars($this->reason)) : '';
+        $naapUrl = url('/track?tracking_number=' . $tracking);
+
+        return "⚠️ <b>NAAP DOCUMENT RETURNED / REJECTED</b>\n\n"
+             . "Document <b>{$title}</b> was rejected by <b>{$rejecter}</b> at <b>{$office}</b>.{$reason}\n\n"
+             . "<b>Tracking ID:</b> <code>{$tracking}</code>\n\n"
+             . "👉 <a href=\"{$naapUrl}\">Review in NAAP</a>";
+    }
+
+    public function toSms($notifiable): string
+    {
+        $tracking = $this->document->tracking_number ?? $this->document->qr_id ?? ('DOC-' . $this->document->id);
+        $title = \Illuminate\Support\Str::limit($this->document->title, 25);
+        $reason = $this->reason ? (' Reason: ' . \Illuminate\Support\Str::limit($this->reason, 40)) : '';
+        return "NAAP ALERT: Document [{$tracking}] '{$title}' was rejected by {$this->rejecterName} at {$this->officeName}.{$reason}";
     }
 
     public function toDatabase($notifiable): array

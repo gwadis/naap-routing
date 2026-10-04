@@ -330,6 +330,54 @@
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
             }
+
+            /* Clean layout for printing */
+            .sidebar, #sidebar, #sidebarOverlay, header {
+                display: none !important;
+            }
+            .main-container {
+                margin-left: 0 !important;
+                width: 100% !important;
+                padding: 0 !important;
+            }
+
+            /* Universal chart sizing for print / export */
+            .report-chart-wrapper,
+            .report-chart-container,
+            .chart-wrapper,
+            .chart-container {
+                height: 280px !important;
+                max-height: 280px !important;
+                min-height: 280px !important;
+                width: 100% !important;
+                flex: none !important;
+                position: relative !important;
+                overflow: hidden !important;
+                margin: 0 auto !important;
+            }
+
+            .report-chart-wrapper canvas,
+            .report-chart-container canvas,
+            .chart-wrapper canvas,
+            .chart-container canvas {
+                height: 280px !important;
+                max-height: 280px !important;
+                min-height: 0 !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                display: block !important;
+                object-fit: contain !important;
+            }
+
+            .card, .doc-card, .glass-card, .chart-card {
+                break-inside: avoid !important;
+                page-break-inside: avoid !important;
+                box-shadow: none !important;
+                border: 1px solid #CBD5E1 !important;
+                background: #FFFFFF !important;
+                height: auto !important;
+                min-height: 0 !important;
+            }
         }
 
         /* CARDS - Modern Minimalist Stripe */
@@ -353,7 +401,9 @@
             border: 1px solid var(--panel-border);
             border-radius: var(--radius-lg);
             background: var(--panel);
-            overflow: hidden;
+            overflow-x: auto;
+            overflow-y: hidden;
+            -webkit-overflow-scrolling: touch;
             box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
         }
 

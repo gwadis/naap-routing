@@ -1,527 +1,1188 @@
 @extends('layouts.app')
 
-@section('title', 'Document Details')
+@section('title', 'Document Details - ' . ($document->tracking_number ?? $document->title))
 
 @section('head')
 <script src="https://cdn.jsdelivr.net/npm/signature_pad@2.3.2/dist/signature_pad.min.js"></script>
 <style>
-    .tracking-map {
+    /* NAAP Enterprise Documents Module Consistency */
+    .doc-details-workspace {
+        color: var(--text-main, #0F172A);
+        font-family: inherit;
+    }
+
+    .detail-card {
+        background: var(--panel, #FFFFFF);
+        border: 1px solid var(--panel-border, #E2E8F0);
+        border-radius: var(--radius-lg, 12px);
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+        margin-bottom: 20px;
+        overflow: hidden;
+    }
+
+    .detail-card-header {
+        background: #F8FAFC;
+        border-bottom: 1px solid var(--panel-border, #E2E8F0);
+        padding: 14px 20px;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 24px;
+        gap: 12px;
+    }
+
+    .detail-card-title {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: var(--accent-navy, #0F172A);
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .detail-card-body {
+        padding: 20px;
+    }
+
+    /* Meta grid items */
+    .meta-item-box {
         background: #F8FAFC;
-        border: 1px solid var(--panel-border);
-        border-radius: 12px;
-        margin: 20px 0;
+        border: 1px solid var(--panel-border, #E2E8F0);
+        border-radius: 8px;
+        padding: 12px 14px;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
     }
-    .tracking-office {
-        text-align: center;
-        flex: 1;
-        opacity: 0.65;
-        transition: opacity 0.2s ease;
+
+    .meta-item-label {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #64748B;
+        margin-bottom: 4px;
+        display: flex;
+        align-items: center;
+        gap: 5px;
     }
-    .tracking-office.active {
-        opacity: 1;
+
+    .meta-item-value {
+        font-size: 13.5px;
+        font-weight: 600;
+        color: #0F172A;
+        line-height: 1.35;
+        word-break: break-word;
     }
-    .tracking-office-circle {
-        width: 50px;
-        height: 50px;
+
+    .meta-item-sub {
+        font-size: 11px;
+        color: #64748B;
+        margin-top: 2px;
+    }
+
+    /* Tracking Code Badge */
+    .tracking-code-pill {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 12px;
+        color: #334155;
+        background: #F1F5F9;
+        padding: 4px 8px;
+        border-radius: 6px;
+        border: 1px solid #CBD5E1;
+        letter-spacing: -0.01em;
+        display: inline-block;
+    }
+
+    /* File Type Icons matching Documents page */
+    .file-type-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-size: 11px;
+        color: #ffffff;
+        text-transform: uppercase;
+        flex-shrink: 0;
+    }
+    .file-pdf { background: #EF4444; }
+    .file-docx, .file-doc { background: #2563EB; }
+    .file-xlsx, .file-xls { background: #10B981; }
+    .file-zip, .file-rar { background: #F59E0B; }
+    .file-png, .file-jpg, .file-jpeg { background: #8B5CF6; }
+    .file-default { background: #64748B; }
+
+    /* SLA Badges matching Documents page */
+    .sla-badge {
+        font-size: 11px;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-weight: 600;
+        display: inline-block;
+    }
+    .sla-on-track {
+        background: rgba(16, 185, 129, 0.08);
+        color: #047857;
+    }
+    .sla-nearing {
+        background: rgba(245, 158, 11, 0.12);
+        color: #B45309;
+    }
+    .sla-overdue {
+        background: rgba(239, 68, 68, 0.08);
+        color: #B91C1C;
+    }
+    .sla-na {
+        background: rgba(148, 163, 184, 0.12);
+        color: #64748B;
+    }
+
+    /* Priority Indicator */
+    .priority-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 11px;
+        font-weight: 700;
+        padding: 3px 8px;
+        border-radius: 4px;
+        background: #F1F5F9;
+    }
+    .priority-dot {
+        width: 7px;
+        height: 7px;
         border-radius: 50%;
+        display: inline-block;
+    }
+
+    /* Courier Route Steps */
+    .tracking-steps-container {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        overflow-x: auto;
+        padding: 16px 8px;
+    }
+
+    .tracking-step-node {
+        flex: 1;
+        min-width: 140px;
+        text-align: center;
+        position: relative;
+    }
+
+    .tracking-step-circle {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        margin: 0 auto 8px;
         display: flex;
         align-items: center;
         justify-content: center;
-        margin: 0 auto 10px;
-        font-weight: bold;
-        color: var(--text-dim);
-        background: var(--panel);
-        border: 2px solid var(--panel-border);
+        font-size: 16px;
+        font-weight: 700;
+        background: #F8FAFC;
+        border: 2px solid #CBD5E1;
+        color: #64748B;
         transition: all 0.2s ease;
     }
-    .tracking-office.active .tracking-office-circle {
-        background: var(--accent-cyan);
-        border-color: var(--accent-cyan);
-        color: #ffffff !important;
-        box-shadow: 0 0 18px rgba(59, 130, 246, 0.35);
+
+    .tracking-step-node.completed .tracking-step-circle {
+        background: #10B981;
+        border-color: #10B981;
+        color: #FFFFFF;
     }
-    .tracking-office-name {
-        font-size: 0.9rem;
-        margin-bottom: 5px;
-        color: var(--text-dim);
-        transition: color 0.2s ease;
+
+    .tracking-step-node.active .tracking-step-circle {
+        background: #2563EB;
+        border-color: #2563EB;
+        color: #FFFFFF;
+        box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.18);
     }
-    .tracking-office.active .tracking-office-name {
-        color: var(--text-main);
+
+    .tracking-step-title {
+        font-size: 12px;
         font-weight: 700;
+        color: #0F172A;
+        margin-bottom: 2px;
+        line-height: 1.25;
     }
-    .tracking-office-type {
-        font-size: 0.75rem;
-        color: var(--text-dim);
+
+    .tracking-step-sub {
+        font-size: 11px;
+        color: #64748B;
     }
-    .tracking-arrow {
-        flex: 0.5;
+
+    .tracking-step-arrow {
+        flex: 0 0 24px;
         text-align: center;
-        color: var(--accent-cyan);
-        font-size: 24px;
+        color: #94A3B8;
+        font-size: 18px;
     }
-    .sla-card {
-        background: var(--bg);
-        border: 1px solid var(--panel-border);
-        border-radius: 12px;
-        padding: 20px;
+
+    /* Enterprise Table for Routing & Activities */
+    .details-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12.5px;
+    }
+
+    .details-table th {
+        background: #F8FAFC;
+        padding: 10px 12px;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: #64748B;
+        border-bottom: 1px solid var(--panel-border, #E2E8F0);
+        letter-spacing: 0.05em;
+        white-space: nowrap;
+    }
+
+    .details-table td {
+        padding: 12px 12px;
+        border-bottom: 1px solid var(--panel-border, #E2E8F0);
+        color: #0F172A;
+        vertical-align: middle;
+    }
+
+    .details-table tbody tr:hover {
+        background: #F8FAFC;
+    }
+
+    /* Timeline styling */
+    .audit-timeline {
+        position: relative;
+        padding-left: 28px;
+    }
+    .audit-timeline::before {
+        content: '';
+        position: absolute;
+        left: 9px;
+        top: 6px;
+        bottom: 6px;
+        width: 2px;
+        background: #E2E8F0;
+    }
+    .audit-timeline-item {
+        position: relative;
         margin-bottom: 20px;
     }
-    .sla-field {
-        margin-bottom: 10px;
+    .audit-timeline-item:last-child {
+        margin-bottom: 0;
     }
-    .sla-field-label {
-        font-size: 0.8rem;
-        color: var(--text-dim);
-        text-transform: uppercase;
-        display: block;
-    }
-    .sla-field-value {
-        color: var(--text-main);
-        font-weight: 600;
-        margin-top: 3px;
+    .audit-timeline-dot {
+        position: absolute;
+        left: -28px;
+        top: 2px;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: #FFFFFF;
+        border: 2px solid #2563EB;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+        color: #2563EB;
+        z-index: 2;
     }
 </style>
 @endsection
 
 @section('content')
-@if(isset($isLocked) && $isLocked)
-<div class="container-fluid p-4">
-    <div class="row justify-content-center">
-        <div class="col-md-6 text-start">
-            <div class="card shadow p-4 text-center" style="border-radius: 16px; border: 1px solid var(--panel-border); background: var(--panel) !important;">
-                <div class="mb-4">
-                    <i class="bi bi-lock-fill text-danger" style="font-size: 4.5rem; filter: drop-shadow(0 4px 10px rgba(30, 58, 138, 0.15));"></i>
+@php
+    // Extension & File Type
+    $ext = strtolower($document->type ?? '');
+    $iconClass = match($ext) {
+        'pdf' => 'file-pdf',
+        'docx', 'doc' => 'file-docx',
+        'xlsx', 'xls' => 'file-xlsx',
+        'zip', 'rar' => 'file-zip',
+        'png', 'jpg', 'jpeg' => 'file-png',
+        default => 'file-default'
+    };
+
+    // Status Key & Badge Styling
+    $statusKey = strtolower(str_replace(' ', '_', $document->status ?? 'pending'));
+    $statusBadgeClass = match($statusKey) {
+        'completed' => 'bg-success text-white',
+        'pending' => 'bg-warning text-dark',
+        'in_transit', 'in transit' => 'bg-info text-dark',
+        'received' => 'bg-primary text-white',
+        'approved', 'accepted', 'endorsed' => 'bg-success text-white',
+        'processing', 'under_review', 'under review', 'on process' => 'bg-info text-white',
+        'for_approval', 'for approval' => 'bg-warning text-dark',
+        'reverted', 'returned', 'rejected' => 'bg-danger text-white',
+        'archived' => 'bg-secondary text-white',
+        default => 'bg-secondary text-white'
+    };
+
+    // Strict Chronological Validation: created <= received <= processed <= completed
+    $createdTs   = $document->created_at ? $document->created_at->timestamp : null;
+    $receivedTs  = $document->received_at ? $document->received_at->timestamp : null;
+    $processedTs = $document->processed_at ? $document->processed_at->timestamp : null;
+    $completedTs = $document->completed_at ? $document->completed_at->timestamp : null;
+
+    $timestampsValid = true;
+    if ($createdTs && $receivedTs && $receivedTs < $createdTs) {
+        $timestampsValid = false;
+    }
+    if ($receivedTs && $processedTs && $processedTs < $receivedTs) {
+        $timestampsValid = false;
+    }
+    if ($createdTs && $completedTs && $completedTs < $createdTs) {
+        $timestampsValid = false;
+    }
+
+    // Uniform SLA Calculation matching Documents, Dashboard, and Reports
+    $isCompleted = in_array($statusKey, ['completed', 'archived']);
+    $slaRemainingText = 'N/A';
+    $slaStatusClass = 'sla-na';
+    $slaStatusLabel = 'N/A';
+    $isOverdue = false;
+    $overdueDuration = null;
+    $slaPercentRemaining = 100;
+
+    if (!$document->due_date || !$timestampsValid) {
+        $slaRemainingText = 'N/A';
+        $slaStatusClass = 'sla-na';
+        $slaStatusLabel = 'N/A';
+    } elseif ($isCompleted) {
+        if ($completedTs && $document->due_date && $completedTs > $document->due_date->timestamp) {
+            $slaRemainingText = 'Overdue at Completion';
+            $slaStatusClass = 'sla-overdue';
+            $slaStatusLabel = 'Completed Beyond SLA';
+            $isOverdue = true;
+        } else {
+            $slaRemainingText = 'Completed Within Limit';
+            $slaStatusClass = 'sla-on-track';
+            $slaStatusLabel = 'Completed Within SLA';
+        }
+    } else {
+        if ($document->due_date->isPast()) {
+            $isOverdue = true;
+            $diffHours = (int) now()->diffInHours($document->due_date, false);
+            $diffDays = (int) now()->diffInDays($document->due_date, false);
+            $absDays = abs($diffDays);
+            $overdueDuration = $absDays > 0 ? "{$absDays}d overdue" : abs($diffHours) . "h overdue";
+            $slaRemainingText = $overdueDuration;
+            $slaStatusClass = 'sla-overdue';
+            $slaStatusLabel = 'Overdue';
+            $slaPercentRemaining = 0;
+        } elseif (now()->diffInHours($document->due_date, false) <= 48) {
+            $diffH = (int) now()->diffInHours($document->due_date, false);
+            $diffM = abs((int) (now()->diffInMinutes($document->due_date, false) % 60));
+            $slaRemainingText = $diffH > 0 ? "{$diffH}h {$diffM}m" : "{$diffM}m";
+            $slaStatusClass = 'sla-nearing';
+            $slaStatusLabel = 'Nearing SLA';
+
+            $totalSecs = $document->created_at ? $document->created_at->diffInSeconds($document->due_date) : 0;
+            $remainingSecs = now()->diffInSeconds($document->due_date, false);
+            if ($totalSecs > 0 && $remainingSecs > 0) {
+                $slaPercentRemaining = max(0, min(100, round(($remainingSecs / $totalSecs) * 100)));
+            }
+        } else {
+            $diffD = (int) now()->diffInDays($document->due_date, false);
+            $slaRemainingText = $diffD > 0 ? "{$diffD} days left" : "On Track";
+            $slaStatusClass = 'sla-on-track';
+            $slaStatusLabel = 'On Track';
+
+            $totalSecs = $document->created_at ? $document->created_at->diffInSeconds($document->due_date) : 0;
+            $remainingSecs = now()->diffInSeconds($document->due_date, false);
+            if ($totalSecs > 0 && $remainingSecs > 0) {
+                $slaPercentRemaining = max(0, min(100, round(($remainingSecs / $totalSecs) * 100)));
+            }
+        }
+    }
+
+    // Priority color
+    $priorityColor = match(strtolower($document->priority ?? 'normal')) {
+        'urgent' => '#EF4444',
+        'high' => '#F59E0B',
+        'low' => '#10B981',
+        default => '#3B82F6'
+    };
+
+    // User permissions & workflow capability
+    $user = auth()->user() ?? \App\Models\User::find(session('user_id'));
+    $userRole = strtoupper($user?->role ?? session('user_role') ?? '');
+    $isAdmin = in_array($userRole, ['ADMIN', 'ADMINISTRATOR', 'SUPER ADMINISTRATOR']);
+    
+    // Resolve active routing step from database records
+    $activeStep = $activeRouting ?? $document->routings->where('status', 'Pending')->first();
+    $latestStep = $document->routings->sortByDesc('id')->first();
+
+    // Actual Current Location (office and receiver)
+    $currentOfficeName = $document->currentOffice?->name ?? ($activeStep?->toOffice?->name ?? 'Unassigned');
+    $currentReceiverName = $document->receiverUser?->name ?? ($activeStep?->receiverUser?->name ?? 'Unassigned');
+    $currentReceiverDept = $document->receiverUser?->department?->name ?? ($activeStep?->receiverUser?->department?->name ?? null);
+
+    // Next Destination
+    $nextDestination = $document->destinationOffice?->name ?? 'None';
+    if ($activeStep && $activeStep->toOffice && $activeStep->toOffice->name !== $currentOfficeName) {
+        $nextDestination = $activeStep->toOffice->name;
+    } elseif ($isCompleted) {
+        $nextDestination = 'Final Destination Reached';
+    }
+
+    // Next Action Required
+    $nextActionRequired = match($statusKey) {
+        'completed' => 'Workflow Completed & Archived',
+        'rejected' => 'Document Rejected',
+        'archived' => 'Document Archived',
+        'received' => 'Awaiting Processing / Review',
+        'under_review', 'under review' => 'Awaiting Approval or Endorsement',
+        'pending' => ($activeStep && $activeStep->receiver_user_id) ? 'Awaiting Acceptance / Receipt' : 'Awaiting Receiver Assignment',
+        default => 'Action in Progress'
+    };
+
+    // Last Known Event from real Activity Logs or Routing records
+    $lastLog = $document->activityLogs->first();
+    $lastEventName = $lastLog ? $lastLog->action : ($latestStep ? "Step {$latestStep->status}" : 'Document Created');
+    $lastEventTime = $lastLog ? $lastLog->created_at : ($latestStep ? $latestStep->updated_at : $document->created_at);
+
+    // Actual Total Processing Time calculation
+    $actualProcessingTime = 'N/A';
+    if ($timestampsValid && $document->created_at) {
+        $endTs = $document->completed_at ?? now();
+        $diffSeconds = $document->created_at->diffInSeconds($endTs);
+        $d = floor($diffSeconds / 86400);
+        $h = floor(($diffSeconds % 86400) / 3600);
+        $m = floor(($diffSeconds % 3600) / 60);
+        if ($d > 0) {
+            $actualProcessingTime = "{$d}d {$h}h {$m}m";
+        } elseif ($h > 0) {
+            $actualProcessingTime = "{$h}h {$m}m";
+        } else {
+            $actualProcessingTime = "{$m}m";
+        }
+    }
+
+    // QR Image source resolution
+    $qrUrl = '';
+    if ($document->qr_code) {
+        if (str_contains($document->qr_code, 'qr_codes/')) {
+            $qrUrl = asset('storage/' . $document->qr_code);
+        } else {
+            try {
+                $qrObj = new \Endroid\QrCode\QrCode(route('documents.show', $document->id), size: 300);
+                $writer = new \Endroid\QrCode\Writer\PngWriter();
+                $qrResult = $writer->write($qrObj);
+                $qrUrl = 'data:image/png;base64,' . base64_encode($qrResult->getString());
+            } catch (\Exception $e) {
+                $qrUrl = '';
+            }
+        }
+    }
+
+    // Filter real QR scans from activity logs
+    $qrScanLogs = $document->activityLogs->filter(function($log) {
+        $act = strtolower($log->action);
+        return str_contains($act, 'scan') || str_contains($act, 'qr');
+    });
+    $totalQrScans = $qrScanLogs->count();
+    $lastQrScan = $qrScanLogs->first();
+@endphp
+
+<div class="doc-details-workspace p-3 p-md-4">
+    <!-- Breadcrumb Navigation & Top Action Controls -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3 mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-1" style="font-size: 0.85rem;">
+                    <li class="breadcrumb-item"><a href="{{ route('dashboard') }}" class="text-decoration-none text-muted">NAAP Enterprise</a></li>
+                    <li class="breadcrumb-item"><a href="{{ route('documents.index') }}" class="text-decoration-none text-muted">Documents</a></li>
+                    <li class="breadcrumb-item active text-dark fw-semibold" aria-current="page">Document Details</li>
+                </ol>
+            </nav>
+            <div class="d-flex align-items-center gap-2 mt-1">
+                <span class="file-type-icon {{ $iconClass }}">{{ $document->type ?? 'DOC' }}</span>
+                <h1 class="h4 fw-bold mb-0 text-dark">{{ $document->title }}</h1>
+            </div>
+        </div>
+
+        <div class="d-flex align-items-center flex-wrap gap-2">
+            <a href="{{ route('documents.index') }}" class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1" style="border-radius: 8px; height: 36px; font-weight: 500;">
+                <i class="bi bi-arrow-left"></i> Back to Documents
+            </a>
+            <a href="{{ route('documents.passport', $document->id) }}" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1" style="border-radius: 8px; height: 36px; font-weight: 500;">
+                <i class="bi bi-journal-bookmark"></i> Document Passport
+            </a>
+            <a href="{{ route('documents.qr-label', $document->id) }}?autoprint=1" target="_blank" class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1" style="border-radius: 8px; height: 36px; font-weight: 500;">
+                <i class="bi bi-printer"></i> Print QR Label
+            </a>
+            @if($document->file_path)
+                <a href="{{ route('documents.download', $document->id) }}" class="btn btn-sm btn-primary d-inline-flex align-items-center gap-1" style="border-radius: 8px; height: 36px; font-weight: 600;">
+                    <i class="bi bi-download"></i> Download File
+                </a>
+            @endif
+        </div>
+    </div>
+
+    <!-- Security Lock Notice if QR Verification Required -->
+    @if(isset($isLocked) && $isLocked)
+    <div class="detail-card border-danger mb-4">
+        <div class="detail-card-body p-4 text-center">
+            <div class="mb-3">
+                <i class="bi bi-shield-lock-fill text-danger" style="font-size: 3.5rem;"></i>
+            </div>
+            <h4 class="fw-bold text-dark mb-2">Document Access Verification Required</h4>
+            <p class="text-secondary small mb-4" style="max-width: 540px; margin: 0 auto;">
+                This document requires authentication via QR verification before workflow actions can be executed. Please scan the physical or dynamic QR code using the NAAP Scanner.
+            </p>
+            <div class="d-inline-flex gap-2">
+                <a href="{{ route('qr.index', ['document_id' => $document->id]) }}" class="btn btn-primary px-4 py-2" style="border-radius: 8px; font-weight: 600;">
+                    <i class="bi bi-qr-code-scan me-1"></i> Open QR Scanner
+                </a>
+                <a href="{{ route('documents.index') }}" class="btn btn-outline-secondary px-4 py-2" style="border-radius: 8px;">
+                    Back to Documents
+                </a>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    <!-- Confidential Document Alert Banner -->
+    @if($document->is_confidential)
+    <div class="alert alert-warning border-0 d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4" style="border-radius: 12px; background: rgba(245, 158, 11, 0.12); border-left: 4px solid #F59E0B !important; color: #B45309;">
+        <div class="d-flex align-items-center gap-3">
+            <i class="bi bi-shield-lock-fill fs-3 text-warning"></i>
+            <div>
+                <strong class="d-block text-dark fw-bold">Confidential Document &bull; Restricted Access</strong>
+                <span class="small text-secondary">Only designated receivers, current office members, and administrators are authorized to inspect or act upon this record.</span>
+            </div>
+        </div>
+        @if($isAdmin)
+            <form action="{{ route('documents.regeneratePin', $document->id) }}" method="POST" onsubmit="return confirm('Regenerate access PIN for this confidential document?');">
+                @csrf
+                <button type="submit" class="btn btn-sm btn-warning text-dark fw-bold" style="border-radius: 6px;">
+                    <i class="bi bi-key me-1"></i> Regenerate PIN
+                </button>
+            </form>
+        @endif
+    </div>
+    @endif
+
+    <!-- Awaiting Receiver Acceptance Action Card -->
+    @php
+        $canAct = $canPerformWorkflowAction ?? ($document->receiver_user_id === (auth()->id() ?? session('user_id')));
+    @endphp
+    @if($canAct && !in_array($document->status, ['Accepted', 'Completed', 'Archived', 'Rejected']) && !($isLocked ?? false))
+    <div class="detail-card mb-4" style="border-color: rgba(37, 99, 235, 0.3); background: rgba(37, 99, 235, 0.03);">
+        <div class="detail-card-body p-3 p-md-4 d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+            <div>
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="badge bg-primary text-white" style="font-size: 11px;">Action Required</span>
+                    <h6 class="fw-bold text-dark mb-0">Custody & Receipt Verification</h6>
                 </div>
-                <h4 class="fw-bold">Document Access Locked</h4>
-                <p class="text-secondary">This document is locked for security. You must scan the QR code to verify and access this document.</p>
-                
-                <div class="mt-4">
-                    <a href="{{ route('qr.index', ['document_id' => $document->id]) }}" class="btn btn-outline-secondary w-100 py-3" style="border-radius: 8px; height: 48px !important;">
-                        <i class="bi bi-qr-code-scan me-1"></i> Go to QR Scanner
+                <p class="text-secondary small mb-0">You are the active handler for this document. Verify contents and formally acknowledge receipt to advance routing.</p>
+            </div>
+            <button type="button" class="btn btn-primary px-4 py-2 text-nowrap" data-bs-toggle="modal" data-bs-target="#acceptDocumentModal" style="border-radius: 8px; font-weight: 600;">
+                <i class="bi bi-check2-circle me-1"></i> Accept & Acknowledge
+            </button>
+        </div>
+    </div>
+    @endif
+
+    <!-- SECTION 3: TOP DOCUMENT BANNER CARD -->
+    <div class="detail-card mb-4">
+        <div class="detail-card-body p-4">
+            <div class="row g-3 align-items-center">
+                <div class="col-lg-8">
+                    <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
+                        <span class="badge {{ $statusBadgeClass }} px-2.5 py-1 text-uppercase" style="font-size: 11px; font-weight: 700;">
+                            {{ $document->status }}
+                        </span>
+                        <span class="sla-badge {{ $slaStatusClass }}">
+                            <i class="bi bi-clock me-1"></i> {{ $slaStatusLabel }} ({{ $slaRemainingText }})
+                        </span>
+                        <span class="priority-badge">
+                            <span class="priority-dot" style="background: {{ $priorityColor }};"></span>
+                            Priority: {{ ucfirst($document->priority ?? 'Normal') }}
+                        </span>
+                        @if($document->is_confidential)
+                            <span class="badge bg-danger text-white px-2 py-1" style="font-size: 10.5px;">
+                                <i class="bi bi-lock-fill me-1"></i> Confidential
+                            </span>
+                        @endif
+                    </div>
+
+                    <div class="d-flex align-items-center gap-2 flex-wrap text-secondary small">
+                        <span>Tracking No: <span class="tracking-code-pill">{{ $document->tracking_number ?? 'N/A' }}</span></span>
+                        <span>&bull;</span>
+                        <span>Type: <strong>{{ strtoupper($document->type ?? 'N/A') }}</strong></span>
+                        <span>&bull;</span>
+                        <span>Category: <strong>{{ $document->category ?? 'General' }}</strong></span>
+                    </div>
+                </div>
+
+                <div class="col-lg-4 text-lg-end border-start-lg ps-lg-4">
+                    <div class="small text-muted mb-1">Current Custody</div>
+                    <div class="fw-bold text-dark h6 mb-0">{{ $currentOfficeName }}</div>
+                    <div class="small text-secondary">Handler: {{ $currentReceiverName }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SECTION 5 & 6: CURRENT DOCUMENT STATE & REAL-TIME LOCATION -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-6 col-xl-3">
+            <div class="meta-item-box">
+                <span class="meta-item-label"><i class="bi bi-geo-alt-fill text-primary"></i> Current Location</span>
+                <span class="meta-item-value text-primary">{{ $currentOfficeName }}</span>
+                <span class="meta-item-sub">Handler: {{ $currentReceiverName }}</span>
+            </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <div class="meta-item-box">
+                <span class="meta-item-label"><i class="bi bi-signpost-split text-info"></i> Next Destination</span>
+                <span class="meta-item-value">{{ $nextDestination }}</span>
+                <span class="meta-item-sub">Final: {{ $document->destinationOffice?->name ?? 'N/A' }}</span>
+            </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <div class="meta-item-box">
+                <span class="meta-item-label"><i class="bi bi-hourglass-split text-warning"></i> Next Required Action</span>
+                <span class="meta-item-value text-dark">{{ $nextActionRequired }}</span>
+                <span class="meta-item-sub">Status: {{ ucfirst($document->status) }}</span>
+            </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <div class="meta-item-box">
+                <span class="meta-item-label"><i class="bi bi-clock-history text-secondary"></i> Last Known Event</span>
+                <span class="meta-item-value text-truncate">{{ $lastEventName }}</span>
+                <span class="meta-item-sub">{{ $lastEventTime ? $lastEventTime->format('M d, Y h:i A') : 'N/A' }}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- SECTION 8 & 9: VISUAL DOCUMENT ROUTE / JOURNEY MAP -->
+    <div class="detail-card mb-4">
+        <div class="detail-card-header">
+            <h6 class="detail-card-title"><i class="bi bi-diagram-3-fill text-primary"></i> Document Journey & Routing Path</h6>
+            <span class="small text-muted">{{ $document->routings->count() }} Total Routing Hops</span>
+        </div>
+        <div class="detail-card-body p-3">
+            @php
+                $originOffice = $document->originOffice;
+                $destinationOffice = $document->destinationOffice;
+                $routingsList = $document->routings->sortBy('sort_order');
+            @endphp
+            <div class="tracking-steps-container">
+                <!-- Origin Node -->
+                <div class="tracking-step-node completed">
+                    <div class="tracking-step-circle">
+                        <i class="bi bi-box-arrow-up"></i>
+                    </div>
+                    <div class="tracking-step-title">{{ $originOffice?->name ?? 'Origin' }}</div>
+                    <div class="tracking-step-sub text-success fw-semibold">Origin &bull; Created</div>
+                </div>
+
+                <div class="tracking-step-arrow"><i class="bi bi-arrow-right"></i></div>
+
+                <!-- Intermediate Routing Nodes -->
+                @forelse($routingsList as $step)
+                    @php
+                        $isCurrentHop = ($step->status === 'Pending' || $step->id === ($activeStep?->id ?? 0));
+                        $isCompletedHop = in_array(strtolower($step->status), ['completed', 'approved', 'received', 'accepted']);
+                        $nodeClass = $isCurrentHop ? 'active' : ($isCompletedHop ? 'completed' : '');
+                    @endphp
+                    <div class="tracking-step-node {{ $nodeClass }}">
+                        <div class="tracking-step-circle">
+                            @if($isCompletedHop)
+                                <i class="bi bi-check-lg"></i>
+                            @elseif($isCurrentHop)
+                                <i class="bi bi-geo-alt-fill"></i>
+                            @else
+                                <i class="bi bi-circle"></i>
+                            @endif
+                        </div>
+                        <div class="tracking-step-title">{{ $step->toOffice?->name ?? 'Office' }}</div>
+                        <div class="tracking-step-sub">
+                            @if($isCurrentHop)
+                                <span class="text-primary fw-bold">Active Custody</span>
+                            @else
+                                {{ ucfirst($step->status) }}
+                            @endif
+                        </div>
+                    </div>
+                    @if(!$loop->last)
+                        <div class="tracking-step-arrow"><i class="bi bi-arrow-right"></i></div>
+                    @endif
+                @empty
+                    <div class="tracking-step-node active">
+                        <div class="tracking-step-circle"><i class="bi bi-geo-alt-fill"></i></div>
+                        <div class="tracking-step-title">{{ $currentOfficeName }}</div>
+                        <div class="tracking-step-sub text-primary fw-semibold">Current Custody</div>
+                    </div>
+                @endforelse
+
+                <!-- Final Destination Node if different -->
+                @if($destinationOffice && (!$routingsList->count() || $routingsList->last()->to_office_id !== $destinationOffice->id))
+                    <div class="tracking-step-arrow"><i class="bi bi-arrow-right"></i></div>
+                    <div class="tracking-step-node {{ $isCompleted ? 'completed' : '' }}">
+                        <div class="tracking-step-circle"><i class="bi bi-flag-fill"></i></div>
+                        <div class="tracking-step-title">{{ $destinationOffice->name }}</div>
+                        <div class="tracking-step-sub">{{ $isCompleted ? 'Delivered' : 'Final Destination' }}</div>
+                    </div>
+                @endif
+            </div>
+        </div>
+    </div>
+
+    <!-- SECTION 4 & 7: DOCUMENT PASSPORT & SPECIFICATIONS -->
+    <div class="row g-4 mb-4">
+        <!-- Left: Document Information & File Attributes -->
+        <div class="col-lg-8">
+            <div class="detail-card h-100 mb-0">
+                <div class="detail-card-header">
+                    <h6 class="detail-card-title"><i class="bi bi-file-earmark-text text-primary"></i> Document Specifications & Identity</h6>
+                    <span class="badge bg-light text-secondary border">Passport ID: {{ $document->uuid ?? ('DOC-' . $document->id) }}</span>
+                </div>
+                <div class="detail-card-body">
+                    <div class="row g-3 mb-4">
+                        <div class="col-sm-6">
+                            <span class="meta-item-label">Document Title</span>
+                            <div class="meta-item-value">{{ $document->title }}</div>
+                        </div>
+                        <div class="col-sm-6">
+                            <span class="meta-item-label">Tracking Number</span>
+                            <div class="meta-item-value"><span class="tracking-code-pill">{{ $document->tracking_number ?? 'N/A' }}</span></div>
+                        </div>
+                        <div class="col-sm-6">
+                            <span class="meta-item-label">Category / Classification</span>
+                            <div class="meta-item-value">{{ $document->category ?? 'General' }}</div>
+                        </div>
+                        <div class="col-sm-6">
+                            <span class="meta-item-label">Origin Office</span>
+                            <div class="meta-item-value">{{ $document->originOffice?->name ?? 'N/A' }}</div>
+                        </div>
+                        <div class="col-sm-6">
+                            <span class="meta-item-label">Final Destination Office</span>
+                            <div class="meta-item-value">{{ $document->destinationOffice?->name ?? 'N/A' }}</div>
+                        </div>
+                        <div class="col-sm-6">
+                            <span class="meta-item-label">Uploaded / Created By</span>
+                            <div class="meta-item-value">
+                                {{ $document->uploader?->name ?? 'System' }}
+                                <div class="meta-item-sub">{{ $document->uploader?->department?->name ?? ($document->uploader?->office?->name ?? '') }}</div>
+                            </div>
+                        </div>
+                        <div class="col-sm-6">
+                            <span class="meta-item-label">Created Timestamp</span>
+                            <div class="meta-item-value">{{ $document->created_at ? $document->created_at->format('M d, Y h:i A') : 'N/A' }}</div>
+                        </div>
+                        <div class="col-sm-6">
+                            <span class="meta-item-label">Last Modified Timestamp</span>
+                            <div class="meta-item-value">{{ $document->updated_at ? $document->updated_at->format('M d, Y h:i A') : 'N/A' }}</div>
+                        </div>
+                    </div>
+
+                    <!-- Description Block -->
+                    <div class="mb-4">
+                        <span class="meta-item-label mb-2">Description / Purpose</span>
+                        <div class="p-3 bg-light rounded-3 border" style="font-size: 13px; line-height: 1.6; color: #334155;">
+                            {{ $document->description ?: 'No additional description provided for this document.' }}
+                        </div>
+                    </div>
+
+                    <!-- File Information & Secure Download Block -->
+                    <div>
+                        <span class="meta-item-label mb-2">Attached File Information</span>
+                        @if($document->file_path)
+                            @php
+                                $fileName = basename($document->file_path);
+                                $fileSizeFormatted = 'N/A';
+                                if ($document->file_size) {
+                                    $bytes = (int) $document->file_size;
+                                    if ($bytes >= 1048576) {
+                                        $fileSizeFormatted = round($bytes / 1048576, 2) . ' MB';
+                                    } elseif ($bytes >= 1024) {
+                                        $fileSizeFormatted = round($bytes / 1024, 2) . ' KB';
+                                    } else {
+                                        $fileSizeFormatted = $bytes . ' B';
+                                    }
+                                }
+                            @endphp
+                            <div class="p-3 bg-light rounded-3 border d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3">
+                                <div class="d-flex align-items-center gap-3">
+                                    <span class="file-type-icon {{ $iconClass }}">{{ $document->type ?? 'FILE' }}</span>
+                                    <div>
+                                        <div class="fw-bold text-dark text-truncate" style="max-width: 320px;">{{ $fileName }}</div>
+                                        <div class="small text-muted">
+                                            Size: {{ $fileSizeFormatted }} &bull; MIME: {{ $document->mime_type ?? 'application/octet-stream' }}
+                                        </div>
+                                        @if($document->file_hash)
+                                            <div class="small text-muted font-monospace" style="font-size: 10px;">SHA256: {{ substr($document->file_hash, 0, 16) }}...</div>
+                                        @endif
+                                    </div>
+                                </div>
+                                <a href="{{ route('documents.download', $document->id) }}" class="btn btn-outline-primary btn-sm px-3" style="border-radius: 6px; font-weight: 600;">
+                                    <i class="bi bi-download me-1"></i> Download File
+                                </a>
+                            </div>
+                        @else
+                            <div class="p-3 bg-light rounded-3 border text-muted small">
+                                <i class="bi bi-info-circle me-1"></i> No digital file attached to this record.
+                            </div>
+                        @endif
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: SLA Analytics & QR Summary -->
+        <div class="col-lg-4">
+            <!-- SECTION 12: SLA INFORMATION CARD -->
+            <div class="detail-card mb-4">
+                <div class="detail-card-header">
+                    <h6 class="detail-card-title"><i class="bi bi-clock-history text-primary"></i> SLA & Processing Analytics</h6>
+                </div>
+                <div class="detail-card-body">
+                    <div class="mb-3">
+                        <span class="meta-item-label">SLA Target Standard</span>
+                        <div class="meta-item-value">{{ $document->sla ?? 'Standard Processing' }}</div>
+                    </div>
+                    <div class="mb-3">
+                        <span class="meta-item-label">Target Completion Deadline</span>
+                        <div class="meta-item-value text-dark">
+                            {{ $document->due_date ? $document->due_date->format('M d, Y h:i A') : 'N/A' }}
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <span class="meta-item-label">SLA Remaining / Overdue Status</span>
+                        <div>
+                            <span class="sla-badge {{ $slaStatusClass }}">
+                                {{ $slaStatusLabel }}: {{ $slaRemainingText }}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <span class="meta-item-label">Actual Total Processing Time</span>
+                        <div class="meta-item-value font-monospace">{{ $actualProcessingTime }}</div>
+                    </div>
+
+                    @if($document->due_date && !$isCompleted)
+                    <div class="pt-2 border-top">
+                        <div class="d-flex justify-content-between mb-1" style="font-size: 11px;">
+                            <span class="text-secondary fw-semibold">SLA Target Timeline</span>
+                            <span class="fw-bold {{ $isOverdue ? 'text-danger' : 'text-success' }}">{{ $slaPercentRemaining }}% remaining</span>
+                        </div>
+                        <div class="progress" style="height: 8px; border-radius: 4px;">
+                            <div class="progress-bar {{ $isOverdue ? 'bg-danger' : ($slaPercentRemaining < 25 ? 'bg-warning' : 'bg-success') }}" role="progressbar" style="width: {{ $slaPercentRemaining }}%;"></div>
+                        </div>
+                    </div>
+                    @endif
+                </div>
+            </div>
+
+            <!-- SECTION 13 & 14: QR INFORMATION -->
+            <div class="detail-card mb-0">
+                <div class="detail-card-header">
+                    <h6 class="detail-card-title"><i class="bi bi-qr-code text-primary"></i> QR Identity & Verification</h6>
+                    <span class="badge bg-light text-dark border">{{ $document->qr_status ?? 'Not Scanned' }}</span>
+                </div>
+                <div class="detail-card-body text-center">
+                    @if($qrUrl)
+                        <div class="p-3 bg-white rounded-3 border d-inline-block mb-3" style="box-shadow: 0 2px 6px rgba(0,0,0,0.04);">
+                            <img src="{{ $qrUrl }}" alt="Document QR Code" class="img-fluid" style="width: 130px; height: 130px; display: block;">
+                        </div>
+                    @else
+                        <div class="p-4 bg-light rounded-3 border text-muted small mb-3">
+                            <i class="bi bi-qr-code text-secondary" style="font-size: 2.5rem;"></i>
+                            <div class="mt-2">Code: {{ $document->qr_code ?? 'Not Generated' }}</div>
+                        </div>
+                    @endif
+
+                    <div class="text-start small mb-3">
+                        <div class="d-flex justify-content-between py-1 border-bottom">
+                            <span class="text-secondary">QR Status:</span>
+                            <span class="fw-bold text-dark">{{ $document->qr_status ?? 'Not Scanned' }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between py-1 border-bottom">
+                            <span class="text-secondary">Total Scans:</span>
+                            <span class="fw-bold text-dark">{{ $totalQrScans }} scan(s)</span>
+                        </div>
+                        <div class="d-flex justify-content-between py-1">
+                            <span class="text-secondary">Last Verified:</span>
+                            <span class="fw-bold text-dark">{{ $lastQrScan ? $lastQrScan->created_at->format('M d, Y h:i A') : 'N/A' }}</span>
+                        </div>
+                    </div>
+
+                    <a href="{{ route('documents.qr-label', $document->id) }}?autoprint=1" target="_blank" class="btn btn-outline-primary btn-sm w-100 d-flex align-items-center justify-content-center gap-1" style="border-radius: 6px; font-weight: 600;">
+                        <i class="bi bi-printer"></i> Print QR Label
                     </a>
                 </div>
             </div>
         </div>
     </div>
-</div>
-@else
-@php
-    $originId = optional($document->originOffice)->id;
-    $destinationId = optional($document->destinationOffice)->id;
-    $currentId = optional($document->currentOffice)->id;
-    $statusKey = strtolower(str_replace(' ', '_', $document->status ?? ''));
-    $originActive = $currentId && $currentId === $originId && $statusKey !== 'in_transit';
-    $destinationActive = $currentId && $currentId === $destinationId && $statusKey !== 'in_transit';
-    $currentActive = !$originActive && !$destinationActive;
-    $currentLabel = $document->currentOffice?->name ?? 'In Transit';
-@endphp
-<div class="container-fluid p-4">
-    @if(session('error'))
-        <div class="alert alert-danger border-0 mb-4" style="border-radius: 12px; background: rgba(239, 68, 68, 0.2); color: #f87171;">
-            {{ session('error') }}
-        </div>
-    @endif
 
-    @if($document->is_confidential)
-        <div class="alert alert-warning border-0 d-flex justify-content-between align-items-center mb-4" style="border-radius: 12px; background: rgba(245, 158, 11, 0.15); border-left: 4px solid #f59e0b; color: #d97706;">
-            <div>
-                <strong><i class="bi bi-shield-lock-fill me-1"></i> Confidential Document</strong>
-                <div class="small">Access is restricted. Receivers require a PIN code to view details.</div>
-            </div>
-            @if(\App\Models\User::isRoleAdmin(session('user_role')) || (auth()->user() && auth()->user()->isAdmin()))
-                <form action="{{ route('documents.regeneratePin', $document->id) }}" method="POST">
-                    @csrf
-                    <button type="submit" class="btn btn-warning btn-sm fw-bold"><i class="bi bi-arrow-clockwise me-1"></i> Regenerate PIN</button>
-                </form>
+    <!-- SECTION 8: ROUTING HISTORY TABLE -->
+    <div class="detail-card mb-4">
+        <div class="detail-card-header">
+            <h6 class="detail-card-title"><i class="bi bi-signpost text-primary"></i> Routing History & Custody Logs</h6>
+            <span class="small text-muted">{{ $document->routings->count() }} Route Hop(s)</span>
+        </div>
+        <div class="detail-card-body p-0">
+            @if($document->routings->isEmpty())
+                <div class="text-center py-4 text-muted small">No routing hops registered for this document.</div>
+            @else
+                <div class="table-responsive">
+                    <table class="details-table">
+                        <thead>
+                            <tr>
+                                <th>Hop #</th>
+                                <th>From Office</th>
+                                <th>To Office</th>
+                                <th>Sender</th>
+                                <th>Receiver</th>
+                                <th>Status</th>
+                                <th>Routed At</th>
+                                <th>Received At</th>
+                                <th>Released At</th>
+                                <th>Hop Duration</th>
+                                <th>Signature Proof</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($document->routings->sortBy('sort_order') as $idx => $route)
+                                @php
+                                    $routeStatusClass = match(strtolower($route->status)) {
+                                        'completed', 'approved' => 'bg-success text-white',
+                                        'received', 'accepted' => 'bg-primary text-white',
+                                        'pending' => 'bg-warning text-dark',
+                                        'returned', 'rejected', 'reverted' => 'bg-danger text-white',
+                                        default => 'bg-secondary text-white'
+                                    };
+
+                                    // Accurate Hop duration
+                                    $hopDuration = 'N/A';
+                                    if ($route->received_at && $route->released_at && $route->released_at >= $route->received_at) {
+                                        $secs = $route->received_at->diffInSeconds($route->released_at);
+                                        $dh = floor($secs / 3600);
+                                        $dm = floor(($secs % 3600) / 60);
+                                        $hopDuration = $dh > 0 ? "{$dh}h {$dm}m" : "{$dm}m";
+                                    } elseif ($route->received_at) {
+                                        $secs = $route->received_at->diffInSeconds(now());
+                                        $dh = floor($secs / 3600);
+                                        $dm = floor(($secs % 3600) / 60);
+                                        $hopDuration = "{$dh}h {$dm}m (Active)";
+                                    }
+                                @endphp
+                                <tr>
+                                    <td class="fw-bold text-center" style="width: 50px;">{{ $idx + 1 }}</td>
+                                    <td>
+                                        <div class="fw-semibold">{{ $route->fromOffice?->name ?? 'Origin' }}</div>
+                                    </td>
+                                    <td>
+                                        <div class="fw-semibold text-primary">{{ $route->toOffice?->name ?? 'Destination' }}</div>
+                                    </td>
+                                    <td>
+                                        <div class="small">{{ $route->senderUser?->name ?? ($idx === 0 ? ($document->uploader?->name ?? 'System') : 'N/A') }}</div>
+                                    </td>
+                                    <td>
+                                        <div class="small fw-semibold">{{ $route->receiverUser?->name ?? 'Unassigned' }}</div>
+                                        @if($route->receiverUser?->department)
+                                            <div class="small text-muted" style="font-size: 10.5px;">{{ $route->receiverUser->department->name }}</div>
+                                        @endif
+                                        @if($route->forwardedFromUser)
+                                            <div class="small text-info" style="font-size: 10.5px;"><i class="bi bi-reply-fill"></i> Via {{ $route->forwardedFromUser->name }}</div>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        <span class="badge {{ $routeStatusClass }}" style="font-size: 10.5px;">{{ ucfirst($route->status) }}</span>
+                                    </td>
+                                    <td class="small text-secondary">{{ $route->created_at ? $route->created_at->format('M d, Y h:i A') : 'N/A' }}</td>
+                                    <td class="small text-secondary">{{ $route->received_at ? $route->received_at->format('M d, Y h:i A') : 'N/A' }}</td>
+                                    <td class="small text-secondary">{{ $route->released_at ? $route->released_at->format('M d, Y h:i A') : 'N/A' }}</td>
+                                    <td class="small font-monospace">{{ $hopDuration }}</td>
+                                    <td>
+                                        @if($route->signature)
+                                            <img src="{{ str_contains($route->signature, 'data:image') ? $route->signature : asset('storage/' . $route->signature) }}" alt="Signature Proof" style="max-height: 28px; max-width: 90px; border-radius: 4px; border: 1px solid #CBD5E1; background: #FFFFFF; padding: 2px;">
+                                        @elseif($route->signed_by)
+                                            <span class="small text-muted"><i class="bi bi-pen"></i> Signed</span>
+                                        @else
+                                            <span class="text-muted small">&mdash;</span>
+                                        @endif
+                                    </td>
+                                </tr>
+                                @if($route->notes)
+                                <tr style="background: #FAFAFA;">
+                                    <td colspan="11" class="py-2 px-3 small text-secondary fst-italic">
+                                        <i class="bi bi-chat-left-quote me-1 text-primary"></i> Remarks: "{{ $route->notes }}"
+                                    </td>
+                                </tr>
+                                @endif
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
             @endif
         </div>
-    @endif
+    </div>
 
-    @php
-        $canAct = $canPerformWorkflowAction ?? ($document->receiver_user_id === (auth()->id() ?? session('user_id')));
-    @endphp
-    @if($canAct && !in_array($document->status, ['Accepted', 'Completed', 'Archived', 'Rejected']))
-    <div class="card shadow-sm border-0 p-4 mb-4" style="border-radius: 12px; background: rgba(59, 130, 246, 0.04); border: 1px solid rgba(59, 130, 246, 0.2) !important;">
-        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
-            <div class="text-start">
-                <h6 class="fw-bold mb-1" style="color: var(--accent-navy);"><i class="bi bi-shield-check text-primary me-2"></i>Awaiting Your Acceptance</h6>
-                <p class="text-muted small mb-0">You are the designated receiver of this document. Please verify, review, and formally accept it to continue routing.</p>
+    <!-- SECTION 16 & 17: APPROVAL & SIGNATURE STATUS -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-6">
+            <div class="detail-card h-100 mb-0">
+                <div class="detail-card-header">
+                    <h6 class="detail-card-title"><i class="bi bi-check2-square text-primary"></i> Approval Record & Review State</h6>
+                </div>
+                <div class="detail-card-body">
+                    @php
+                        $isApproved = in_array(strtolower($document->status), ['approved', 'completed']);
+                        $approvalLog = $document->activityLogs->first(fn($l) => str_contains(strtolower($l->action), 'approved'));
+                    @endphp
+                    <div class="mb-3">
+                        <span class="meta-item-label">Approval Status</span>
+                        <div>
+                            @if($isApproved)
+                                <span class="badge bg-success text-white"><i class="bi bi-check-circle-fill me-1"></i> Approved</span>
+                            @elseif(in_array(strtolower($document->status), ['rejected']))
+                                <span class="badge bg-danger text-white"><i class="bi bi-x-circle-fill me-1"></i> Rejected</span>
+                            @elseif($document->status === 'Pending')
+                                <span class="badge bg-warning text-dark"><i class="bi bi-clock me-1"></i> Awaiting Review / Approval</span>
+                            @else
+                                <span class="badge bg-secondary text-white">{{ $document->status }}</span>
+                            @endif
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <span class="meta-item-label">Approver / Reviewer</span>
+                        <div class="meta-item-value">{{ $approvalLog ? $approvalLog->user : ($isApproved ? 'Authorized Handler' : 'Pending Assignment') }}</div>
+                    </div>
+                    <div class="mb-0">
+                        <span class="meta-item-label">Approval Timestamp</span>
+                        <div class="meta-item-value">{{ $document->approved_at ? $document->approved_at->format('M d, Y h:i A') : ($approvalLog ? $approvalLog->created_at->format('M d, Y h:i A') : 'N/A') }}</div>
+                    </div>
+                </div>
             </div>
-            <div>
-                <button type="button" class="btn btn-primary fw-bold px-4 py-2" data-bs-toggle="modal" data-bs-target="#acceptDocumentModal" style="border-radius: 8px;">
-                    <i class="bi bi-pencil-square me-1"></i> Accept Document
-                </button>
+        </div>
+
+        <div class="col-md-6">
+            <div class="detail-card h-100 mb-0">
+                <div class="detail-card-header">
+                    <h6 class="detail-card-title"><i class="bi bi-pen text-primary"></i> Electronic Signature Verification</h6>
+                </div>
+                <div class="detail-card-body">
+                    @php
+                        $signedHop = $document->routings->first(fn($r) => !empty($r->signature) || !empty($r->signed_by));
+                    @endphp
+                    <div class="mb-3">
+                        <span class="meta-item-label">Signature Status</span>
+                        <div>
+                            @if($signedHop || $document->receiver_signature)
+                                <span class="badge bg-success text-white"><i class="bi bi-patch-check-fill me-1"></i> Digitally Signed & Verified</span>
+                            @else
+                                <span class="badge bg-secondary text-white">Not Signed</span>
+                            @endif
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <span class="meta-item-label">Signer</span>
+                        <div class="meta-item-value">{{ $signedHop?->receiverUser?->name ?? ($document->receiverUser?->name ?? 'Unassigned') }}</div>
+                    </div>
+                    <div>
+                        <span class="meta-item-label">Signature Proof</span>
+                        @if($signedHop && $signedHop->signature)
+                            <div class="p-2 bg-light rounded border d-inline-block">
+                                <img src="{{ str_contains($signedHop->signature, 'data:image') ? $signedHop->signature : asset('storage/' . $signedHop->signature) }}" alt="Digital Signature" style="max-height: 48px; border-radius: 4px; background: #FFFFFF;">
+                            </div>
+                        @elseif($document->receiver_signature)
+                            <div class="p-2 bg-light rounded border d-inline-block">
+                                <img src="{{ str_contains($document->receiver_signature, 'data:image') ? $document->receiver_signature : asset('storage/' . $document->receiver_signature) }}" alt="Receiver Signature" style="max-height: 48px; border-radius: 4px; background: #FFFFFF;">
+                            </div>
+                        @else
+                            <div class="text-muted small">No signature captured.</div>
+                        @endif
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-    @endif
 
-    <div class="card bg-white shadow-sm" style="border-radius: 12px; border: 1px solid var(--panel-border); color: var(--text-main);">
-        <div class="card-header d-flex justify-content-between align-items-center" style="border-radius: 12px 12px 0 0; background: #F8FAFC; border-bottom: 1px solid var(--panel-border);">
-            <h5 class="mb-0 fw-bold" style="color: var(--accent-navy);"><i class="bi bi-box-seam me-2"></i>{{ $document->title }}</h5>
-            <div>
-                <span class="badge me-2 text-white" style="background: var(--accent-cyan); font-weight: 600;">{{ $document->status }}</span>
-            </div>
+    <!-- SECTION 18 & 19: WORKFLOW EXECUTION ACTIONS (PERMISSION-AWARE) -->
+    @php
+        $showWorkflowCard = $canViewWorkflow ?? true;
+        $canExecuteAction = $canPerformWorkflowAction ?? ($isAdmin || ($document->receiver_user_id === (auth()->id() ?? session('user_id')) && !in_array($document->status, ['Completed', 'Archived', 'Rejected'])));
+    @endphp
+    @if($showWorkflowCard)
+    <div class="detail-card mb-4">
+        <div class="detail-card-header">
+            <h6 class="detail-card-title"><i class="bi bi-gear-fill text-primary"></i> Workflow Execution Actions & Status Update</h6>
+            @if(!$canExecuteAction)
+                <span class="badge bg-light text-secondary border"><i class="bi bi-eye me-1"></i> View Only</span>
+            @endif
         </div>
-        <div class="card-body">
-            <!-- SLA & Due Date Analytics Card -->
-            @php
-                $estOfficeMap = [
-                    'Registrar' => 1,
-                    'Academic Dean' => 2,
-                    'Finance Office' => 3,
-                    'HR Office' => 2,
-                    'VPAA' => 1
-                ];
-                $totalEstDays = 0;
-                foreach ($document->destination_offices ?? [] as $hop) {
-                    $office = \App\Models\Office::find($hop['office_id'] ?? 0);
-                    if ($office) {
-                        $totalEstDays += $estOfficeMap[$office->name] ?? 2;
-                    }
-                }
-                if ($totalEstDays === 0) $totalEstDays = 2;
-
-                $percent = 100;
-                $remainingDaysText = '';
-                $overdueDaysText = '';
-                $overdueDaysVal = 0;
-                $slaColorClass = 'text-success';
-                $isOverdue = false;
-                if ($document->due_date) {
-                    $isOverdue = now()->greaterThan($document->due_date);
-                    $diffInSeconds = now()->diffInSeconds($document->due_date, false);
-                    $diffInDays = $diffInSeconds / 86400.0;
-                    
-                    if ($isOverdue) {
-                        $absDays = abs($diffInDays);
-                        $overdueDaysVal = round($absDays, 1);
-                        $val = ($overdueDaysVal == round($overdueDaysVal)) ? (int)$overdueDaysVal : $overdueDaysVal;
-                        
-                        $overdueDaysText = "{$val} " . ($val == 1 ? "day" : "days") . " overdue";
-                        $slaColorClass = 'text-danger';
-                    } else {
-                        if (round($diffInDays, 4) == 0) {
-                            $remainingDaysText = "Due today";
-                        } elseif ($diffInDays < 1) {
-                            $hours = $diffInDays * 24.0;
-                            $roundedHours = round($hours, 1);
-                            $val = ($roundedHours == round($roundedHours)) ? (int)$roundedHours : $roundedHours;
-                            if ($val <= 0) {
-                                $remainingDaysText = "Due today";
-                            } else {
-                                $remainingDaysText = "{$val} " . ($val == 1 ? "hour" : "hours") . " remaining";
-                            }
-                        } else {
-                            $rounded = round($diffInDays, 1);
-                            $val = ($rounded == round($rounded)) ? (int)$rounded : $rounded;
-                            $remainingDaysText = "{$val} " . ($val == 1 ? "day" : "days") . " remaining";
-                        }
-                        $slaColorClass = 'text-success';
-                    }
-
-                    $totalSecs = $document->created_at->diffInSeconds($document->due_date);
-                    $elapsedSecs = $document->created_at->diffInSeconds(now());
-                    if ($totalSecs > 0) {
-                        $percent = max(0, min(100, round((($totalSecs - $elapsedSecs) / $totalSecs) * 100)));
-                    }
-                }
-            @endphp
-            <div class="sla-card p-4 rounded-3 border mb-4 bg-light">
-                <h6 class="fw-bold text-uppercase text-secondary mb-3 small" style="letter-spacing: 0.05em;"><i class="bi bi-clock-history me-2"></i>Due Date & SLA Analytics</h6>
-                <div class="row g-3 text-start">
-                    <div class="col-md-3">
-                        <span class="sla-field-label small text-muted text-uppercase" style="font-size:0.75rem;">Expected Completion</span>
-                        <div class="h6 fw-bold mt-1 text-dark">{{ $document->due_date ? $document->due_date->format('M d, Y h:i A') : 'N/A' }}</div>
-                    </div>
-                    <div class="col-md-3">
-                        <span class="sla-field-label small text-muted text-uppercase" style="font-size:0.75rem;">SLA Type / Status</span>
-                        <div class="mt-1">
-                            <span class="badge bg-secondary text-uppercase">{{ $document->sla ?? 'Standard' }}</span>
-                            <span class="badge {{ $document->sla_status_class }} text-uppercase">{{ $document->sla_status_label }}</span>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <span class="sla-field-label small text-muted text-uppercase" style="font-size:0.75rem;">Remaining / Overdue Days</span>
-                        <div class="h6 fw-bold mt-1 {{ $slaColorClass }}">
-                            @if($isOverdue)
-                                {{ $overdueDaysText }}
-                            @else
-                                {{ $remainingDaysText }}
-                            @endif
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <span class="sla-field-label small text-muted text-uppercase" style="font-size:0.75rem;">Est. Processing / Current Delay</span>
-                        <div class="h6 fw-bold mt-1 text-dark">
-                            Est: {{ $totalEstDays }} Day(s)
-                            @if($isOverdue)
-                                | Delay: <span class="text-danger fw-bold">{{ ($overdueDaysVal == round($overdueDaysVal)) ? (int)$overdueDaysVal : $overdueDaysVal }} {{ (($overdueDaysVal == round($overdueDaysVal)) ? (int)$overdueDaysVal : $overdueDaysVal) == 1 ? 'Day' : 'Days' }}</span>
-                            @else
-                                | On Track
-                            @endif
-                        </div>
-                    </div>
-                </div>
-                
-                @if($document->due_date)
-                    <div class="mt-3 text-start">
-                        <div class="d-flex justify-content-between mb-1 small text-muted">
-                            <span>SLA Target Limit Timeline</span>
-                            <span class="fw-bold">{{ $percent }}% time remaining</span>
-                        </div>
-                        <div class="progress" style="height: 12px; border-radius: 6px;">
-                            <div class="progress-bar progress-bar-striped {{ $isOverdue ? 'bg-danger' : ($percent < 25 ? 'bg-warning text-dark' : 'bg-success') }}" role="progressbar" style="width: {{ $percent }}%;" aria-valuenow="{{ $percent }}" aria-valuemin="0" aria-valuemax="100"></div>
-                        </div>
-                    </div>
-                @endif
-            </div>
-
-            <!-- Tracking Map -->
-            <h6 class="fw-bold mb-3"><i class="bi bi-geo-alt-fill text-primary me-1"></i> Document Route</h6>
-            <div class="tracking-map">
-                <!-- Origin Office -->
-                <div class="tracking-office {{ $originActive ? 'active' : '' }}">
-                    <div class="tracking-office-circle">
-                        <i class="bi bi-box-arrow-up"></i>
-                    </div>
-                    <div class="tracking-office-name">{{ $document->originOffice->name ?? 'N/A' }}</div>
-                    <div class="tracking-office-type">Origin</div>
-                </div>
-
-                <!-- Arrow -->
-                <div class="tracking-arrow">→</div>
-
-                <!-- Current Office -->
-                <div class="tracking-office {{ $currentActive ? 'active' : '' }}">
-                    <div class="tracking-office-circle">
-                        <i class="bi bi-geo-alt"></i>
-                    </div>
-                    <div class="tracking-office-name">{{ $currentLabel }}</div>
-                    <div class="tracking-office-type">Current</div>
-                </div>
-
-                <!-- Arrow -->
-                <div class="tracking-arrow">→</div>
-
-                <!-- Destination Office -->
-                <div class="tracking-office {{ $destinationActive ? 'active' : '' }}">
-                    <div class="tracking-office-circle">
-                        <i class="bi bi-box-arrow-in-down"></i>
-                    </div>
-                    <div class="tracking-office-name">{{ $document->destinationOffice->name ?? 'N/A' }}</div>
-                    <div class="tracking-office-type">Destination</div>
-                </div>
-            </div>
-
-            <!-- Basic Information -->
-            <hr class="border-secondary">
-            <div class="row mb-4">
-                <div class="col-md-3">
-                    <small class="text-muted d-block"><i class="bi bi-pin-angle-fill me-1"></i> Receiver</small>
-                    @if($document->receiverUsers && $document->receiverUsers->isNotEmpty())
-                        <div class="d-flex flex-column gap-1">
-                            @foreach($document->receiverUsers as $receiver)
-                                <div>
-                                    <strong>{{ $receiver->name }}</strong>
-                                    <div class="small text-muted">{{ optional($receiver->department)->name ?? 'No department' }}</div>
-                                </div>
-                            @endforeach
-                        </div>
+        <div class="detail-card-body">
+            @if(!$canExecuteAction)
+                <div class="alert alert-light border small text-secondary mb-3 py-2 px-3">
+                    @if(in_array($document->status, ['Completed', 'Archived', 'Cancelled']))
+                        <i class="bi bi-check-circle-fill text-success me-1"></i> This document has completed its official lifecycle (terminal status: <strong>{{ $document->status }}</strong>).
                     @else
-                        <strong>{{ optional($document->receiverUser)->name ?? 'Unassigned' }}</strong>
-                        <div class="small text-muted">{{ optional(optional($document->receiverUser)->department)->name ?? 'No department' }}</div>
+                        <i class="bi bi-info-circle text-primary me-1"></i> You are viewing this document in read-only mode. Only the designated recipient, current office staff, or an administrator can execute state changes.
                     @endif
                 </div>
-                <div class="col-md-3">
-                    <small class="text-muted d-block"><i class="bi bi-file-earmark-text me-1"></i> Document Type</small>
-                    <strong>{{ $document->type }}</strong>
-                </div>
-                <div class="col-md-3">
-                    <small class="text-muted d-block"><i class="bi bi-tag-fill me-1"></i> Category / Subject</small>
-                    <strong>{{ $document->category ?? 'N/A' }}</strong>
-                </div>
-                <div class="col-md-3">
-                    <small class="text-muted d-block"><i class="bi bi-person-fill me-1"></i> Uploaded By</small>
-                    <strong>{{ optional($document->uploader)->name ?? 'System' }}</strong>
-                </div>
-                <div class="col-md-3">
-                    <small class="text-muted d-block"><i class="bi bi-calendar-event me-1"></i> Created</small>
-                    <strong>{{ $document->created_at->format('M d, Y') }}</strong>
-                </div>
-            </div>
+            @endif
 
-            <div class="row mb-4">
-                <div class="col-md-12">
-                    <small class="text-muted d-block"><i class="bi bi-pencil-square me-1"></i> Description</small>
-                    <p class="mb-0 bg-transparent text-dark border-0 py-1" style="font-size: 0.95rem;">
-                        {{ $document->description }}
-                    </p>
-                </div>
-            </div>
-
-            <!-- Live SLA Timer & Seen Status -->
-            <div class="row g-3 mb-4">
-                <div class="col-md-6 text-start">
-                    <div class="p-3 rounded h-100" style="background: rgba(0,0,0,0.02); border: 1px solid var(--panel-border);">
-                        <small class="text-muted d-block fw-bold text-uppercase mb-2" style="font-size: 0.7rem; letter-spacing: 0.5px;"><i class="bi bi-hourglass-split me-1"></i> SLA & Office Holding Time</small>
-                        @php
-                            $activeStep = $document->routings->where('status', 'Pending')->first();
-                        @endphp
-                        @if($activeStep)
-                            <div class="mb-1" style="font-size: 0.85rem;"><strong>Time Received:</strong> {{ $activeStep->pending_at ? $activeStep->pending_at->format('M d, Y h:i A') : $activeStep->created_at->format('M d, Y h:i A') }}</div>
-                            <div class="mb-2" style="font-size: 0.85rem;"><strong>Current Time:</strong> <span id="current-live-time" class="text-dark"></span></div>
-                            <div class="d-flex align-items-center gap-2">
-                                <span id="holding-duration-badge" class="badge bg-warning text-dark px-2.5 py-1.5 fs-6" style="border-radius:6px; font-weight:600;">Calculating...</span>
-                                @if($activeStep->sla_due_at)
-                                    <span class="small text-muted" style="font-size: 0.78rem;">Limit: {{ $activeStep->sla_due_at->format('M d, Y h:i A') }}</span>
-                                @endif
-                            </div>
-                        @else
-                            <span class="text-muted small">No active pending office holding this document.</span>
-                        @endif
-                    </div>
-                </div>
-                <div class="col-md-6 text-start">
-                    <div class="p-3 rounded h-100" style="background: rgba(0,0,0,0.02); border: 1px solid var(--panel-border);">
-                        <small class="text-muted d-block fw-bold text-uppercase mb-2" style="font-size: 0.7rem; letter-spacing: 0.5px;"><i class="bi bi-eye me-1"></i> Seen / Viewed Receipt</small>
-                        @php
-                            $activeReceiverId = $document->receiver_user_id;
-                            $hasActiveReceiverViewed = isset($views) && $views->where('user_id', $activeReceiverId)->isNotEmpty();
-                        @endphp
-                        @if($activeReceiverId)
-                            <div class="mb-2" style="font-size: 0.85rem;"><strong>Active Receiver:</strong> {{ optional($document->receiverUser)->name }}</div>
-                            <div>
-                                @if($hasActiveReceiverViewed)
-                                    <span class="badge bg-success px-2.5 py-1.5 fs-6" style="border-radius:6px; font-weight:600;"><i class="bi bi-eye-fill me-1"></i> Seen / Viewed</span>
-                                @else
-                                    <span class="badge bg-secondary px-2.5 py-1.5 fs-6" style="border-radius:6px; font-weight:600;"><i class="bi bi-clock me-1"></i> Not Yet Viewed</span>
-                                @endif
-                            </div>
-                        @else
-                            <div class="text-muted small">No current active receiver assigned.</div>
-                        @endif
-                    </div>
-                </div>
-            </div>
-
-            <!-- Viewed History (Multiple Viewers) -->
-            <div class="card shadow-sm border-0 p-4 mb-4" style="border-radius: 12px; background: var(--panel); border: 1px solid var(--panel-border) !important;">
-                <h6 class="fw-bold mb-3 text-start" style="color: var(--accent-navy);"><i class="bi bi-people me-1 text-primary"></i> Document Viewed History</h6>
-                @if(isset($views) && $views->isNotEmpty())
-                    <div class="table-responsive">
-                        <table class="table table-sm table-borderless mb-0">
-                            <thead>
-                                <tr style="border-bottom: 1px solid var(--panel-border); font-size: 0.75rem; text-transform: uppercase;" class="text-secondary text-start">
-                                    <th>Viewer</th>
-                                    <th>Office / Department</th>
-                                    <th>Date & Time</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach($views as $v)
-                                    <tr class="text-start" style="font-size: 0.85rem;">
-                                        <td class="py-2 text-dark font-medium"><i class="bi bi-person-check me-1 text-success"></i>{{ $v->user->name }}</td>
-                                        <td class="py-2 text-secondary">{{ $v->office->name ?? 'N/A' }}</td>
-                                        <td class="py-2 text-secondary">{{ $v->viewed_at->format('M d, Y h:i A') }}</td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-                @else
-                    <div class="text-muted text-center py-2" style="font-size: 0.85rem;">No read receipts (views) recorded yet.</div>
-                @endif
-            </div>
-
-            <!-- Workflow Execution Actions Card -->
-            @php
-                $showWorkflowCard = $canViewWorkflow ?? true;
-                $canExecuteAction = $canPerformWorkflowAction ?? (\App\Models\User::isRoleAdmin(session('user_role')) || (auth()->user() && auth()->user()->isAdmin()) || ($document->receiver_user_id === (auth()->id() ?? session('user_id')) && !in_array($document->status, ['Completed', 'Archived', 'Rejected'])));
-            @endphp
-            @if($showWorkflowCard)
-            <div class="card shadow-sm border-0 p-4 mb-4" style="border-radius: 12px; background: var(--panel); border: 1px solid var(--panel-border) !important;">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5 class="fw-bold mb-0" style="color: var(--accent-cyan);"><i class="bi bi-gear-fill me-2"></i>Workflow Execution Actions</h5>
-                    @if(!$canExecuteAction)
-                        <span class="badge bg-secondary text-white px-2 py-1" style="font-size: 0.75rem; font-weight: 600;">
-                            <i class="bi bi-eye me-1"></i> View Only
-                        </span>
-                    @endif
-                </div>
-
-                @if(!$canExecuteAction)
-                    <div class="alert alert-light border small text-muted mb-3 py-2 px-3" style="background: rgba(0,0,0,0.02); font-size: 13px;">
-                        @if(in_array($document->status, ['Completed', 'Archived', 'Cancelled']))
-                            <i class="bi bi-check-circle-fill text-success me-1"></i> This document's workflow has reached a terminal status (<strong>{{ $document->status }}</strong>).
-                        @else
-                            <i class="bi bi-info-circle text-primary me-1"></i> You are viewing this workflow in read-only mode. Only the designated receiver, assigned office handler, or an administrator can execute workflow actions.
-                        @endif
-                    </div>
-                @endif
-
-                <form action="{{ route('documents.workflowAction', $document->id) }}" method="POST" enctype="multipart/form-data" id="workflowActionForm">
-                    @csrf
-                    <div class="mb-3">
-                        <label class="form-label small fw-bold text-secondary">Update Status</label>
+            <form action="{{ route('documents.workflowAction', $document->id) }}" method="POST" enctype="multipart/form-data" id="workflowActionForm">
+                @csrf
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold text-secondary">Update Workflow Status</label>
                         <select name="status" class="form-select" required @disabled(!$canExecuteAction)>
                             <option value="Pending" {{ $document->status === 'Pending' ? 'selected' : '' }}>Pending</option>
                             <option value="Received" {{ $document->status === 'Received' ? 'selected' : '' }}>Received</option>
                             <option value="Under Review" {{ $document->status === 'Under Review' ? 'selected' : '' }}>Under Review</option>
-                            <option value="Approved">Approved / Forward to Next Step</option>
-                            <option value="Accepted">Accept / Route to Next Office</option>
+                            <option value="Approved">Approved & Route to Next Step</option>
+                            <option value="Accepted">Accept & Acknowledge</option>
                             <option value="Endorsed">Endorse Document</option>
-                            <option value="Returned">Returned for Missing Signature</option>
+                            <option value="Returned">Returned for Revision</option>
                             <option value="Reverted">Revert Back to Previous Office</option>
-                            <option value="Rejected">Rejected</option>
                             <option value="Completed" {{ $document->status === 'Completed' ? 'selected' : '' }}>Completed</option>
-                            <option value="Cancelled" {{ $document->status === 'Cancelled' ? 'selected' : '' }}>Cancelled</option>
+                            <option value="Rejected">Rejected</option>
                             <option value="Archived" {{ $document->status === 'Archived' ? 'selected' : '' }}>Archived</option>
                         </select>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label small fw-bold text-secondary">Execution Remarks / Notes</label>
-                        <textarea name="notes" class="form-control" rows="3" placeholder="Enter remarks or approval notes..." @disabled(!$canExecuteAction)></textarea>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold text-secondary">Action Remarks / Notes</label>
+                        <input type="text" name="notes" class="form-control" placeholder="Enter reason or approval notes..." @disabled(!$canExecuteAction)>
                     </div>
+                </div>
 
-                    @if($canExecuteAction)
-                    <!-- Signature Section -->
+                @if($canExecuteAction)
+                    <!-- Signature Section for Workflow Action -->
                     <div id="workflow-signature-section" style="display: none;" class="mb-3 text-start">
-                        <label class="form-label small fw-bold text-secondary">Digital Signature</label>
-                        
+                        <label class="form-label small fw-bold text-secondary">Digital Signature Authorization</label>
                         <div class="d-flex gap-3 mb-3">
                             <div class="form-check">
                                 <input class="form-check-input" type="radio" name="signature_option" id="sigOptProfile" value="profile" checked>
-                                <label class="form-check-label small" for="sigOptProfile">
-                                    Use Profile Signature
-                                </label>
+                                <label class="form-check-label small" for="sigOptProfile">Use Profile Signature</label>
                             </div>
                             <div class="form-check">
                                 <input class="form-check-input" type="radio" name="signature_option" id="sigOptDraw" value="draw">
-                                <label class="form-check-label small" for="sigOptDraw">
-                                    Draw Signature
-                                </label>
+                                <label class="form-check-label small" for="sigOptDraw">Draw Signature</label>
                             </div>
                             <div class="form-check">
                                 <input class="form-check-input" type="radio" name="signature_option" id="sigOptUpload" value="upload">
-                                <label class="form-check-label small" for="sigOptUpload">
-                                    Upload Signature
-                                </label>
+                                <label class="form-check-label small" for="sigOptUpload">Upload Signature</label>
                             </div>
                         </div>
 
                         <!-- 1. Profile Signature Preview -->
                         <div id="sigProfileContainer" class="p-3 bg-light rounded text-center border">
                             @if(auth()->user() && auth()->user()->signature)
-                                <img src="{{ asset('storage/' . auth()->user()->signature) }}" alt="Profile Signature" class="signature-img" style="max-height: 80px; background:white; padding:4px; border:1px solid #ddd; border-radius:4px;">
-                                <div class="small text-muted mt-1">Using your saved profile signature.</div>
+                                <img src="{{ asset('storage/' . auth()->user()->signature) }}" alt="Profile Signature" class="signature-img" style="max-height: 70px; background:white; padding:4px; border:1px solid #ddd; border-radius:4px;">
+                                <div class="small text-muted mt-1">Using your verified profile signature.</div>
                             @else
-                                <span class="text-danger small">No saved profile signature. Please choose another option or save one in profile.</span>
+                                <span class="text-danger small">No saved profile signature found. Please choose Draw or Upload.</span>
                             @endif
                         </div>
 
@@ -548,667 +1209,177 @@
                             </label>
                         </div>
                     </div>
-                    @endif
 
-                    @if($canExecuteAction)
-                        <button type="submit" class="btn btn-primary fw-bold px-4 py-2 w-100" style="border-radius: 8px;">Update State</button>
-                    @else
-                        <button type="button" class="btn btn-secondary fw-bold px-4 py-2 w-100" style="border-radius: 8px; opacity: 0.65; cursor: not-allowed;" disabled>Action Restricted (View Only)</button>
-                    @endif
-                </form>
-            </div>
+                    <button type="submit" class="btn btn-primary px-4 py-2" style="border-radius: 8px; font-weight: 600;">
+                        <i class="bi bi-check2-circle me-1"></i> Update State
+                    </button>
+                @else
+                    <button type="button" class="btn btn-secondary px-4 py-2" style="border-radius: 8px; opacity: 0.7; cursor: not-allowed;" disabled>
+                        Action Restricted (View Only)
+                    </button>
+                @endif
+            </form>
 
-            <!-- Forward Document Action -->
-            @if($canExecuteAction)
-            <div class="card shadow-sm border-0 p-4 mb-4" style="border-radius: 12px; background: var(--panel); border: 1px solid var(--panel-border) !important;">
-                <h5 class="fw-bold mb-3" style="color: var(--accent-cyan);"><i class="bi bi-arrow-right-short"></i> Forward Document</h5>
-                <p class="small text-muted mb-3" style="margin-top:-8px;">Delegate or forward this document to another recipient if you are unavailable.</p>
+            <!-- Forward Document Accordion / Action -->
+            @if($canExecuteAction && !in_array($document->status, ['Completed', 'Archived', 'Rejected']))
+            <div class="pt-4 mt-4 border-top">
+                <h6 class="fw-bold text-dark mb-2"><i class="bi bi-arrow-right-short text-primary"></i> Delegate / Forward Document</h6>
+                <p class="small text-secondary mb-3">Re-route or delegate custody of this document to another office or responsible staff member.</p>
                 <form action="{{ route('documents.forward', $document->id) }}" method="POST">
                     @csrf
-                    <div class="mb-3 text-start">
-                        <label class="form-label small fw-bold text-secondary">Select Office</label>
-                        <select id="forwardOfficeSelect" class="form-select" required>
-                            <option value="">-- Choose Office --</option>
-                            @foreach(\App\Models\Office::orderBy('name', 'asc')->get() as $office)
-                                <option value="{{ $office->id }}">{{ $office->name }}</option>
-                            @endforeach
-                        </select>
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold text-secondary">Target Office</label>
+                            <select id="forwardOfficeSelect" class="form-select form-select-sm" required>
+                                <option value="">-- Choose Office --</option>
+                                @foreach(\App\Models\Office::orderBy('name', 'asc')->get() as $office)
+                                    <option value="{{ $office->id }}">{{ $office->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold text-secondary">New Recipient / Handler</label>
+                            <select name="new_receiver_user_id" id="forwardReceiverSelect" class="form-select form-select-sm" required disabled>
+                                <option value="">-- Select Office First --</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold text-secondary">Reason / Remarks</label>
+                            <input type="text" name="reason" class="form-control form-control-sm" placeholder="Reason for forwarding..." required>
+                        </div>
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-sm btn-outline-primary fw-bold px-3 py-1.5" style="border-radius: 6px;">
+                                <i class="bi bi-arrow-right me-1"></i> Forward Document
+                            </button>
+                        </div>
                     </div>
-                    <div class="mb-3 text-start">
-                        <label class="form-label small fw-bold text-secondary">Select New Receiver</label>
-                        <select name="new_receiver_user_id" id="forwardReceiverSelect" class="form-select" required disabled>
-                            <option value="">-- Select Office First --</option>
-                        </select>
-                    </div>
-                    <div class="mb-3 text-start">
-                        <label class="form-label small fw-bold text-secondary">Reason for Forwarding</label>
-                        <textarea name="reason" class="form-control" rows="2" placeholder="Describe why this document is being forwarded..." required></textarea>
-                    </div>
-                    <button type="submit" class="btn btn-outline-primary fw-bold w-100 py-2" style="border-radius: 8px;">Forward Document</button>
                 </form>
             </div>
             @endif
-            @endif
+        </div>
+    </div>
+    @endif
 
-            <div class="row mb-4">
-                <div class="col-md-12">
-                    <small class="text-secondary d-block mb-2" style="font-weight: 700;"><i class="bi bi-shield-lock-fill me-1"></i> Secure Download</small>
-                    <a href="{{ route('documents.download', $document->id) }}" class="btn btn-outline-primary px-4 py-2" style="border-radius: 8px; text-decoration: none; height: auto !important;">
-                        <i class="bi bi-download me-1"></i> Download File ({{ $document->type }})
-                    </a>
+    <!-- SECTION 20 & 21: ACTIVITY TIMELINE & AUDIT TRAIL -->
+    <div class="row g-4 mb-4">
+        <!-- Left: Lifecycle Audit Trail -->
+        <div class="col-lg-8">
+            <div class="detail-card mb-0 h-100">
+                <div class="detail-card-header">
+                    <h6 class="detail-card-title"><i class="bi bi-list-task text-primary"></i> Document Lifecycle Audit Trail</h6>
+                    <span class="small text-muted">{{ $document->activityLogs->count() }} Event(s) Recorded</span>
                 </div>
-            </div>
-
-            @if($document->qr_code)
-            <div class="mb-4 text-start">
-                <small class="text-secondary d-block mb-2" style="font-weight: 700;">Dynamic QR Code (Scan to View)</small>
-                @php
-                    $qrValue = $document->qr_code;
-                    $qrUrl = '';
-                    if (str_contains($qrValue, 'qr_codes/')) {
-                        $qrUrl = asset('storage/' . $qrValue);
-                    } else {
-                        try {
-                            $qrObj = new \Endroid\QrCode\QrCode(route('documents.show', $document->id), size: 300);
-                            $writer = new \Endroid\QrCode\Writer\PngWriter();
-                            $result = $writer->write($qrObj);
-                            $qrUrl = 'data:image/png;base64,' . base64_encode($result->getString());
-                        } catch (\Exception $e) {
-                            $qrUrl = '';
-                        }
-                    }
-                @endphp
-                @if($qrUrl)
-                    <img src="{{ $qrUrl }}" alt="QR Code" class="img-fluid" style="max-width: 150px; border-radius: 8px; border: 1px solid var(--panel-border); padding: 8px; background: #FFFFFF;">
-                @else
-                    <div style="font-size:0.9rem; color:var(--text-muted);"><i class="bi bi-qr-code"></i> Code: {{ $document->qr_code }}</div>
-                @endif
-
-                <div class="mt-2 text-start">
-                    <span class="small text-secondary d-block fw-bold mb-1">QR Code Status</span>
-                    @php
-                        $qrStatusClass = match($document->qr_status ?? 'Not Scanned') {
-                            'Scanned' => 'bg-info text-dark',
-                            'Verified' => 'bg-primary text-white',
-                            'Accessed' => 'bg-success text-white',
-                            default => 'bg-secondary text-white',
-                        };
-                    @endphp
-                    <span class="badge {{ $qrStatusClass }}" style="font-weight: 600; font-size: 0.85rem;">{{ $document->qr_status ?? 'Not Scanned' }}</span>
-                </div>
-
-                <div class="mt-3">
-                    <a href="{{ route('documents.qr-label', $document->id) }}?autoprint=1" target="_blank" class="btn btn-outline-primary btn-sm w-100 d-flex align-items-center justify-content-center gap-2" style="font-weight: 600; border-radius: 8px;">
-                        <i class="bi bi-printer"></i> Print QR Routing Label
-                    </a>
-                </div>
-            </div>
-            @endif
-
-            {{-- Visual Routing Timeline (Courier-Style) --}}
-            <h6 class="fw-bold mb-3 mt-4" style="color: var(--accent-navy);"><i class="bi bi-diagram-3 me-2 text-primary"></i>Document Journey Timeline</h6>
-            <div class="mb-4">
-                @php
-                    $routings = $document->routings()->with(['fromOffice','toOffice','receiverUser','senderUser','forwardedFromUser'])->orderBy('sort_order','asc')->orderBy('id','asc')->get();
-                    $lastIdx  = $routings->count() - 1;
-                @endphp
-
-                @if($routings->isEmpty())
-                    <div class="text-muted text-center py-4" style="font-size:0.9rem;">No routing steps recorded yet.</div>
-                @else
-                <div class="position-relative" style="padding-left: 48px;">
-                    {{-- Vertical line --}}
-                    <div style="position:absolute; left:15px; top:0; bottom:0; width:2px; background: linear-gradient(to bottom, var(--accent-cyan) 0%, #e2e8f0 100%);"></div>
-
-                    @foreach($routings as $index => $routing)
-                        @php
-                            $isEnd     = ($index === $lastIdx);
-                            $stepNum   = $index + 1;
-                            $rStatus   = strtolower($routing->status);
-                            $slaStatus = $routing->computed_sla_status ?? 'on_time';
-
-                            $stepDotColor = match($rStatus) {
-                                'approved','completed' => '#10b981',
-                                'pending'             => '#3b82f6',
-                                'waiting'             => '#94a3b8',
-                                'returned','rejected' => '#ef4444',
-                                'forwarded'           => '#8b5cf6',
-                                default               => '#64748b',
-                            };
-
-                            $statusBadge = match($rStatus) {
-                                'approved','completed' => 'bg-success text-white',
-                                'pending'             => 'bg-primary text-white',
-                                'waiting'             => 'bg-light border text-muted',
-                                'returned','rejected' => 'bg-danger text-white',
-                                'forwarded'           => 'bg-info text-dark',
-                                default               => 'bg-secondary text-white',
-                            };
-
-                            $slaBadge = match($slaStatus) {
-                                'overdue'           => ['class' => 'bg-danger text-white',    'label' => 'Overdue'],
-                                'near_due'          => ['class' => 'bg-warning text-dark',    'label' => 'Near Due'],
-                                'completed_overdue' => ['class' => 'bg-secondary text-white', 'label' => 'Completed Late'],
-                                'completed_on_time' => ['class' => 'bg-success text-white',   'label' => '✓ On Time'],
-                                default             => ['class' => 'bg-success text-white',   'label' => '✓ On Time'],
-                            };
-                        @endphp
-
-                        <div class="mb-4 position-relative">
-                            {{-- Step dot --}}
-                            <div style="position:absolute; left:-33px; top:4px; width:20px; height:20px; border-radius:50%; background:{{ $stepDotColor }}; border:3px solid #fff; box-shadow:0 0 0 2px {{ $stepDotColor }};"></div>
-
-                            {{-- Step Card --}}
-                            <div class="card" style="border-radius:10px; border:1px solid var(--panel-border); background:var(--panel);">
-                                {{-- Card Header --}}
-                                <div class="card-header d-flex justify-content-between align-items-center" style="border-radius:10px 10px 0 0; background: var(--bg); border-bottom:1px solid var(--panel-border); padding:12px 16px;">
-                                    <div class="d-flex align-items-center gap-2">
-                                        @if($isEnd)
-                                            <span><i class="bi bi-flag-fill text-success"></i></span>
-                                            <strong style="color:var(--accent-navy); font-size:0.9rem;">Final Destination: {{ $routing->toOffice?->name ?? 'N/A' }}</strong>
-                                        @else
-                                            <span class="badge bg-primary rounded-circle d-inline-flex align-items-center justify-content-center" style="width:20px;height:20px;font-size:10px;">{{ $stepNum }}</span>
-                                            <strong style="color:var(--accent-navy); font-size:0.9rem;">{{ $routing->toOffice?->name ?? 'N/A' }}</strong>
-                                        @endif
-                                    </div>
-                                    <div class="d-flex align-items-center gap-2">
-                                        <span class="badge {{ $slaBadge['class'] }}" style="font-size:0.65rem;">{{ $slaBadge['label'] }}</span>
-                                        <span class="badge {{ $statusBadge }}">{{ ucfirst($routing->status) }}</span>
-                                    </div>
+                <div class="detail-card-body">
+                    <div class="audit-timeline">
+                        @forelse($document->activityLogs as $log)
+                            @php
+                                $act = strtolower($log->action);
+                                $dotIcon = match(true) {
+                                    str_contains($act, 'create') || str_contains($act, 'upload') => 'bi-cloud-arrow-up',
+                                    str_contains($act, 'view') => 'bi-eye',
+                                    str_contains($act, 'scan') || str_contains($act, 'qr') => 'bi-qr-code-scan',
+                                    str_contains($act, 'accept') => 'bi-shield-check',
+                                    str_contains($act, 'receive') => 'bi-envelope-open',
+                                    str_contains($act, 'approve') => 'bi-check2-circle',
+                                    str_contains($act, 'complete') => 'bi-check-all',
+                                    str_contains($act, 'reject') => 'bi-x-circle',
+                                    str_contains($act, 'forward') => 'bi-arrow-right',
+                                    default => 'bi-activity'
+                                };
+                            @endphp
+                            <div class="audit-timeline-item">
+                                <div class="audit-timeline-dot">
+                                    <i class="bi {{ $dotIcon }}"></i>
                                 </div>
-
-                                {{-- Card Body: Tracking Grid --}}
-                                <div class="card-body" style="padding:14px 16px;">
-                                    <div class="row g-3">
-
-                                        {{-- Column 1: People --}}
-                                        <div class="col-md-4">
-                                            <div class="mb-2">
-                                                <small class="text-muted d-block" style="font-size:0.65rem; text-transform:uppercase; letter-spacing:0.08em; font-weight:700;">Sender</small>
-                                                <span style="font-size:0.82rem; font-weight:600; color:var(--text-main);">
-                                                    {{ $routing->senderUser?->name ?? ($routing->forwardedFromUser?->name ?? ($index === 0 ? ($document->uploader?->name ?? 'System') : 'N/A')) }}
-                                                </span>
-                                            </div>
-                                            <div class="mb-2">
-                                                <small class="text-muted d-block" style="font-size:0.65rem; text-transform:uppercase; letter-spacing:0.08em; font-weight:700;">Receiver</small>
-                                                <span style="font-size:0.82rem; font-weight:600; color:var(--text-main);">{{ $routing->receiverUser?->name ?? 'Unassigned' }}</span>
-                                            </div>
-                                            @if($routing->forwardedFromUser)
-                                            <div>
-                                                <small class="text-muted d-block" style="font-size:0.65rem; text-transform:uppercase; letter-spacing:0.08em; font-weight:700;">Delegated From</small>
-                                                <span style="font-size:0.82rem; color:#8b5cf6;"><i class="bi bi-reply-fill"></i> {{ $routing->forwardedFromUser->name }}</span>
-                                            </div>
-                                            @endif
-                                        </div>
-
-                                        {{-- Column 2: Offices --}}
-                                        <div class="col-md-4">
-                                            <div class="mb-2">
-                                                <small class="text-muted d-block" style="font-size:0.65rem; text-transform:uppercase; letter-spacing:0.08em; font-weight:700;">From Office</small>
-                                                <span style="font-size:0.82rem; font-weight:600; color:var(--text-main);">{{ $routing->fromOffice?->name ?? 'N/A' }}</span>
-                                            </div>
-                                            <div class="mb-2">
-                                                <small class="text-muted d-block" style="font-size:0.65rem; text-transform:uppercase; letter-spacing:0.08em; font-weight:700;">Destination Office</small>
-                                                <span style="font-size:0.82rem; font-weight:600; color:var(--text-main);">{{ $routing->toOffice?->name ?? 'N/A' }}</span>
-                                            </div>
-                                            <div>
-                                                <small class="text-muted d-block" style="font-size:0.65rem; text-transform:uppercase; letter-spacing:0.08em; font-weight:700;">Action Label</small>
-                                                <span style="font-size:0.82rem; color:var(--text-dim);">{{ $routing->action_label ?? ucfirst($routing->status) }}</span>
-                                            </div>
-                                        </div>
-
-                                        {{-- Column 3: Timestamps & Duration --}}
-                                        <div class="col-md-4">
-                                            <div class="mb-2">
-                                                <small class="text-muted d-block" style="font-size:0.65rem; text-transform:uppercase; letter-spacing:0.08em; font-weight:700;">Assigned / Sent</small>
-                                                <span style="font-size:0.78rem; color:var(--text-main);">{{ $routing->created_at->format('M d, Y') }}<br><span style="color:var(--text-dim);">{{ $routing->created_at->format('h:i A') }}</span></span>
-                                            </div>
-                                            @if($routing->received_at)
-                                            <div class="mb-2">
-                                                <small class="text-muted d-block" style="font-size:0.65rem; text-transform:uppercase; letter-spacing:0.08em; font-weight:700;">Date / Time Received</small>
-                                                <span style="font-size:0.78rem; color:#10b981; font-weight:600;">{{ $routing->received_at->format('M d, Y') }}<br>{{ $routing->received_at->format('h:i A') }}</span>
-                                            </div>
-                                            @endif
-                                            @if($routing->released_at)
-                                            <div class="mb-2">
-                                                <small class="text-muted d-block" style="font-size:0.65rem; text-transform:uppercase; letter-spacing:0.08em; font-weight:700;">Date / Time Released</small>
-                                                <span style="font-size:0.78rem; color:#8b5cf6; font-weight:600;">{{ $routing->released_at->format('M d, Y') }}<br>{{ $routing->released_at->format('h:i A') }}</span>
-                                            </div>
-                                            @endif
-                                            @if($routing->processing_duration)
-                                            <div>
-                                                <small class="text-muted d-block" style="font-size:0.65rem; text-transform:uppercase; letter-spacing:0.08em; font-weight:700;">Processing Duration</small>
-                                                <span style="font-size:0.78rem; color:var(--text-main); font-weight:600;"><i class="bi bi-clock me-1"></i> {{ $routing->processing_duration }}</span>
-                                            </div>
-                                            @elseif($routing->sla_remaining)
-                                            <div>
-                                                <small class="text-muted d-block" style="font-size:0.65rem; text-transform:uppercase; letter-spacing:0.08em; font-weight:700;">SLA Remaining</small>
-                                                @php $slaIsOverdue = str_starts_with($routing->sla_remaining, '-'); @endphp
-                                                <span style="font-size:0.78rem; font-weight:600; color: {{ $slaIsOverdue ? '#ef4444' : '#10b981' }};">{{ $routing->sla_remaining }}</span>
-                                            </div>
-                                            @endif
-                                        </div>
-
-                                    </div>{{-- /row --}}
-
-                                    {{-- Remarks & Signature --}}
-                                    @if($routing->notes)
-                                    <div class="mt-3 pt-3" style="border-top: 1px dashed var(--panel-border);">
-                                        <small class="text-muted d-block" style="font-size:0.65rem; text-transform:uppercase; letter-spacing:0.08em; font-weight:700;">Remarks</small>
-                                        <p class="mb-0" style="font-size:0.82rem; color:var(--text-main); font-style:italic;">"{{ $routing->notes }}"</p>
-                                    </div>
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="fw-bold text-dark" style="font-size: 13.5px;">{{ $log->action }}</span>
+                                    <small class="text-secondary font-monospace">{{ $log->created_at ? $log->created_at->format('M d, Y h:i A') : 'N/A' }}</small>
+                                </div>
+                                <div class="small text-secondary" style="font-size: 12px; line-height: 1.45;">
+                                    <span>Initiated by: <strong class="text-dark">{{ $log->user }}</strong></span>
+                                    @if(isset($log->meta['office']) || isset($log->meta['department']))
+                                        &bull; <span>Office: {{ $log->meta['office'] ?? $log->meta['department'] }}</span>
                                     @endif
-
-                                    @if($routing->signature)
-                                    <div class="mt-2">
-                                        <small class="text-muted d-block" style="font-size:0.65rem; text-transform:uppercase; letter-spacing:0.08em; font-weight:700;">Signature Proof</small>
-                                        <img src="{{ str_contains($routing->signature, 'data:image') ? $routing->signature : asset('storage/' . $routing->signature) }}" alt="Signature Proof" class="signature-img" style="max-height:45px; border-radius:4px; background:white; padding:2px; border:1px solid var(--panel-border);">
-                                    </div>
+                                    @if(isset($log->meta['notes']) && $log->meta['notes'])
+                                        <div class="mt-1 text-dark fst-italic">"{{ $log->meta['notes'] }}"</div>
                                     @endif
-                                </div>{{-- /card-body --}}
-                            </div>{{-- /card --}}
-                        </div>{{-- /step item --}}
-                    @endforeach
-                </div>{{-- /timeline wrapper --}}
-                @endif
-            </div>
-
-
-            <!-- Activity Timeline -->
-            <h6 class="fw-bold mb-4 mt-4" style="color: var(--accent-navy);"><i class="bi bi-list-task me-2 text-primary"></i>Document Lifecycle Audit Trail</h6>
-            <div class="position-relative text-start border-start border-2 border-primary ps-4 ms-2">
-                @forelse($document->activityLogs()->orderBy('id', 'desc')->get() as $log)
-                    <div class="mb-4 position-relative">
-                        <!-- Icon indicator on the timeline border -->
-                        <span class="position-absolute" style="left: -33px; top: 0; background: var(--panel); border: 2px solid var(--accent-cyan); width: 16px; height: 16px; border-radius: 50%; display: inline-block;"></span>
-                        
-                        <div class="d-flex justify-content-between align-items-center mb-1">
-                            <span class="fw-bold text-dark" style="font-size: 0.95rem;">
-                                @if(str_contains(strtolower($log->action), 'created'))
-                                    <i class="bi bi-cloud-arrow-up text-primary me-2"></i> Document Uploaded / Initialized
-                                @elseif(str_contains(strtolower($log->action), 'viewed'))
-                                    <i class="bi bi-eye-fill text-info me-2"></i> DOCUMENT VIEWED
-                                @elseif(str_contains(strtolower($log->action), 'scanned') || str_contains(strtolower($log->action), 'opened'))
-                                    <i class="bi bi-qr-code-scan text-secondary me-2"></i> Document Opened / QR Scanned
-                                @elseif(str_contains(strtolower($log->action), 'accepted'))
-                                    <i class="bi bi-shield-check text-success me-2"></i> Document Accepted
-                                @elseif(str_contains(strtolower($log->action), 'received'))
-                                    <i class="bi bi-envelope-open text-success me-2"></i> Received
-                                @elseif(str_contains(strtolower($log->action), 'approved'))
-                                    <i class="bi bi-check-circle-fill text-success me-2"></i> Approved & Forwarded to Next Hop
-                                @elseif(str_contains(strtolower($log->action), 'completed'))
-                                    <i class="bi bi-check-all text-success me-2"></i> Completed & Archived
-                                @elseif(str_contains(strtolower($log->action), 'rejected'))
-                                    <i class="bi bi-x-circle-fill text-danger me-2"></i> Rejected
-                                @else
-                                    <i class="bi bi-arrow-repeat text-secondary me-2"></i> {{ $log->action }}
-                                @endif
-                            </span>
-                            <small class="text-secondary" style="font-size: 0.75rem;">{{ $log->created_at->format('M d, Y h:i A') }}</small>
-                        </div>
-                        
-                        <div class="small text-secondary" style="font-size: 0.8rem; line-height: 1.5;">
-                            @if(str_contains(strtolower($log->action), 'viewed'))
-                                <strong>User:</strong> {{ $log->user }} <br>
-                                <strong>Document:</strong> {{ $document->title }} <br>
-                                <strong>Office:</strong> {{ $log->meta['office'] ?? ($log->meta['department'] ?? 'System') }} <br>
-                                <strong>Viewed On:</strong> <br>
-                                {{ $log->created_at->format('M d, Y') }} • {{ $log->created_at->format('h:i A') }}
-                            @elseif(str_contains(strtolower($log->action), 'accepted'))
-                                <strong>Accepted By:</strong> {{ $log->user }} <br>
-                                <strong>Office:</strong> {{ $log->meta['department'] ?? 'System' }} <br>
-                                <strong>Date:</strong> {{ $log->created_at->format('M d, Y') }} <br>
-                                <strong>Time:</strong> {{ $log->created_at->format('h:i A') }} <br>
-                                <strong>Verification:</strong> <span class="text-success fw-bold"><i class="bi bi-patch-check-fill"></i> Digital Signature Verified</span>
-                                @if(isset($log->meta['signature']) && $log->meta['signature'])
-                                    <br><strong>Signature Proof:</strong> <br>
-                                    <img src="{{ str_contains($log->meta['signature'], 'data:image') ? $log->meta['signature'] : asset('storage/' . $log->meta['signature']) }}" alt="Signature Proof" class="signature-img" style="max-height:40px; border-radius:4px; background:white; padding:2px; border:1px solid var(--panel-border); margin-top:4px;">
-                                @endif
-                                @if(isset($log->meta['notes']) && $log->meta['notes'])
-                                    <br><strong>Remarks:</strong> <span class="fst-italic text-dark">"{{ $log->meta['notes'] }}"</span>
-                                @endif
-                            @else
-                                <strong>User:</strong> {{ $log->user }} <br>
-                                <strong>Department:</strong> {{ $log->meta['department'] ?? 'System' }} <br>
-                                @if(isset($log->meta['signature']) && $log->meta['signature'])
-                                    <br><strong>Signature Proof:</strong> <br>
-                                    <img src="{{ str_contains($log->meta['signature'], 'data:image') ? $log->meta['signature'] : asset('storage/' . $log->meta['signature']) }}" alt="Signature Proof" class="signature-img" style="max-height:40px; border-radius:4px; background:white; padding:2px; border:1px solid var(--panel-border); margin-top:4px;">
-                                @endif
-                                @if(isset($log->meta['notes']) && $log->meta['notes'])
-                                    <br><strong>Remarks:</strong> <span class="fst-italic text-dark">"{{ $log->meta['notes'] }}"</span>
-                                @endif
-                            @endif
-                        </div>
+                                </div>
+                            </div>
+                        @empty
+                            <div class="text-muted text-center py-4 small">No lifecycle audit records logged yet.</div>
+                        @endforelse
                     </div>
-                @empty
-                    <div class="text-muted py-3">No lifecycle audit trails recorded.</div>
-                @endforelse
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: Document Read Receipts / Views History -->
+        <div class="col-lg-4">
+            <div class="detail-card mb-0 h-100">
+                <div class="detail-card-header">
+                    <h6 class="detail-card-title"><i class="bi bi-eye text-primary"></i> Read Receipts (Views)</h6>
+                    <span class="small text-muted">{{ $views->count() }} View(s)</span>
+                </div>
+                <div class="detail-card-body p-0">
+                    @if($views->isEmpty())
+                        <div class="text-center py-4 text-muted small">No read receipts recorded yet.</div>
+                    @else
+                        <div class="table-responsive">
+                            <table class="details-table">
+                                <thead>
+                                    <tr>
+                                        <th>Viewer</th>
+                                        <th>Office</th>
+                                        <th>Timestamp</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($views as $v)
+                                        <tr>
+                                            <td class="fw-semibold text-dark">{{ $v->user?->name ?? 'Guest' }}</td>
+                                            <td class="small text-secondary">{{ $v->office?->name ?? 'Unassigned' }}</td>
+                                            <td class="small text-secondary">{{ $v->viewed_at ? $v->viewed_at->format('M d, h:i A') : 'N/A' }}</td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @endif
+                </div>
             </div>
         </div>
     </div>
 </div>
-@endif
-@endsection
 
-@section('scripts')
-<script>
-    document.addEventListener('DOMContentLoaded', function () {
-        const pendingAtStr = "{{ $activeStep ? ($activeStep->pending_at ? $activeStep->pending_at->toIso8601String() : $activeStep->created_at->toIso8601String()) : '' }}";
-        const slaDueAtStr = "{{ $activeStep && $activeStep->sla_due_at ? $activeStep->sla_due_at->toIso8601String() : '' }}";
-        
-        if (pendingAtStr) {
-            const pendingAt = new Date(pendingAtStr);
-            const slaDueAt = slaDueAtStr ? new Date(slaDueAtStr) : null;
-            
-            function updateTimer() {
-                const now = new Date();
-                
-                // Update live clock
-                const timeString = now.toLocaleDateString('en-US', {
-                    month: 'short', day: 'numeric', year: 'numeric'
-                }) + ' ' + now.toLocaleTimeString('en-US', {
-                    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
-                });
-                const liveClockEl = document.getElementById('current-live-time');
-                if (liveClockEl) liveClockEl.textContent = timeString;
-                
-                // Calculate elapsed time (holding duration)
-                const diffMs = now - pendingAt;
-                if (diffMs < 0) return;
-                
-                const diffMins = Math.floor(diffMs / 60000);
-                const diffHours = Math.floor(diffMs / 3600000);
-                const diffDays = Math.floor(diffMs / 86400000);
-                
-                let durationText = '';
-                if (diffDays >= 1) {
-                    durationText = `Held for ${diffDays} day` + (diffDays > 1 ? 's' : '');
-                } else if (diffHours >= 1) {
-                    durationText = `Held for ${diffHours} hour` + (diffHours > 1 ? 's' : '');
-                } else {
-                    durationText = `Held for ${diffMins} minute` + (diffMins !== 1 ? 's' : '');
-                }
-                
-                const badgeEl = document.getElementById('holding-duration-badge');
-                if (badgeEl) {
-                    badgeEl.textContent = durationText;
-                    
-                    if (slaDueAt && now > slaDueAt) {
-                        badgeEl.className = 'badge bg-danger px-2.5 py-1.5 fs-6';
-                    } else {
-                        badgeEl.className = 'badge bg-warning text-dark px-2.5 py-1.5 fs-6';
-                    }
-                }
-            }
-            
-            updateTimer();
-            setInterval(updateTimer, 60000);
-        }
-
-        // Dynamic receiver loading for Forward Document
-        const forwardOfficeSelect = document.getElementById('forwardOfficeSelect');
-        const forwardReceiverSelect = document.getElementById('forwardReceiverSelect');
-        if (forwardOfficeSelect && forwardReceiverSelect) {
-            forwardOfficeSelect.addEventListener('change', async function() {
-                const officeId = this.value;
-                forwardReceiverSelect.innerHTML = '<option value="">-- Loading Staff --</option>';
-                forwardReceiverSelect.disabled = true;
-                
-                if (!officeId) {
-                    forwardReceiverSelect.innerHTML = '<option value="">-- Select Office First --</option>';
-                    return;
-                }
-                
-                try {
-                    const response = await fetch(`/api/offices/${officeId}/staff`);
-                    const data = await response.json();
-                    const staff = data.staff || [];
-                    
-                    if (staff.length === 0) {
-                        forwardReceiverSelect.innerHTML = '<option value="">No available receivers for this office.</option>';
-                    } else {
-                        forwardReceiverSelect.innerHTML = '<option value="">-- Choose Recipient --</option>';
-                        staff.forEach(user => {
-                            if (user.id != "{{ session('user_id') }}") {
-                                const opt = document.createElement('option');
-                                opt.value = user.id;
-                                opt.textContent = `${user.name} (${user.role})`;
-                                forwardReceiverSelect.appendChild(opt);
-                            }
-                        });
-                        forwardReceiverSelect.disabled = false;
-                    }
-                } catch(e) {
-                    console.error(e);
-                    forwardReceiverSelect.innerHTML = '<option value="">Error loading staff</option>';
-                }
-            });
-        }
-
-        // Signature options canvas handling
-        const statusSelect = document.querySelector('select[name="status"]');
-        const signatureSection = document.getElementById('workflow-signature-section');
-        const sigOptProfile = document.getElementById('sigOptProfile');
-        const sigOptDraw = document.getElementById('sigOptDraw');
-        const sigOptUpload = document.getElementById('sigOptUpload');
-        
-        const sigProfileContainer = document.getElementById('sigProfileContainer');
-        const sigDrawContainer = document.getElementById('sigDrawContainer');
-        const sigUploadContainer = document.getElementById('sigUploadContainer');
-        const saveToProfileWrapper = document.getElementById('saveToProfileWrapper');
-
-        const signatureRequired = {{ ($activeStep && $activeStep->signature_required) ? 'true' : 'false' }};
-
-        function toggleSignatureSection() {
-            if (!statusSelect || !signatureSection) return;
-            const status = statusSelect.value;
-            const needsSig = ['Approved', 'Accepted', 'Endorsed', 'Completed'].includes(status);
-            
-            if (signatureRequired && needsSig) {
-                signatureSection.style.display = 'block';
-            } else {
-                signatureSection.style.display = 'none';
-            }
-        }
-
-        if (statusSelect) {
-            statusSelect.addEventListener('change', toggleSignatureSection);
-            toggleSignatureSection();
-        }
-
-        // Handle radio selection change
-        document.querySelectorAll('input[name="signature_option"]').forEach(radio => {
-            radio.addEventListener('change', function() {
-                const opt = this.value;
-                if (sigProfileContainer) sigProfileContainer.style.display = opt === 'profile' ? 'block' : 'none';
-                if (sigDrawContainer) sigDrawContainer.style.display = opt === 'draw' ? 'block' : 'none';
-                if (sigUploadContainer) sigUploadContainer.style.display = opt === 'upload' ? 'block' : 'none';
-                
-                if (saveToProfileWrapper) saveToProfileWrapper.style.display = (opt === 'draw' || opt === 'upload') ? 'block' : 'none';
-
-                if (opt === 'draw') {
-                    resizeWorkflowCanvas();
-                }
-            });
-        });
-
-        // Initialize Signature Pad for workflow
-        const workflowCanvas = document.getElementById('workflowSigPad');
-        let workflowSigPad = null;
-
-        function resizeWorkflowCanvas() {
-            if (!workflowCanvas) return;
-            const ratio = Math.max(window.devicePixelRatio || 1, 1);
-            workflowCanvas.width = workflowCanvas.offsetWidth * ratio;
-            workflowCanvas.height = workflowCanvas.offsetHeight * ratio;
-            workflowCanvas.getContext("2d").scale(ratio, ratio);
-            if (workflowSigPad) workflowSigPad.clear();
-        }
-
-        if (workflowCanvas && typeof SignaturePad !== 'undefined') {
-            workflowSigPad = new SignaturePad(workflowCanvas, {
-                backgroundColor: 'rgba(255, 255, 255, 0)',
-                penColor: '#000000'
-            });
-
-            document.getElementById('clearWorkflowSigBtn')?.addEventListener('click', function() {
-                workflowSigPad.clear();
-            });
-
-            // Form Submit validation
-            const workflowForm = document.getElementById('workflowActionForm');
-            workflowForm?.addEventListener('submit', function(e) {
-                const status = statusSelect.value;
-                const needsSig = ['Approved', 'Accepted', 'Endorsed', 'Completed'].includes(status);
-                
-                if (signatureRequired && needsSig) {
-                    const selectedOpt = document.querySelector('input[name="signature_option"]:checked')?.value;
-                    if (selectedOpt === 'draw') {
-                        if (workflowSigPad.isEmpty()) {
-                            e.preventDefault();
-                            alert("Digital signature is required. Please sign on the canvas.");
-                            return false;
-                        }
-                        document.getElementById('workflowSigData').value = workflowSigPad.toDataURL();
-                    } else if (selectedOpt === 'upload') {
-                        const fileInput = document.querySelector('input[name="signature_file"]');
-                        if (!fileInput.files || fileInput.files.length === 0) {
-                            e.preventDefault();
-                            alert("Digital signature file is required. Please upload an image.");
-                            return false;
-                        }
-                    }
-                }
-            });
-
-            window.addEventListener("resize", resizeWorkflowCanvas);
-        }
-
-        // Modal Signature Canvas Handling
-        const modalSigOptProfile = document.getElementById('modalSigOptProfile');
-        const modalSigOptDraw = document.getElementById('modalSigOptDraw');
-        const modalSigOptUpload = document.getElementById('modalSigOptUpload');
-
-        const modalSigProfileContainer = document.getElementById('modalSigProfileContainer');
-        const modalSigDrawContainer = document.getElementById('modalSigDrawContainer');
-        const modalSigUploadContainer = document.getElementById('modalSigUploadContainer');
-        const modalSaveToProfileWrapper = document.getElementById('modalSaveToProfileWrapper');
-
-        document.querySelectorAll('input[name="modal_signature_option"]').forEach(radio => {
-            radio.addEventListener('change', function() {
-                const opt = this.value;
-                if (modalSigProfileContainer) modalSigProfileContainer.style.display = opt === 'profile' ? 'block' : 'none';
-                if (modalSigDrawContainer) modalSigDrawContainer.style.display = opt === 'draw' ? 'block' : 'none';
-                if (modalSigUploadContainer) modalSigUploadContainer.style.display = opt === 'upload' ? 'block' : 'none';
-                if (modalSaveToProfileWrapper) modalSaveToProfileWrapper.style.display = (opt === 'draw' || opt === 'upload') ? 'block' : 'none';
-
-                if (opt === 'draw') {
-                    resizeModalCanvas();
-                }
-            });
-        });
-
-        const modalCanvas = document.getElementById('modalSigCanvas');
-        let modalSigPad = null;
-
-        function resizeModalCanvas() {
-            if (!modalCanvas) return;
-            const ratio = Math.max(window.devicePixelRatio || 1, 1);
-            modalCanvas.width = modalCanvas.offsetWidth * ratio;
-            modalCanvas.height = modalCanvas.offsetHeight * ratio;
-            modalCanvas.getContext("2d").scale(ratio, ratio);
-            if (modalSigPad) modalSigPad.clear();
-        }
-
-        if (modalCanvas && typeof SignaturePad !== 'undefined') {
-            modalSigPad = new SignaturePad(modalCanvas, {
-                backgroundColor: 'rgba(255, 255, 255, 0)',
-                penColor: '#000000'
-            });
-
-            document.getElementById('clearModalSigBtn')?.addEventListener('click', function() {
-                modalSigPad.clear();
-            });
-
-            const acceptModalEl = document.getElementById('acceptDocumentModal');
-            acceptModalEl?.addEventListener('shown.bs.modal', function () {
-                resizeModalCanvas();
-            });
-
-            const acceptForm = document.getElementById('acceptDocumentForm');
-            acceptForm?.addEventListener('submit', function(e) {
-                const selectedOpt = document.querySelector('input[name="modal_signature_option"]:checked')?.value;
-                if (selectedOpt === 'profile') {
-                    const hasProfileSig = {{ (auth()->user() && auth()->user()->signature) ? 'true' : 'false' }};
-                    if (!hasProfileSig) {
-                        e.preventDefault();
-                        alert("No profile signature found. Please choose another signature option.");
-                        return false;
-                    }
-                    const hiddenOpt = document.createElement('input');
-                    hiddenOpt.type = 'hidden';
-                    hiddenOpt.name = 'signature_option';
-                    hiddenOpt.value = 'profile';
-                    acceptForm.appendChild(hiddenOpt);
-                } else if (selectedOpt === 'draw') {
-                    if (modalSigPad.isEmpty()) {
-                        e.preventDefault();
-                        alert("Drawn signature is required. Please sign on the canvas.");
-                        return false;
-                    }
-                    document.getElementById('modalSigData').value = modalSigPad.toDataURL();
-                    
-                    const hiddenOpt = document.createElement('input');
-                    hiddenOpt.type = 'hidden';
-                    hiddenOpt.name = 'signature_option';
-                    hiddenOpt.value = 'draw';
-                    acceptForm.appendChild(hiddenOpt);
-                } else if (selectedOpt === 'upload') {
-                    const fileInput = document.querySelector('#modalSigUploadContainer input[name="signature_file"]');
-                    if (!fileInput.files || fileInput.files.length === 0) {
-                        e.preventDefault();
-                        alert("Digital signature file is required. Please upload an image.");
-                        return false;
-                    }
-                    
-                    const hiddenOpt = document.createElement('input');
-                    hiddenOpt.type = 'hidden';
-                    hiddenOpt.name = 'signature_option';
-                    hiddenOpt.value = 'upload';
-                    acceptForm.appendChild(hiddenOpt);
-                }
-            });
-        }
-    });
-</script>
-
-<!-- Accept Document Signature Modal -->
+<!-- Accept Document Modal (with Digital Signature Pad) -->
 <div class="modal fade" id="acceptDocumentModal" tabindex="-1" aria-labelledby="acceptDocumentModalLabel" aria-hidden="true" data-bs-backdrop="static">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content" style="background: var(--panel) !important; border: 1px solid var(--panel-border); border-radius: 16px; color: var(--text-main);">
-            <div class="modal-header border-bottom-0 pb-0">
-                <h5 class="modal-title fw-bold" id="acceptDocumentModalLabel" style="color: var(--accent-navy);"><i class="bi bi-shield-check text-success me-2"></i>Accept & Acknowledge Document</h5>
+        <div class="modal-content" style="background: var(--panel, #FFFFFF) !important; border: 1px solid var(--panel-border, #E2E8F0); border-radius: 14px; color: var(--text-main, #0F172A);">
+            <div class="modal-header border-bottom p-3">
+                <h5 class="modal-title fw-bold h6 mb-0 text-dark" id="acceptDocumentModalLabel">
+                    <i class="bi bi-shield-check text-success me-2"></i>Accept & Acknowledge Document
+                </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form action="{{ route('documents.workflowAction', $document->id) }}" method="POST" enctype="multipart/form-data" id="acceptDocumentForm">
                 @csrf
                 <input type="hidden" name="status" value="Accepted">
-                <div class="modal-body pt-3 text-start">
-                    <p class="small text-muted mb-3" style="font-size: 13px; line-height: 1.5;">
-                        To acknowledge custody and officially accept this document, please select a signature option and confirm.
+                <div class="modal-body p-3 text-start">
+                    <p class="small text-secondary mb-3">
+                        Acknowledge custody and formally accept <strong>{{ $document->title }}</strong> into your office workflow.
                     </p>
 
                     <div class="mb-3">
-                        <label class="form-label small fw-bold text-secondary">Acknowledge Remarks / Notes (Optional)</label>
-                        <textarea name="notes" class="form-control" rows="2" placeholder="Enter remarks..."></textarea>
+                        <label class="form-label small fw-bold text-secondary">Acknowledgement Remarks (Optional)</label>
+                        <textarea name="notes" class="form-control form-control-sm" rows="2" placeholder="Enter remarks..."></textarea>
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label small fw-bold text-secondary d-block">Signature Option</label>
+                        <label class="form-label small fw-bold text-secondary d-block">Digital Signature</label>
                         <div class="d-flex gap-3 mb-3">
                             <div class="form-check">
                                 <input class="form-check-input" type="radio" name="modal_signature_option" id="modalSigOptProfile" value="profile" checked>
-                                <label class="form-check-label small" for="modalSigOptProfile">Profile</label>
+                                <label class="form-check-label small" for="modalSigOptProfile">Profile Signature</label>
                             </div>
                             <div class="form-check">
                                 <input class="form-check-input" type="radio" name="modal_signature_option" id="modalSigOptDraw" value="draw">
@@ -1224,9 +1395,9 @@
                         <div id="modalSigProfileContainer" class="p-3 bg-light rounded text-center border">
                             @if(auth()->user() && auth()->user()->signature)
                                 <img src="{{ asset('storage/' . auth()->user()->signature) }}" alt="Profile Signature" style="max-height: 60px; background:white; padding:4px; border:1px solid #ddd; border-radius:4px;">
-                                <div class="small text-muted mt-1">Using your saved profile signature.</div>
+                                <div class="small text-muted mt-1">Using your verified profile signature.</div>
                             @else
-                                <span class="text-danger small">No saved profile signature. Please choose another option.</span>
+                                <span class="text-danger small">No saved profile signature. Please choose Draw or Upload.</span>
                             @endif
                         </div>
 
@@ -1241,7 +1412,7 @@
 
                         <!-- 3. Upload Signature File -->
                         <div id="modalSigUploadContainer" style="display: none;">
-                            <input type="file" name="signature_file" class="form-control" accept="image/*">
+                            <input type="file" name="signature_file" class="form-control form-control-sm" accept="image/*">
                             <div class="small text-muted mt-1">Upload your signature image (Max 2MB).</div>
                         </div>
 
@@ -1254,12 +1425,243 @@
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer border-top-0 pt-0">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" style="font-size:12px; font-weight:600; border-radius: 8px;">Cancel</button>
-                    <button type="submit" class="btn btn-success" style="font-size:12px; font-weight:600; border-radius: 8px;">Confirm Acceptance</button>
+                <div class="modal-footer border-top p-3">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal" style="border-radius: 6px;">Cancel</button>
+                    <button type="submit" class="btn btn-sm btn-success fw-bold px-3" style="border-radius: 6px;">Confirm Acceptance</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
+@endsection
+
+@section('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // Dynamic receiver loading for Forward Document
+    const forwardOfficeSelect = document.getElementById('forwardOfficeSelect');
+    const forwardReceiverSelect = document.getElementById('forwardReceiverSelect');
+    if (forwardOfficeSelect && forwardReceiverSelect) {
+        forwardOfficeSelect.addEventListener('change', async function() {
+            const officeId = this.value;
+            forwardReceiverSelect.innerHTML = '<option value="">-- Loading Staff --</option>';
+            forwardReceiverSelect.disabled = true;
+            
+            if (!officeId) {
+                forwardReceiverSelect.innerHTML = '<option value="">-- Select Office First --</option>';
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/offices/${officeId}/staff`);
+                const data = await response.json();
+                const staff = data.staff || [];
+                
+                if (staff.length === 0) {
+                    forwardReceiverSelect.innerHTML = '<option value="">No available receivers for this office.</option>';
+                } else {
+                    forwardReceiverSelect.innerHTML = '<option value="">-- Choose Recipient --</option>';
+                    staff.forEach(user => {
+                        if (user.id != "{{ session('user_id') }}") {
+                            const opt = document.createElement('option');
+                            opt.value = user.id;
+                            opt.textContent = `${user.name} (${user.role})`;
+                            forwardReceiverSelect.appendChild(opt);
+                        }
+                    });
+                    forwardReceiverSelect.disabled = false;
+                }
+            } catch(e) {
+                console.error(e);
+                forwardReceiverSelect.innerHTML = '<option value="">Error loading staff</option>';
+            }
+        });
+    }
+
+    // Workflow Action Signature Toggle
+    const statusSelect = document.querySelector('select[name="status"]');
+    const signatureSection = document.getElementById('workflow-signature-section');
+    const signatureRequired = {{ ($activeStep && $activeStep->signature_required) ? 'true' : 'false' }};
+
+    function toggleSignatureSection() {
+        if (!statusSelect || !signatureSection) return;
+        const status = statusSelect.value;
+        const needsSig = ['Approved', 'Accepted', 'Endorsed', 'Completed'].includes(status);
+        
+        if (signatureRequired && needsSig) {
+            signatureSection.style.display = 'block';
+        } else {
+            signatureSection.style.display = 'none';
+        }
+    }
+
+    if (statusSelect) {
+        statusSelect.addEventListener('change', toggleSignatureSection);
+        toggleSignatureSection();
+    }
+
+    // Handle signature option radio buttons in workflow card
+    const sigProfileContainer = document.getElementById('sigProfileContainer');
+    const sigDrawContainer = document.getElementById('sigDrawContainer');
+    const sigUploadContainer = document.getElementById('sigUploadContainer');
+    const saveToProfileWrapper = document.getElementById('saveToProfileWrapper');
+
+    document.querySelectorAll('input[name="signature_option"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            const opt = this.value;
+            if (sigProfileContainer) sigProfileContainer.style.display = opt === 'profile' ? 'block' : 'none';
+            if (sigDrawContainer) sigDrawContainer.style.display = opt === 'draw' ? 'block' : 'none';
+            if (sigUploadContainer) sigUploadContainer.style.display = opt === 'upload' ? 'block' : 'none';
+            if (saveToProfileWrapper) saveToProfileWrapper.style.display = (opt === 'draw' || opt === 'upload') ? 'block' : 'none';
+
+            if (opt === 'draw') {
+                resizeWorkflowCanvas();
+            }
+        });
+    });
+
+    // Signature Pad Initialization for Workflow Form
+    const workflowCanvas = document.getElementById('workflowSigPad');
+    let workflowSigPad = null;
+
+    function resizeWorkflowCanvas() {
+        if (!workflowCanvas) return;
+        const ratio = Math.max(window.devicePixelRatio || 1, 1);
+        workflowCanvas.width = workflowCanvas.offsetWidth * ratio;
+        workflowCanvas.height = workflowCanvas.offsetHeight * ratio;
+        workflowCanvas.getContext("2d").scale(ratio, ratio);
+        if (workflowSigPad) workflowSigPad.clear();
+    }
+
+    if (workflowCanvas && typeof SignaturePad !== 'undefined') {
+        workflowSigPad = new SignaturePad(workflowCanvas, {
+            backgroundColor: 'rgba(255, 255, 255, 0)',
+            penColor: '#000000'
+        });
+
+        document.getElementById('clearWorkflowSigBtn')?.addEventListener('click', function() {
+            workflowSigPad.clear();
+        });
+
+        const workflowForm = document.getElementById('workflowActionForm');
+        workflowForm?.addEventListener('submit', function(e) {
+            const status = statusSelect ? statusSelect.value : '';
+            const needsSig = ['Approved', 'Accepted', 'Endorsed', 'Completed'].includes(status);
+            
+            if (signatureRequired && needsSig) {
+                const selectedOpt = document.querySelector('input[name="signature_option"]:checked')?.value;
+                if (selectedOpt === 'draw') {
+                    if (workflowSigPad.isEmpty()) {
+                        e.preventDefault();
+                        alert("Digital signature is required. Please sign on the canvas.");
+                        return false;
+                    }
+                    document.getElementById('workflowSigData').value = workflowSigPad.toDataURL();
+                } else if (selectedOpt === 'upload') {
+                    const fileInput = document.querySelector('input[name="signature_file"]');
+                    if (!fileInput.files || fileInput.files.length === 0) {
+                        e.preventDefault();
+                        alert("Digital signature file is required. Please upload an image.");
+                        return false;
+                    }
+                }
+            }
+        });
+
+        window.addEventListener("resize", resizeWorkflowCanvas);
+    }
+
+    // Modal Signature Canvas Handling
+    const modalSigProfileContainer = document.getElementById('modalSigProfileContainer');
+    const modalSigDrawContainer = document.getElementById('modalSigDrawContainer');
+    const modalSigUploadContainer = document.getElementById('modalSigUploadContainer');
+    const modalSaveToProfileWrapper = document.getElementById('modalSaveToProfileWrapper');
+
+    document.querySelectorAll('input[name="modal_signature_option"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            const opt = this.value;
+            if (modalSigProfileContainer) modalSigProfileContainer.style.display = opt === 'profile' ? 'block' : 'none';
+            if (modalSigDrawContainer) modalSigDrawContainer.style.display = opt === 'draw' ? 'block' : 'none';
+            if (modalSigUploadContainer) modalSigUploadContainer.style.display = opt === 'upload' ? 'block' : 'none';
+            if (modalSaveToProfileWrapper) modalSaveToProfileWrapper.style.display = (opt === 'draw' || opt === 'upload') ? 'block' : 'none';
+
+            if (opt === 'draw') {
+                resizeModalCanvas();
+            }
+        });
+    });
+
+    const modalCanvas = document.getElementById('modalSigCanvas');
+    let modalSigPad = null;
+
+    function resizeModalCanvas() {
+        if (!modalCanvas) return;
+        const ratio = Math.max(window.devicePixelRatio || 1, 1);
+        modalCanvas.width = modalCanvas.offsetWidth * ratio;
+        modalCanvas.height = modalCanvas.offsetHeight * ratio;
+        modalCanvas.getContext("2d").scale(ratio, ratio);
+        if (modalSigPad) modalSigPad.clear();
+    }
+
+    if (modalCanvas && typeof SignaturePad !== 'undefined') {
+        modalSigPad = new SignaturePad(modalCanvas, {
+            backgroundColor: 'rgba(255, 255, 255, 0)',
+            penColor: '#000000'
+        });
+
+        document.getElementById('clearModalSigBtn')?.addEventListener('click', function() {
+            modalSigPad.clear();
+        });
+
+        const acceptModalEl = document.getElementById('acceptDocumentModal');
+        acceptModalEl?.addEventListener('shown.bs.modal', function () {
+            resizeModalCanvas();
+        });
+
+        const acceptForm = document.getElementById('acceptDocumentForm');
+        acceptForm?.addEventListener('submit', function(e) {
+            const selectedOpt = document.querySelector('input[name="modal_signature_option"]:checked')?.value;
+            if (selectedOpt === 'profile') {
+                const hasProfileSig = {{ (auth()->user() && auth()->user()->signature) ? 'true' : 'false' }};
+                if (!hasProfileSig) {
+                    e.preventDefault();
+                    alert("No profile signature found. Please choose another signature option.");
+                    return false;
+                }
+                const hiddenOpt = document.createElement('input');
+                hiddenOpt.type = 'hidden';
+                hiddenOpt.name = 'signature_option';
+                hiddenOpt.value = 'profile';
+                acceptForm.appendChild(hiddenOpt);
+            } else if (selectedOpt === 'draw') {
+                if (modalSigPad.isEmpty()) {
+                    e.preventDefault();
+                    alert("Drawn signature is required. Please sign on the canvas.");
+                    return false;
+                }
+                document.getElementById('modalSigData').value = modalSigPad.toDataURL();
+                
+                const hiddenOpt = document.createElement('input');
+                hiddenOpt.type = 'hidden';
+                hiddenOpt.name = 'signature_option';
+                hiddenOpt.value = 'draw';
+                acceptForm.appendChild(hiddenOpt);
+            } else if (selectedOpt === 'upload') {
+                const fileInput = document.querySelector('#modalSigUploadContainer input[name="signature_file"]');
+                if (!fileInput.files || fileInput.files.length === 0) {
+                    e.preventDefault();
+                    alert("Digital signature file is required. Please upload an image.");
+                    return false;
+                }
+                
+                const hiddenOpt = document.createElement('input');
+                hiddenOpt.type = 'hidden';
+                hiddenOpt.name = 'signature_option';
+                hiddenOpt.value = 'upload';
+                acceptForm.appendChild(hiddenOpt);
+            }
+        });
+    }
+});
+</script>
 @endsection

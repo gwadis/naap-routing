@@ -7,6 +7,7 @@ use App\Models\Document;
 use App\Models\DocumentRouting;
 use Illuminate\Auth\Access\HandlesAuthorization;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 
 class DocumentPolicy
 {
@@ -75,6 +76,18 @@ class DocumentPolicy
             return true;
         }
 
+        // 6. Authorized recipient of Confidential PIN or notification
+        $isPinRecipient = \App\Models\DocumentPin::where('document_id', $document->id)
+            ->where(function($q) use ($user) {
+                $q->where('recipient_id', $user->id)
+                  ->orWhere('user_id', $user->id)
+                  ->orWhere('email', $user->email);
+            })
+            ->exists();
+        if ($isPinRecipient) {
+            return true;
+        }
+
         // 6. Current office members
         if ($user->office_id) {
             $associatedOffices = array_filter([
@@ -137,56 +150,118 @@ class DocumentPolicy
             return true;
         }
 
-        // Non-admins cannot perform actions on terminal statuses
-        if (in_array($document->status, ['Completed', 'Archived', 'Cancelled'])) {
+        // Non-admins cannot perform actions on terminal statuses (case-insensitive)
+        $docStatus = strtolower(trim((string) $document->status));
+        if (in_array($docStatus, ['completed', 'archived', 'cancelled'])) {
             Log::info("Workflow action blocked: Document ID {$document->id} is in terminal status '{$document->status}'");
             return false;
         }
 
-        // 2. Resolve active routing if not provided
+        // 2. Document creator / owner is authorized to perform workflow actions (e.g. forward, recall, cancel)
+        if ($document->uploaded_by && $document->uploaded_by == $user->id) {
+            return true;
+        }
+
+        // 3. Direct document receiver is always authorized
+        if ($document->receiver_user_id && $document->receiver_user_id == $user->id) {
+            return true;
+        }
+
+        $activeStatuses = ['pending', 'in transit', 'in_transit', 'received', 'under review', 'under_review', 'processing', 'on process', 'on_process', 'for approval', 'for_approval', 'waiting'];
+
+        // 4. Assigned receiver on any active, pending, or sequential routing step for this document
+        $isAssignedInRouting = DocumentRouting::where('document_id', $document->id)
+            ->where('receiver_user_id', $user->id)
+            ->whereIn(DB::raw('LOWER(status)'), $activeStatuses)
+            ->exists();
+        if ($isAssignedInRouting) {
+            return true;
+        }
+
+        // 5. Authorized recipient who was issued or verified a Confidential PIN / Notification
+        $isPinRecipient = \App\Models\DocumentPin::where('document_id', $document->id)
+            ->where(function($q) use ($user) {
+                $q->where('recipient_id', $user->id)
+                  ->orWhere('user_id', $user->id)
+                  ->orWhere('email', $user->email);
+            })
+            ->exists();
+        if ($isPinRecipient) {
+            return true;
+        }
+
+        // 6. Resolve active routing if not provided
         if (!$activeRouting) {
             $activeRouting = $this->resolveActiveRouting($user, $document);
         }
 
-        // Check if there is an active pending routing step
-        if ($activeRouting && $activeRouting->status === 'Pending') {
-            // Case A: Step is explicitly assigned to this user
-            if ($activeRouting->receiver_user_id && $activeRouting->receiver_user_id == $user->id) {
-                return true;
+        // 7. Check active routing step if present
+        if ($activeRouting) {
+            $routingStatus = strtolower(trim((string) $activeRouting->status));
+            if (in_array($routingStatus, $activeStatuses)) {
+                // Case A: Step is explicitly assigned to this user
+                if ($activeRouting->receiver_user_id && $activeRouting->receiver_user_id == $user->id) {
+                    return true;
+                }
+
+                // Case B: Destination office matches user's office
+                if ($user->office_id && $activeRouting->to_office_id == $user->office_id) {
+                    return true;
+                }
+
+                // Case C: Office Head or department match for destination office
+                if ($user->department_id && $activeRouting->toOffice && $activeRouting->toOffice->department_id == $user->department_id) {
+                    return true;
+                }
+
+                // Case D: Parallel approval steps at the same sort order
+                $isParallelApprover = DocumentRouting::where('document_id', $document->id)
+                    ->where('sort_order', $activeRouting->sort_order)
+                    ->whereIn(DB::raw('LOWER(status)'), $activeStatuses)
+                    ->where(function ($q) use ($user) {
+                        $q->where('receiver_user_id', $user->id)
+                          ->orWhere(function ($sub) use ($user) {
+                              $sub->whereNull('receiver_user_id')
+                                  ->where('to_office_id', $user->office_id);
+                          });
+                    })
+                    ->exists();
+
+                if ($isParallelApprover) {
+                    return true;
+                }
             }
+        }
 
-            // Case B: Office-based routing without specific receiver assigned (any member of target office can act)
-            if (!$activeRouting->receiver_user_id && $user->office_id && $activeRouting->to_office_id == $user->office_id) {
-                return true;
-            }
-
-            // Case C: Parallel approval steps at the same sort order where user is assigned
-            $isParallelApprover = DocumentRouting::where('document_id', $document->id)
-                ->where('sort_order', $activeRouting->sort_order)
-                ->where('status', 'Pending')
-                ->where(function ($q) use ($user) {
-                    $q->where('receiver_user_id', $user->id)
-                      ->orWhere(function ($sub) use ($user) {
-                          $sub->whereNull('receiver_user_id')
-                              ->where('to_office_id', $user->office_id);
-                      });
-                })
-                ->exists();
-
-            if ($isParallelApprover) {
+        // 8. Office-level matching: document's current or destination office matches user's office
+        if ($user->office_id) {
+            if ($document->current_office_id == $user->office_id || $document->destination_office_id == $user->office_id) {
                 return true;
             }
         }
 
-        // 3. Fallback when routing records are missing or document is directly assigned
-        if (!$activeRouting || $activeRouting->status !== 'Pending') {
-            // Direct document receiver
-            if ($document->receiver_user_id && $document->receiver_user_id == $user->id) {
-                return true;
+        // 9. Department-level / Office Head matching
+        if ($user->department_id) {
+            $currentOffice = $document->currentOffice;
+            $destOffice = $document->destinationOffice;
+            if (($currentOffice && $currentOffice->department_id == $user->department_id) || ($destOffice && $destOffice->department_id == $user->department_id)) {
+                $roleNorm = strtoupper(trim((string)$user->role));
+                if (str_contains($roleNorm, 'HEAD') || $roleNorm === 'OFFICE HEAD') {
+                    return true;
+                }
             }
+        }
 
-            // Document current office matches user's office with no individual receiver specified
-            if (!$document->receiver_user_id && $user->office_id && $document->current_office_id == $user->office_id) {
+        // 10. Legitimate QR code verification in current session for associated office staff
+        if (session('qr_verified_' . $document->id)) {
+            $associatedOffices = array_filter([
+                $document->origin_office_id,
+                $document->current_office_id,
+                $document->destination_office_id,
+            ]);
+            $routingOffices = DocumentRouting::where('document_id', $document->id)->pluck('to_office_id')->toArray();
+            $allAssociated = array_unique(array_merge($associatedOffices, $routingOffices));
+            if ($user->office_id && in_array($user->office_id, $allAssociated)) {
                 return true;
             }
         }
@@ -200,11 +275,13 @@ class DocumentPolicy
      */
     public function resolveActiveRouting(?User $user, Document $document): ?DocumentRouting
     {
+        $activeStatuses = ['pending', 'in transit', 'in_transit', 'received', 'under review', 'under_review', 'processing', 'on process', 'on_process', 'for approval', 'for_approval'];
+
         if ($user) {
-            // 1. Pending routing step explicitly assigned to this user
+            // 1. Active routing step explicitly assigned to this user
             $userPending = DocumentRouting::where('document_id', $document->id)
                 ->where('receiver_user_id', $user->id)
-                ->where('status', 'Pending')
+                ->whereIn(DB::raw('LOWER(status)'), $activeStatuses)
                 ->orderBy('sort_order', 'asc')
                 ->first();
 
@@ -212,11 +289,11 @@ class DocumentPolicy
                 return $userPending;
             }
 
-            // 2. Pending routing step for user's office (office-based routing)
+            // 2. Active routing step for user's office (office-based routing)
             if ($user->office_id) {
                 $officePending = DocumentRouting::where('document_id', $document->id)
                     ->where('to_office_id', $user->office_id)
-                    ->where('status', 'Pending')
+                    ->whereIn(DB::raw('LOWER(status)'), $activeStatuses)
                     ->where(function ($q) use ($user) {
                         $q->whereNull('receiver_user_id')
                           ->orWhere('receiver_user_id', $user->id);
@@ -230,9 +307,9 @@ class DocumentPolicy
             }
         }
 
-        // 3. Any earliest pending routing step on the document
+        // 3. Any earliest active routing step on the document
         $anyPending = DocumentRouting::where('document_id', $document->id)
-            ->where('status', 'Pending')
+            ->whereIn(DB::raw('LOWER(status)'), $activeStatuses)
             ->orderBy('sort_order', 'asc')
             ->first();
 
@@ -240,7 +317,7 @@ class DocumentPolicy
             return $anyPending;
         }
 
-        // 4. Latest completed/reverted routing step if no pending step exists
+        // 4. Latest completed/reverted routing step if no active step exists
         return DocumentRouting::where('document_id', $document->id)
             ->orderBy('sort_order', 'desc')
             ->orderBy('id', 'desc')

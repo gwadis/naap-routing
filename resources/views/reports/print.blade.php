@@ -43,11 +43,13 @@
         <tr>
             <th>Tracking No</th>
             <th>Document Title</th>
-            <th>Uploader</th>
+            <th>Category</th>
             <th>Origin Office</th>
             <th>Current Location</th>
             <th>Status</th>
-            <th>Priority</th>
+            <th>Processing Time</th>
+            <th>SLA Category</th>
+            <th>SLA Result</th>
             <th>Date Created</th>
         </tr>
     </thead>
@@ -56,20 +58,22 @@
         <tr>
             <td><strong>{{ $doc->tracking_number ?? $doc->qr_id }}</strong></td>
             <td>{{ $doc->title }}</td>
-            <td>{{ $doc->uploader?->name ?? 'System' }}</td>
+            <td>{{ $doc->category ?? 'General' }}</td>
             <td>{{ $doc->originOffice?->name ?? 'N/A' }}</td>
             <td>{{ $doc->currentOffice?->name ?? 'In Transit' }}</td>
             <td><strong>{{ $doc->status }}</strong></td>
+            <td>{{ $doc->processing_time_hours ?? 'N/A' }}</td>
+            <td>{{ $doc->sla ?? 'Standard' }}</td>
             <td>
-                <span class="badge priority-{{ $doc->priority }}">
-                    {{ $doc->priority }}
+                <span class="badge" style="background-color: #f1f5f9; color: #334155; border: 1px solid #cbd5e1;">
+                    {{ $doc->sla_result ?? 'N/A' }}
                 </span>
             </td>
             <td>{{ $doc->created_at->format('Y-m-d H:i') }}</td>
         </tr>
         @empty
         <tr>
-            <td colspan="8" style="text-align: center; color: #6b7280; padding: 30px;">No documents found matching the filter criteria.</td>
+            <td colspan="10" style="text-align: center; color: #6b7280; padding: 30px;">No documents found matching the filter criteria.</td>
         </tr>
         @endforelse
     </tbody>

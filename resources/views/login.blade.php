@@ -85,6 +85,8 @@
         .helper a { color: var(--helper); text-decoration: none; }
         .helper a:hover { color: var(--helper-hover); }
         .errors { margin:0 0 1rem; color: var(--error-text); text-align:center; background: var(--error-bg); padding: 0.6rem; border-radius: 8px; font-size: 0.85rem; border: 1px solid rgba(255, 139, 167, 0.2); }
+        .success-box { margin:0 0 1rem; color: #10b981; text-align:center; background: rgba(16, 185, 129, 0.12); padding: 0.65rem 0.85rem; border-radius: 8px; font-size: 0.85rem; border: 1px solid rgba(16, 185, 129, 0.25); line-height: 1.4; }
+        html[data-theme='light'] .success-box { color: #065f46; background: #ecfdf5; border-color: #a7f3d0; }
         .small { margin-top:1.2rem; font-size:0.75rem; color: var(--small); text-align: center; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 1rem; }
         .info-box { background: var(--info-bg); border: 1px solid var(--info-border); border-radius: 8px; padding: 0.8rem; margin-bottom: 1.5rem; font-size: 0.8rem; color: var(--info-text); line-height: 1.4; }
     </style>
@@ -94,13 +96,13 @@
         <h1>NAAP Document Routing</h1>
         <p class="subtitle">Secure document routing system for your organization</p>
 
-        <div class="info-box">
-            <strong style="color: var(--blue);"><i class="bi bi-shield-lock-fill me-1"></i> Password Requirements:</strong><br>
-            • Minimum 12 characters • Uppercase, lowercase, numbers & special chars<br>
-            • 2FA enabled for maximum security
-        </div>
-
         {{-- Success/Error Alerts --}}
+        @if(session('status'))
+            <div class="success-box">{{ session('status') }}</div>
+        @endif
+        @if(session('success'))
+            <div class="success-box">{{ session('success') }}</div>
+        @endif
         @if(session('error'))
             <div class="errors">{{ session('error') }}</div>
         @endif
@@ -134,7 +136,7 @@
             <button type="submit" class="btn" id="submitBtn">Sign In</button>
         </form>
 
-        <div class="helper"><a href="#">Forgot Password?</a></div>
+        <div class="helper"><a href="{{ route('password.request') }}">Forgot Password?</a></div>
         <div class="small">© 2024 NAAP. All rights reserved.</div>
     </div>
 

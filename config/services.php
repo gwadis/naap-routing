@@ -40,4 +40,23 @@ return [
         'from_name' => env('EMAIL_FROM_NAME', 'NAAP Document Routing'),
     ],
 
+    'sms' => [
+        'enabled' => env('SMS_ENABLED', false),
+        'driver' => env('SMS_DRIVER', 'none'),
+        'semaphore' => [
+            'api_key' => env('SEMAPHORE_API_KEY'),
+            'sender_name' => env('SEMAPHORE_SENDER_NAME', 'NAAP'),
+        ],
+        'twilio' => [
+            'sid' => env('TWILIO_SID'),
+            'token' => env('TWILIO_AUTH_TOKEN'),
+            'from' => env('TWILIO_FROM'),
+        ],
+    ],
+
+    'telegram' => [
+        'bot_token' => env('TELEGRAM_BOT_TOKEN'),
+        'bot_username' => env('TELEGRAM_BOT_USERNAME', 'NAAPRoutingBot'),
+    ],
 ];
+
