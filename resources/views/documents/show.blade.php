@@ -554,7 +554,12 @@
         <div class="d-flex align-items-center gap-3">
             <i class="bi bi-shield-lock-fill fs-3 text-warning"></i>
             <div>
-                <strong class="d-block text-dark fw-bold">Confidential Document &bull; Restricted Access</strong>
+                <strong class="d-block text-dark fw-bold">
+                    Confidential Document &bull; Restricted Access
+                    <a href="{{ route('help.manual', ['section' => 'confidential-documents']) }}" target="_blank" class="text-decoration-none text-muted ms-2" style="font-size: 11px; font-weight: normal;">
+                        <i class="bi bi-question-circle"></i> Guide
+                    </a>
+                </strong>
                 <span class="small text-secondary">Only designated receivers, current office members, and administrators are authorized to inspect or act upon this record.</span>
             </div>
         </div>

@@ -5,7 +5,12 @@
 @section('content')
 <div class="container-fluid">
 
-    <h2 class="mb-4">New Document Routing</h2>
+    <div class="d-flex align-items-center gap-2 mb-4">
+        <h2 class="mb-0">New Document Routing</h2>
+        <a href="{{ route('help.manual', ['section' => 'upload-document']) }}" target="_blank" class="text-decoration-none text-muted small" title="View Upload & Routing Guide" style="font-size: 13px;">
+            <i class="bi bi-question-circle"></i> Guide
+        </a>
+    </div>
 
     <div class="row g-4">
 

@@ -23,7 +23,7 @@ class User extends Authenticatable
 
     protected $fillable = [
         'name', 'email', 'employee_id', 'position', 'username', 'password', 'role', 'department_id', 'office_id', 'signature', 'phone', 'avatar', 'status', 'two_factor_secret', 'two_factor_confirmed_at',
-        'failed_login_attempts', 'locked_until', 'needs_password_change', 'login_otp', 'login_otp_expires_at', 'login_otp_sent_at', 'recovery_email',
+        'failed_login_attempts', 'locked_until', 'needs_password_change', 'must_change', 'login_otp', 'login_otp_expires_at', 'login_otp_sent_at', 'recovery_email',
         'telegram_chat_id', 'telegram_username', 'telegram_connected_at', 'telegram_connection_status',
         'telegram_connect_token', 'telegram_connect_token_expires_at',
         'telegram_notif_announcements', 'telegram_notif_documents', 'telegram_notif_urgent',
@@ -62,6 +62,19 @@ class User extends Authenticatable
         $this->attributes['password'] = Hash::needsRehash($value)
             ? Hash::make($value)
             : $value;
+    }
+
+    /**
+     * Accessor and mutator for must_change alias mapping to needs_password_change.
+     */
+    public function getMustChangeAttribute(): bool
+    {
+        return (bool) ($this->needs_password_change ?? false);
+    }
+
+    public function setMustChangeAttribute($value): void
+    {
+        $this->attributes['needs_password_change'] = (bool) $value;
     }
 
     /**

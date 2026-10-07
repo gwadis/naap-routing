@@ -685,6 +685,9 @@
             <a href="{{ route('profile') }}" class="nav-link {{ request()->routeIs('profile') ? 'active' : '' }}">
                 <i class="bi bi-person-circle"></i> My Profile
             </a>
+            <a href="{{ route('help.manual') }}" class="nav-link {{ request()->routeIs('help.*') ? 'active' : '' }}">
+                <i class="bi bi-question-circle"></i> Help & User Manual
+            </a>
             <a href="{{ route('logout') }}" class="nav-link logout-link" style="color: #fb7185 !important;">
                 <i class="bi bi-box-arrow-left"></i> Sign Out
             </a>

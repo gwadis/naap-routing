@@ -15,6 +15,7 @@ use App\Http\Controllers\SecuritySettingsController;
 use App\Http\Controllers\SecurityDashboardController;
 use App\Http\Controllers\TelegramController;
 use App\Http\Controllers\PasswordResetController;
+use App\Http\Controllers\HelpController;
 
 // --- Telegram Webhook (Public API Endpoint) ---
 Route::match(['get', 'post'], '/api/telegram/webhook', [TelegramController::class, 'webhook'])->name('telegram.webhook');
@@ -167,4 +168,7 @@ Route::middleware([\App\Http\Middleware\EnsureAuthenticated::class, \App\Http\Mi
     Route::post('/telegram/disconnect', [TelegramController::class, 'disconnect'])->name('telegram.disconnect');
     Route::post('/telegram/preferences', [TelegramController::class, 'updatePreferences'])->name('telegram.preferences');
     Route::post('/telegram/announcement', [TelegramController::class, 'sendAnnouncement'])->name('telegram.announcement');
+
+    // --- Help & User Manual ---
+    Route::get('/help', [HelpController::class, 'index'])->name('help.manual');
 });

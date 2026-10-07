@@ -260,7 +260,12 @@
                 <!-- Sticky Header -->
                 <div class="modal-header d-flex justify-content-between align-items-center">
                     <div>
-                        <h5 class="modal-title fw-bold" style="color: var(--text-main); font-size:16px;">Document Upload</h5>
+                        <div class="d-flex align-items-center gap-2">
+                            <h5 class="modal-title fw-bold mb-0" style="color: var(--text-main); font-size:16px;">Document Upload</h5>
+                            <a href="{{ route('help.manual', ['section' => 'upload-document']) }}" target="_blank" class="text-decoration-none text-muted small" title="View Upload Manual Guide" style="font-size: 12px;">
+                                <i class="bi bi-question-circle"></i> Guide
+                            </a>
+                        </div>
                         <p class="small text-slate-500 mb-0">Upload and configure the routing for your organization document.</p>
                     </div>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -514,6 +519,9 @@
                                 <div class="form-check form-switch mb-3">
                                     <input class="form-check-input" type="checkbox" name="is_confidential" id="confidentialToggle" value="1">
                                     <label class="form-check-label small fw-bold text-secondary" for="confidentialToggle">Restrict View (Confidential)</label>
+                                    <a href="{{ route('help.manual', ['section' => 'confidential-documents']) }}" target="_blank" class="text-decoration-none text-muted ms-1" title="Confidential Document Guide" style="font-size: 11px;">
+                                        <i class="bi bi-question-circle"></i>
+                                    </a>
                                 </div>
                             </div>
 

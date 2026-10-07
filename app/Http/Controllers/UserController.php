@@ -11,6 +11,7 @@ use App\Models\AuditTrail;
 use Illuminate\Support\Facades\{Hash, Auth, Storage, DB, Mail, Log};
 use Illuminate\Support\Str;
 use App\Mail\SecurityMail;
+use App\Services\EmailService;
 
 class UserController extends Controller
 {
@@ -552,35 +553,69 @@ class UserController extends Controller
             return back()->with('error', 'Only a Super Administrator can reset the password of another Super Administrator.');
         }
 
-        // Generate strong temporary password complying with security requirements
-        $randomPart = Str::random(6);
-        $tempPassword = 'Naap!' . $randomPart . '8#';
-
-        $user->password = $tempPassword;
-        $user->needs_password_change = true;
-        $user->failed_login_attempts = 0;
-        $user->locked_until = null;
-        $user->save();
-
-        AuditTrail::log("Password Reset by Admin: {$user->email}", "users/{$user->id}");
-        ActivityLog::log("Password reset issued for user: {$user->name}", null, [
-            'email' => $user->email,
-            'user_id' => $user->id,
-        ]);
-
-        try {
-            Mail::to($user->email)->send(new SecurityMail(
-                "🔑 Your Account Password Has Been Reset",
-                $user->name,
-                "<p>An administrator has reset your password for the NAAP Document Routing System.</p>"
-                . "<p>Your temporary password is: <code style='font-size:16px; font-weight:bold; background:#F1F5F9; padding:4px 8px; border-radius:4px;'>{$tempPassword}</code></p>"
-                . "<p><strong>Security Notice:</strong> You will be required to change your password immediately upon your next login.</p>"
-            ));
-        } catch (\Exception $e) {
-            Log::channel('email')->error("Failed to send password reset email to {$user->email}: " . $e->getMessage());
+        // Validate recipient email address
+        if (empty($user->email) || !filter_var($user->email, FILTER_VALIDATE_EMAIL)) {
+            return back()->with('error', 'Password reset could not be completed because this user does not have a valid registered email address.');
         }
 
-        return redirect()->route('users.index')->with('success', "Password for {$user->name} has been reset. A temporary password was emailed and mandatory password change is enforced on next login.");
+        // Generate strong temporary password complying with security requirements
+        $randomPart = Str::random(6);
+        $tempPassword = 'Naap!' . $randomPart . rand(10, 99) . '#';
+
+        // Extract first name for the recipient
+        $nameParts = preg_split('/\s+/', trim($user->name));
+        $firstName = !empty($nameParts[0]) ? $nameParts[0] : 'User';
+
+        $subject = "NAAP Routing System - Temporary Password";
+        $body = "Hello {$firstName},\n\n"
+              . "Your NAAP Routing System password has been reset by an administrator.\n\n"
+              . "Temporary Password:\n"
+              . "<b>{$tempPassword}</b>\n\n"
+              . "For security purposes, you will be required to change this temporary password when you next log in.\n\n"
+              . "If you did not request or expect this password reset, please contact the system administrator.\n\n"
+              . "Regards,\n"
+              . "NAAP Routing System\n"
+              . "National Aviation Academy of the Philippines";
+
+        // Dispatch email using the configured email system
+        $sent = false;
+        $sendError = null;
+        try {
+            $emailService = new EmailService();
+            $sent = $emailService->send($user->email, $subject, $body);
+            if (!$sent) {
+                $sendError = 'Email provider returned an unsuccessful status.';
+                Log::channel('email')->error("Failed to send temporary password email to {$user->email}: Provider returned unsuccessful status.");
+            }
+        } catch (\Throwable $e) {
+            $sendError = $e->getMessage();
+            Log::channel('email')->error("Exception while sending temporary password email to {$user->email}: " . $sendError);
+        }
+
+        if (!$sent) {
+            return back()->with('error', 'Failed to dispatch temporary password email to user. Password reset has been aborted.');
+        }
+
+        // If email sent successfully, atomically update password and mandatory flag in DB
+        DB::transaction(function () use ($user, $tempPassword, $currentAuthUser) {
+            $user->password = $tempPassword;
+            $user->needs_password_change = true;
+            $user->must_change = true;
+            $user->failed_login_attempts = 0;
+            $user->locked_until = null;
+            $user->save();
+
+            $adminName = $currentAuthUser ? $currentAuthUser->name : (session('user_name') ?? 'Admin');
+            AuditTrail::log("Admin {$adminName} reset the password for {$user->name}.", "users/{$user->id}");
+            ActivityLog::log("Password reset issued for user: {$user->name}", null, [
+                'email' => $user->email,
+                'user_id' => $user->id,
+            ]);
+        });
+
+        Log::channel('email')->info("Temporary password email successfully dispatched to {$user->email} for user ID {$user->id}");
+
+        return redirect()->route('users.index')->with('success', "Password for {$user->name} has been reset. A temporary password was dispatched to {$user->email}. Mandatory password reset will be enforced upon next login.");
     }
 
     protected function authorizeAdmin()

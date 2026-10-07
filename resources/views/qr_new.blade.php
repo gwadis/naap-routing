@@ -438,7 +438,12 @@
         <!-- Left Column: Scanner (70%) -->
         <div class="col-lg-8">
             <div class="glass-card">
-                <h5><i class="bi bi-qr-code-scan" style="color:var(--accent-cyan);"></i> QR Code Scanner</h5>
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <h5 class="mb-0"><i class="bi bi-qr-code-scan" style="color:var(--accent-cyan);"></i> QR Code Scanner</h5>
+                    <a href="{{ route('help.manual', ['section' => 'qr-code']) }}" target="_blank" class="text-decoration-none text-muted small" title="View QR Manual Guide" style="font-size: 12px;">
+                        <i class="bi bi-question-circle"></i> Guide
+                    </a>
+                </div>
                 <p class="text-secondary small mb-3" style="color: var(--text-dim) !important;">Scan document QR codes to record location routing and signature receipt instantly.</p>
                 
                 <div class="d-flex gap-2 mb-3">
@@ -1521,9 +1526,16 @@
             </div>
             <div class="modal-body pt-3 text-start">
                 <div id="pinModalAlertContainer"></div>
-                <p class="small text-slate-500 mb-3" style="font-size: 13px; line-height: 1.55;">
-                    This document is confidential. A 6-digit verification code has been dispatched to <strong class="text-dark" id="maskedRecipientEmail">your email</strong>.
-                </p>
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <p class="small text-slate-500 mb-0" style="font-size: 13px; line-height: 1.55;">
+                        This document is confidential. A 6-digit verification code has been dispatched to <strong class="text-dark" id="maskedRecipientEmail">your email</strong>.
+                    </p>
+                </div>
+                <div class="mb-3 text-end">
+                    <a href="{{ route('help.manual', ['section' => 'confidential-documents']) }}" target="_blank" class="text-decoration-none text-muted small" style="font-size: 11px;">
+                        <i class="bi bi-question-circle me-1"></i>OTP & Confidential Help Guide
+                    </a>
+                </div>
                 <div class="mb-3">
                     <label for="modalPinInput" class="form-label small fw-bold text-secondary text-uppercase" style="font-size:11px; letter-spacing:0.5px;">Verification PIN</label>
                     <input type="text" id="modalPinInput" class="form-control text-center fw-bold fs-4" placeholder="••••••" maxlength="6" style="letter-spacing: 6px; height: 50px; background: var(--bg); border: 1px solid var(--panel-border); color: var(--text-main);">

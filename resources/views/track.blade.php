@@ -100,7 +100,12 @@
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
-        <h1 class="page-title mb-1">Document Tracking</h1>
+        <div class="d-flex align-items-center gap-2">
+            <h1 class="page-title mb-1">Document Tracking</h1>
+            <a href="{{ route('help.manual', ['section' => 'document-tracking']) }}" target="_blank" class="text-decoration-none text-muted small" title="View Tracking Guide" style="font-size: 12px;">
+                <i class="bi bi-question-circle"></i> Guide
+            </a>
+        </div>
         <p class="text-secondary small mb-0" style="color: var(--text-dim) !important;">Monitor real-time location, progress logs, and transit records across the system.</p>
     </div>
 </div>

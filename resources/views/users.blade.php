@@ -1551,10 +1551,28 @@
     window.confirmResetPassword = function(id, name) {
         const form = document.getElementById('resetPasswordForm');
         form.action = `/users/${id}/reset-password`;
+        const submitBtn = form.querySelector('button[type="submit"]');
+        if (submitBtn) {
+            submitBtn.disabled = false;
+        }
         document.getElementById('resetUserName').innerText = name;
         const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('resetPasswordModal'));
         modal.show();
     };
+
+    const resetForm = document.getElementById('resetPasswordForm');
+    if (resetForm) {
+        resetForm.addEventListener('submit', function(e) {
+            const submitBtn = resetForm.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                if (submitBtn.disabled) {
+                    e.preventDefault();
+                    return false;
+                }
+                submitBtn.disabled = true;
+            }
+        });
+    }
 
     window.confirmToggleStatus = function(id, name, currentStatus) {
         const form = document.getElementById('toggleStatusForm');
