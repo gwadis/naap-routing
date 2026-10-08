@@ -511,11 +511,17 @@ class QRController extends Controller
                         // * QR Status = Scanned
                         // * Access Status = Verified (represented as Verified qr_status)
                         // * Document Status = Viewed
-                        $document->update([
+                        $isFirstScan = is_null($document->qr_scanned_at);
+                        $updateData = [
                             'qr_status' => 'Verified',
-                            'status' => 'Viewed',
-                            'qr_scanned_at' => now(),
-                        ]);
+                        ];
+                        if ($document->status !== 'Completed' && $document->status !== 'Archived') {
+                            $updateData['status'] = 'Viewed';
+                        }
+                        if ($isFirstScan) {
+                            $updateData['qr_scanned_at'] = now();
+                        }
+                        $document->update($updateData);
 
                         // * Mark document as viewed (DocumentView record)
                         $hasView = \App\Models\DocumentView::where('document_id', $document->id)
@@ -541,10 +547,11 @@ class QRController extends Controller
                         ActivityLog::create([
                             'user_id'     => $user?->id,
                             'user'        => $user?->name ?? 'System User',
-                            'action'      => 'Confidential PIN Verified',
+                            'action'      => $isFirstScan ? 'Document Viewed' : 'QR Verified Again',
                             'document_id' => $document->id,
                             'ip'          => 'REDACTED',
                             'meta'        => [
+                                'verification_method' => 'QR Scan + OTP',
                                 'user'          => $user?->name ?? 'Unknown',
                                 'actor_user_id' => $user?->id,
                                 'timestamp'     => now()->toIso8601String(),
@@ -570,11 +577,17 @@ class QRController extends Controller
                     // Non-confidential document scan: QR verification is sufficient, set it in session
                     session(['qr_verified_' . $document->id => true]);
 
-                    $document->update([
+                    $isFirstScan = is_null($document->qr_scanned_at);
+                    $updateData = [
                         'qr_status' => 'Verified',
-                        'status' => 'Viewed',
-                        'qr_scanned_at' => now(),
-                    ]);
+                    ];
+                    if ($document->status !== 'Completed' && $document->status !== 'Archived') {
+                        $updateData['status'] = 'Viewed';
+                    }
+                    if ($isFirstScan) {
+                        $updateData['qr_scanned_at'] = now();
+                    }
+                    $document->update($updateData);
 
                     // * Mark document as viewed (DocumentView record)
                     $hasView = \App\Models\DocumentView::where('document_id', $document->id)
@@ -710,15 +723,18 @@ class QRController extends Controller
                     // Log scan activity (unlocked view) - only if not already logged during confidential scan
                     if (!$document->is_confidential) {
                         ActivityLog::create([
+                            'user_id'     => $user?->id,
                             'user'        => $user?->name ?? 'System User',
-                            'action'      => 'QR Scanned',
+                            'action'      => ($isFirstScan ?? false) ? 'Document Viewed' : 'QR Verified Again',
                             'document_id' => $document->id,
                             'ip'          => 'REDACTED',
-                            'meta'        => json_encode([
-                                'receiver'  => $user?->name ?? 'Unknown',
-                                'office'    => $user?->department?->name ?? 'Unknown',
-                                'timestamp' => now()->toIso8601String(),
-                            ])
+                            'meta'        => [
+                                'verification_method' => 'QR Scan',
+                                'receiver'            => $user?->name ?? 'Unknown',
+                                'office'              => $user?->department?->name ?? ($user?->office?->name ?? 'Unknown'),
+                                'actor_user_id'       => $user?->id,
+                                'timestamp'           => now()->toIso8601String(),
+                            ]
                         ]);
                     }
                 }
@@ -971,18 +987,53 @@ class QRController extends Controller
         if ($activeRouting && is_null($activeRouting->scanned_at)) {
             $activeRouting->update(['scanned_at' => now()]);
         }
-        if (is_null($document->qr_scanned_at)) {
-            $document->update(['qr_scanned_at' => now(), 'qr_status' => 'Verified']);
+        $isFirstScan = is_null($document->qr_scanned_at);
+        $updateData = ['qr_status' => 'Verified'];
+        if ($isFirstScan) {
+            $updateData['qr_scanned_at'] = now();
         }
+        if (!$document->is_confidential && $document->status !== 'Completed' && $document->status !== 'Archived') {
+            $updateData['status'] = 'Viewed';
+        }
+        $document->update($updateData);
 
         // Mark QR verified in current session for authorized user
         session(['qr_verified_' . $document->id => true]);
 
-        // Confidential protection & OTP check
+        // If non-confidential, create official Viewed event
+        if (!$document->is_confidential && $user) {
+            $hasView = \App\Models\DocumentView::where('document_id', $document->id)
+                ->where('user_id', $user->id)
+                ->exists();
+            if (!$hasView) {
+                \App\Models\DocumentView::create([
+                    'document_id' => $document->id,
+                    'user_id' => $user->id,
+                    'office_id' => $user->office_id ?? ($activeRouting?->to_office_id ?? $document->current_office_id),
+                    'viewed_at' => now(),
+                ]);
+            }
+
+            ActivityLog::create([
+                'user_id'     => $user?->id,
+                'user'        => $user?->name ?? 'System User',
+                'action'      => $isFirstScan ? 'Document Viewed' : 'QR Verified Again',
+                'document_id' => $document->id,
+                'ip'          => 'REDACTED',
+                'meta'        => [
+                    'verification_method' => 'External QR Scan',
+                    'receiver'            => $user?->name ?? 'Unknown',
+                    'office'              => $user?->department?->name ?? ($user?->office?->name ?? 'Unknown'),
+                    'actor_user_id'       => $user?->id,
+                    'timestamp'           => now()->toIso8601String(),
+                ]
+            ]);
+        }
+
+        // Confidential protection & OTP check: Universal rule, no admin bypass
         if ($document->is_confidential) {
-            $isAdmin = $policy->isUserAdmin($user);
             $isUploader = $document->uploaded_by === $user?->id;
-            if (!$isAdmin && !$isUploader && !session('otp_verified_' . $document->id)) {
+            if (!$isUploader && !session('otp_verified_' . $document->id)) {
                 return redirect()->route('qr.index', ['document_id' => $document->id])
                     ->with('info', 'This document is confidential. Please verify your 6-digit access PIN to view details.');
             }

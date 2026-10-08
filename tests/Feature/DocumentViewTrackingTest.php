@@ -70,47 +70,55 @@ class DocumentViewTrackingTest extends TestCase
             'user_name' => $viewer->name,
         ];
 
-        // 1. Initial view log should NOT be created for a normal page load (without notification)
+        // 1. Initial view log should NOT be created for a normal page load
         $response = $this->withSession($sessionData)
             ->get(route('track.detail', $document->id));
 
         $response->assertStatus(200);
         $this->assertEquals(0, DocumentView::count());
-        $this->assertEquals(0, ActivityLog::where('action', 'DOCUMENT VIEWED')->count());
+        $this->assertEquals(0, ActivityLog::where('action', 'Document Viewed')->count());
 
-        // 2. View log SHOULD be created when loading page from a notification
+        // 2. Page load even with from_notification must NOT mark document as viewed (Rule 3)
         $response = $this->withSession($sessionData)
             ->get(route('track.detail', $document->id) . '?from_notification=1');
 
         $response->assertStatus(200);
+        $this->assertEquals(0, DocumentView::count());
+        $this->assertEquals(0, ActivityLog::where('action', 'Document Viewed')->count());
+
+        // 3. Official Viewed event occurs ONLY upon successful QR scan verification
+        $scanResponse = $this->withSession($sessionData)
+            ->post(route('qr.scan'), [
+                'qr_data' => $document->qr_code ?? (string) $document->id,
+                'target_document_id' => $document->id,
+            ]);
+        $scanResponse->assertStatus(200);
+        $scanResponse->assertJson(['success' => true]);
+
         $this->assertEquals(1, DocumentView::count());
-        $this->assertEquals(1, ActivityLog::where('action', 'DOCUMENT VIEWED')->count());
+        $this->assertEquals(1, ActivityLog::where('action', 'Document Viewed')->count());
         
         $firstViewedAt = DocumentView::first()->viewed_at;
 
-        // 3. Page refreshes (even with notification param) should preserve the first view timestamp and prevent duplicates
+        // 4. Repeated QR scan preserves original first-view timestamp and does not duplicate DocumentView
         Carbon::setTestNow(Carbon::create(2026, 7, 20, 11, 42, 30)); // 90s later
 
-        $response = $this->withSession($sessionData)
-            ->get(route('track.detail', $document->id) . '?from_notification=1');
+        $scanResponse2 = $this->withSession($sessionData)
+            ->post(route('qr.scan'), [
+                'qr_data' => $document->qr_code ?? (string) $document->id,
+                'target_document_id' => $document->id,
+            ]);
+        $scanResponse2->assertStatus(200);
 
         $this->assertEquals(1, DocumentView::count());
-        $this->assertEquals(2, ActivityLog::where('action', 'DOCUMENT VIEWED')->count()); // access event is logged, but DocumentView is not duplicated
+        $this->assertEquals(1, ActivityLog::where('action', 'Document Viewed')->count());
+        $this->assertEquals(1, ActivityLog::where('action', 'QR Verified Again')->count());
         $this->assertEquals($firstViewedAt->toDateTimeString(), DocumentView::first()->viewed_at->toDateTimeString());
 
-        // 4. Successful download (open file) should also record view if not already viewed, and log access
-        $uploaderSession = [
-            'authenticated' => true,
-            'user_id' => $uploader->id,
-            'user_role' => 'ADMIN',
-            'user_name' => $uploader->name,
-        ];
-        
-        // Setup document file
+        // 5. Download file authorization: requires QR scan
         Storage::disk('public')->put('test.pdf', 'dummy content');
         $document->update(['file_path' => 'test.pdf']);
 
-        // A different recipient (uploader is not a routed recipient, but let's test a receiver who hasn't viewed yet)
         $viewer2 = User::create([
             'name' => 'Recipient 2',
             'username' => 'rec2',
@@ -127,7 +135,7 @@ class DocumentViewTrackingTest extends TestCase
             'receiver_user_id' => $viewer2->id,
             'sender_user_id' => $uploader->id,
             'status' => 'Pending',
-            'scanned_at' => now(),
+            'scanned_at' => null,
         ]);
 
         $sessionData2 = [
@@ -137,14 +145,29 @@ class DocumentViewTrackingTest extends TestCase
             'user_name' => $viewer2->name,
         ];
 
-        // Recipient 2 downloads document (Open File) - should create view and activity log
-        $response = $this->withSession($sessionData2)
+        // Recipient 2 attempts download before QR scan -> 403 Forbidden
+        $this->flushSession();
+        $response = $this->actingAs($viewer2)->withSession($sessionData2)
             ->get(route('documents.download', $document->id));
+        $response->assertStatus(403);
 
-        $response->assertStatus(200);
+        // Recipient 2 scans QR
+        $viewer2Scan = $this->actingAs($viewer2)->withSession($sessionData2)
+            ->post(route('qr.scan'), [
+                'qr_data' => $document->qr_code ?? (string) $document->id,
+                'target_document_id' => $document->id,
+            ]);
+        $viewer2Scan->assertStatus(200);
+
+        // Now download succeeds
+        $sessionData2Verified = array_merge($sessionData2, [
+            'qr_verified_' . $document->id => true,
+        ]);
+        $dlResponse = $this->actingAs($viewer2)->withSession($sessionData2Verified)
+            ->get(route('documents.download', $document->id));
+        $dlResponse->assertStatus(200);
+
         $this->assertEquals(2, DocumentView::count());
-        $this->assertEquals(3, ActivityLog::where('action', 'DOCUMENT VIEWED')->count());
-
         $this->assertDatabaseHas('document_views', [
             'document_id' => $document->id,
             'user_id' => $viewer2->id,

@@ -267,10 +267,15 @@
             </div>
 
             <div class="d-flex align-items-center gap-3">
-                <div class="notif-btn">
+                @php
+                    $unreadNotifCount = auth()->user()?->unreadNotifications()->count() ?? 0;
+                @endphp
+                <a href="{{ route('notifications.index') }}" class="notif-btn text-decoration-none">
                     <i class="bi bi-bell"></i>
-                    <span class="notif-badge">3</span>
-                </div>
+                    @if($unreadNotifCount > 0)
+                        <span class="notif-badge">{{ $unreadNotifCount > 99 ? '99+' : $unreadNotifCount }}</span>
+                    @endif
+                </a>
             </div>
         </header>
 

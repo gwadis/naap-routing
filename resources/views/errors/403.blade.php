@@ -8,7 +8,10 @@
     $lowerMsg = strtolower($rawMsg);
 
     // Map context-specific messages according to Requirement 14
-    if (str_contains($lowerMsg, 'administrator') || str_contains($lowerMsg, 'admin')) {
+    if (str_contains($lowerMsg, 'qr verification') || str_contains($lowerMsg, 'otp verification')) {
+        $primaryMessage = $rawMsg;
+        $secondaryMessage = 'QR code verification (and OTP if applicable) is required before accessing or downloading protected document files.';
+    } elseif (str_contains($lowerMsg, 'administrator') || str_contains($lowerMsg, 'admin')) {
         $primaryMessage = 'Administrator privileges are required to access this page.';
         $secondaryMessage = "You don't have permission to access this page. This page is available only to authorized administrators.";
     } elseif (str_contains($lowerMsg, 'download')) {

@@ -518,9 +518,15 @@
                 <i class="bi bi-printer"></i> Print QR Label
             </a>
             @if($document->file_path)
-                <a href="{{ route('documents.download', $document->id) }}" class="btn btn-sm btn-primary d-inline-flex align-items-center gap-1" style="border-radius: 8px; height: 36px; font-weight: 600;">
-                    <i class="bi bi-download"></i> Download File
-                </a>
+                @if(isset($isLocked) && $isLocked)
+                    <button type="button" class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1" disabled style="border-radius: 8px; height: 36px; font-weight: 600;" title="Complete QR verification to access and download this file">
+                        <i class="bi bi-lock-fill"></i> QR Verification Required
+                    </button>
+                @else
+                    <a href="{{ route('documents.download', $document->id) }}" class="btn btn-sm btn-primary d-inline-flex align-items-center gap-1" style="border-radius: 8px; height: 36px; font-weight: 600;">
+                        <i class="bi bi-download"></i> Download File
+                    </a>
+                @endif
             @endif
         </div>
     </div>
@@ -829,9 +835,15 @@
                                         @endif
                                     </div>
                                 </div>
-                                <a href="{{ route('documents.download', $document->id) }}" class="btn btn-outline-primary btn-sm px-3" style="border-radius: 6px; font-weight: 600;">
-                                    <i class="bi bi-download me-1"></i> Download File
-                                </a>
+                                @if(isset($isLocked) && $isLocked)
+                                    <span class="badge bg-secondary px-3 py-2 text-white" style="border-radius: 6px; font-weight: 600;">
+                                        <i class="bi bi-lock-fill me-1"></i> Scan QR to Unlock File
+                                    </span>
+                                @else
+                                    <a href="{{ route('documents.download', $document->id) }}" class="btn btn-outline-primary btn-sm px-3" style="border-radius: 6px; font-weight: 600;">
+                                        <i class="bi bi-download me-1"></i> Download File
+                                    </a>
+                                @endif
                             </div>
                         @else
                             <div class="p-3 bg-light rounded-3 border text-muted small">
@@ -1336,6 +1348,7 @@
                                         <th>Viewer</th>
                                         <th>Office</th>
                                         <th>Timestamp</th>
+                                        <th>Verification</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -1344,6 +1357,11 @@
                                             <td class="fw-semibold text-dark">{{ $v->user?->name ?? 'Guest' }}</td>
                                             <td class="small text-secondary">{{ $v->office?->name ?? 'Unassigned' }}</td>
                                             <td class="small text-secondary">{{ $v->viewed_at ? $v->viewed_at->format('M d, h:i A') : 'N/A' }}</td>
+                                            <td>
+                                                <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1" style="font-size: 11px;">
+                                                    <i class="bi bi-qr-code-scan me-1"></i> QR Scan
+                                                </span>
+                                            </td>
                                         </tr>
                                     @endforeach
                                 </tbody>

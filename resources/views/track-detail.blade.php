@@ -282,6 +282,28 @@
             font-size: 0.75rem;
         }
     }
+
+    @media (max-width: 576px) {
+        .document-title {
+            font-size: 1.25rem !important;
+            word-break: break-word;
+        }
+        .document-header {
+            padding: 16px !important;
+        }
+        .timeline-container {
+            padding-left: 24px !important;
+        }
+        .timeline-line {
+            left: 10px !important;
+        }
+        .timeline-dot {
+            left: -18px !important;
+            width: 24px !important;
+            height: 24px !important;
+            font-size: 0.7rem !important;
+        }
+    }
 </style>
 
 <div class="tracking-container">
@@ -331,7 +353,12 @@
                     @endphp
                     @if($latestView)
                         <div style="font-weight: 700;">{{ $latestView->viewed_at->format('M d, Y • h:i A') }}</div>
-                        <div style="font-size: 0.8rem; font-weight: normal; color: var(--text-dim); margin-top: 4px;">Viewed by {{ $latestView->user->name }}</div>
+                        <div style="font-size: 0.8rem; font-weight: normal; color: var(--text-dim); margin-top: 4px;">
+                            Viewed by {{ $latestView->user->name }}
+                            <div style="color: #059669; font-weight: 600; font-size: 0.75rem; margin-top: 2px;">
+                                <i class="fas fa-qrcode"></i> Verification: QR Scan
+                            </div>
+                        </div>
                     @else
                         <span style="color: var(--text-dim); font-weight: normal;">Never Viewed</span>
                     @endif
@@ -413,6 +440,25 @@
             </div>
             @empty
             @endforelse
+
+            <!-- Document View Verification (QR Verified) -->
+            @foreach($document->views->sortBy('viewed_at') as $view)
+            <div class="timeline-item">
+                <div class="timeline-dot dot-signed" style="background: #0ea5e9;">
+                    <i class="fas fa-eye" style="font-size: 12px; color: #fff;"></i>
+                </div>
+                <div class="timeline-content">
+                    <div class="timeline-event-title">Document Viewed</div>
+                    <div class="timeline-event-details">
+                        Viewed by <strong>{{ $view->user?->name ?? 'Recipient' }}</strong> ({{ $view->office?->name ?? 'Authorized Office' }})
+                    </div>
+                    <div class="timeline-timestamp">
+                        Viewed: {{ $view->viewed_at->format('M j, Y \a\t H:i:s') }}
+                        <br><span style="color: #059669; font-weight: 600;"><i class="fas fa-check-circle me-1"></i> Verification: QR Scan</span>
+                    </div>
+                </div>
+            </div>
+            @endforeach
 
             <!-- Document Received & Signed -->
             @if($document->received_at)

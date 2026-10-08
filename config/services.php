@@ -34,10 +34,10 @@ return [
     ],
 
     'email' => [
-        'provider' => env('EMAIL_PROVIDER', 'log'),
-        'api_key' => env('EMAIL_PROVIDER') === 'brevo' ? env('BREVO_API_KEY') : env('EMAIL_API_KEY'),
-        'from_address' => env('EMAIL_FROM_ADDRESS'),
-        'from_name' => env('EMAIL_FROM_NAME', 'NAAP Document Routing'),
+        'provider' => env('EMAIL_PROVIDER', env('MAIL_MAILER', 'brevo')),
+        'api_key' => env('BREVO_API_KEY', env('EMAIL_API_KEY')),
+        'from_address' => env('EMAIL_FROM_ADDRESS', env('MAIL_FROM_ADDRESS', 'noreply@larable.dev')),
+        'from_name' => env('EMAIL_FROM_NAME', env('MAIL_FROM_NAME', 'NAAP Document Routing')),
     ],
 
     'sms' => [

@@ -287,61 +287,13 @@ class Document extends Model
         $userId = (int) $user->id;
         $officeId = $user->office_id ? (int) $user->office_id : null;
 
-        // 2. OFFICE HEAD:
-        // Visible:
-        // - Documents submitted by the Office Head
-        // - Documents routed to the Office Head's office (origin, current, destination)
-        // - Documents assigned directly to the Office Head (receiver on doc or in routing)
-        // - Documents requiring the Office Head's approval/action
-        // - Documents that previously passed through the Office Head's office (in routing hops)
-        // - Documents explicitly shared with the Office Head or their office
-        if ($user->isOfficeHead()) {
-            return $query->where(function ($q) use ($userId, $officeId, $user) {
-                // Documents submitted by the Office Head
-                $q->where('uploaded_by', $userId)
-                  // Documents assigned directly to the Office Head
-                  ->orWhere('receiver_user_id', $userId)
-                  // Documents in routing steps assigned to or involving the Office Head
-                  ->orWhereHas('routings', function ($rq) use ($userId, $officeId) {
-                      $rq->where('receiver_user_id', $userId)
-                        ->orWhere('sender_user_id', $userId)
-                        ->orWhere('forwarded_from_user_id', $userId);
-                      if ($officeId) {
-                          $rq->orWhere('to_office_id', $officeId)
-                             ->orWhere('from_office_id', $officeId);
-                      }
-                  });
-
-                // Documents routed to / from / located at Office Head's office
-                if ($officeId) {
-                    $q->orWhere('current_office_id', $officeId)
-                      ->orWhere('origin_office_id', $officeId)
-                      ->orWhere('destination_office_id', $officeId);
-                }
-
-                // Documents explicitly shared with Office Head (via DocumentPin)
-                $q->orWhereExists(function ($sub) use ($userId, $user) {
-                    $sub->select(\Illuminate\Support\Facades\DB::raw(1))
-                        ->from('document_pins')
-                        ->whereColumn('document_pins.document_id', 'documents.id')
-                        ->where(function ($pinQuery) use ($userId, $user) {
-                            $pinQuery->where('document_pins.recipient_id', $userId)
-                                     ->orWhere('document_pins.user_id', $userId);
-                            if (!empty($user->email)) {
-                                $pinQuery->orWhere('document_pins.email', $user->email);
-                            }
-                        });
-                });
-            });
-        }
-
-        // 3. STAFF / EMPLOYEE / REGULAR USERS (Normal Users):
+        // 2. DOCUMENT-LEVEL ACCESS (Deny by default):
         // Visible ONLY if:
-        // 1. The user created the document (uploaded_by)
-        // 2. The document was explicitly sent/assigned to the user (receiver_user_id on doc or in routing, or sender/forwarder in routing)
-        // 3. The document was explicitly shared with the user (via DocumentPin)
+        // 1. The user created / submitted the document (uploaded_by)
+        // 2. The document was explicitly sent / assigned to the user (receiver_user_id on doc or in routing, or sender/forwarder in routing)
+        // 3. Legitimate unassigned office-level pending routing dispatched to the user's office
+        // 4. The document was explicitly shared with the user (via DocumentPin)
         // Otherwise: DENY ACCESS.
-        $officeId = $user->office_id ? (int) $user->office_id : null;
         return $query->where(function ($q) use ($userId, $user, $officeId) {
             // Documents they created/submitted
             $q->where('uploaded_by', $userId)

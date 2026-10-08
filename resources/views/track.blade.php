@@ -96,6 +96,34 @@
     .pagination .flex.justify-between.flex-1 {
         display: none !important;
     }
+
+    @media (max-width: 576px) {
+        .filter-toolbar {
+            padding: 12px !important;
+        }
+        .toolbar-row {
+            flex-direction: column;
+            align-items: stretch !important;
+            gap: 10px !important;
+        }
+        .toolbar-row .d-flex.flex-wrap {
+            flex-direction: column;
+            width: 100% !important;
+            gap: 8px !important;
+        }
+        .toolbar-row .d-flex.flex-wrap > div {
+            width: 100% !important;
+            min-width: 0 !important;
+        }
+        .toolbar-row .d-flex.gap-2 {
+            width: 100%;
+            justify-content: flex-end;
+        }
+        .btn-toolbar {
+            flex: 1;
+            justify-content: center;
+        }
+    }
 </style>
 
 <div class="d-flex justify-content-between align-items-center mb-4">

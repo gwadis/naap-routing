@@ -133,9 +133,15 @@
     /* Charts main grid */
     .charts-main-grid { 
         display: grid; 
-        grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); 
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 450px), 1fr)); 
         gap: 20px; 
         margin-bottom: 24px; 
+    }
+    @media (max-width: 768px) {
+        .charts-main-grid {
+            grid-template-columns: 1fr;
+            gap: 14px;
+        }
     }
     
     .chart-card { 
@@ -429,7 +435,7 @@
 </style>
 
 <div class="dashboard-container">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2 mb-4">
         <div>
             <h1 class="page-title mb-1">{{ $isAdmin ? 'System Analytics Dashboard' : 'My Workspace' }}</h1>
             <p class="text-secondary small mb-0" style="color: var(--text-dim) !important;">

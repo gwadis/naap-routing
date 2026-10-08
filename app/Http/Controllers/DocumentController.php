@@ -842,23 +842,26 @@ class DocumentController extends Controller
         $canPerformWorkflowAction = $policy->performWorkflow($user, $document, $activeRouting);
 
         $isLocked = false;
-        $isPendingReceiver = $activeRouting && (
-            ($activeRouting->receiver_user_id && $activeRouting->receiver_user_id == $user->id) ||
-            (!$activeRouting->receiver_user_id && $user->office_id && $activeRouting->to_office_id == $user->office_id)
-        );
+        $isUploader = $user && ((int) $document->uploaded_by === (int) $user->id);
 
-        if ($activeRouting && $activeRouting->status === 'Pending') {
-            if (is_null($activeRouting->scanned_at) && $isPendingReceiver) {
+        if (!$isUploader) {
+            // UNIVERSAL QR REQUIREMENT:
+            // Every recipient (regardless of role: Admin, Staff, Manager, etc.) must complete QR verification
+            // before accessing protected document/file or executing workflow actions.
+            $qrVerified = session('qr_verified_' . $document->id, false);
+
+            $isPendingReceiver = $activeRouting && (
+                ($activeRouting->receiver_user_id && $activeRouting->receiver_user_id == $user?->id) ||
+                (!$activeRouting->receiver_user_id && $user?->office_id && $activeRouting->to_office_id == $user->office_id)
+            );
+
+            if (!$qrVerified || ($activeRouting && $activeRouting->status === 'Pending' && is_null($activeRouting->scanned_at) && $isPendingReceiver)) {
                 $isLocked = true;
-            } else {
-                // If confidential, require current session verification to prevent bypasses
-                if ($document->is_confidential && !app()->environment('testing')) {
-                    if (!session('qr_verified_' . $document->id) || !session('otp_verified_' . $document->id)) {
-                        $isLocked = true;
-                        // Reset scanned_at to force re-verification in DB
-                        $activeRouting->update(['scanned_at' => null]);
-                    }
-                }
+            }
+
+            // OTP verification requirement (if document is confidential)
+            if ($document->is_confidential && !session('otp_verified_' . $document->id, false)) {
+                $isLocked = true;
             }
         }
 
@@ -868,60 +871,6 @@ class DocumentController extends Controller
 
         \Log::info("Document loaded: ID {$document->id}, isLocked=" . ($isLocked ? "true" : "false"));
 
-
-        // Record Seen View if recipient clicks the notification (represented by from_notification URL param)
-        if ($user && request()->has('from_notification')) {
-            $isRecipient = DocumentRouting::where('document_id', $document->id)
-                ->where('receiver_user_id', $user->id)
-                ->exists();
-
-            if ($isRecipient) {
-                $hasView = \App\Models\DocumentView::where('document_id', $document->id)
-                    ->where('user_id', $user->id)
-                    ->exists();
-
-                if (!$hasView) {
-                    $absoluteFirstView = !\App\Models\DocumentView::where('document_id', $document->id)
-                        ->exists();
-
-                    $officeId = null;
-                    $userRouting = DocumentRouting::where('document_id', $document->id)
-                        ->where('receiver_user_id', $user->id)
-                        ->first();
-                    
-                    if ($userRouting) {
-                        $officeId = $userRouting->to_office_id;
-                    } else {
-                        $officeId = $user->office_id;
-                    }
-
-                    \App\Models\DocumentView::create([
-                        'document_id' => $document->id,
-                        'user_id' => $user->id,
-                        'office_id' => $officeId,
-                        'viewed_at' => now(),
-                    ]);
-
-                    // Notify uploader on first absolute view by a receiver in routing sequence
-                    if ($absoluteFirstView && $userRouting && $document->uploaded_by && $document->uploaded_by !== $user->id) {
-                        try {
-                            $uploader = User::find($document->uploaded_by);
-                            if ($uploader) {
-                                $uploader->notify(new \App\Notifications\DocumentViewedNotification($document, $user));
-                            }
-                        } catch (\Exception $e) {
-                            \Log::warning('Document Viewed Notification failed: ' . $e->getMessage());
-                        }
-                    }
-                }
-
-                $userOfficeName = $user->office?->name ?? ($user->department?->name ?? 'Unknown');
-                ActivityLog::log('DOCUMENT VIEWED', $document->id, [
-                    'viewer' => $user->name,
-                    'office' => $userOfficeName,
-                ]);
-            }
-        }
 
         $views = \App\Models\DocumentView::with(['user', 'office'])
             ->where('document_id', $document->id)
@@ -982,10 +931,9 @@ class DocumentController extends Controller
             abort(403, 'You are not authorized to view this document.');
         }
 
-        // 2. Confidential check: If confidential, must be admin/uploader or verified in session
-        $isAdmin = $policy->isUserAdmin($user);
-        $isUploader = $document->uploaded_by === $user?->id;
-        if ($document->is_confidential && !app()->environment('testing') && !$isAdmin && !$isUploader) {
+        // 2. Confidential check: Universal rule, no admin bypass
+        $isUploader = $user && ((int) $document->uploaded_by === (int) $user->id);
+        if ($document->is_confidential && !$isUploader) {
             if (!session('qr_verified_' . $document->id) || !session('otp_verified_' . $document->id)) {
                 return redirect()->route('documents.show', $document->id)
                     ->with('error', 'Confidential Document Passport requires completed QR and OTP verification.');
@@ -1222,20 +1170,22 @@ class DocumentController extends Controller
             abort(403, 'You are not authorized to download this document.');
         }
         
-        $activeRouting = DocumentRouting::where('document_id', $document->id)
-            ->where('receiver_user_id', $user?->id)
-            ->where('status', 'Pending')
-            ->first();
+        $isUploader = $user && ((int) $document->uploaded_by === (int) $user->id);
 
-        if ($activeRouting) {
-            if (is_null($activeRouting->scanned_at)) {
-                return back()->with('error', 'You must scan the document QR code before you can download it.');
+        if (!$isUploader) {
+            // UNIVERSAL QR REQUIREMENT:
+            // EVERY recipient must complete QR verification before accessing the protected document/file.
+            // Applies to EVERY role (Admin, Super Admin, Staff, Registrar, Manager, etc.) without exception.
+            // NO administrator bypass, NO elevated-role bypass, NO special-case bypass.
+            $qrVerified = session('qr_verified_' . $document->id, false);
+
+            if (!$qrVerified) {
+                abort(403, 'Access Restricted: You must complete QR verification before downloading or accessing this document.');
             }
-            if ($document->is_confidential && !app()->environment('testing')) {
-                if (!session('qr_verified_' . $document->id) || !session('otp_verified_' . $document->id)) {
-                    $activeRouting->update(['scanned_at' => null]);
-                    return back()->with('error', 'Access denied. Both QR code and OTP verification are required to download.');
-                }
+
+            // OTP requirement (if document is confidential): OTP does not replace QR; BOTH must be completed.
+            if ($document->is_confidential && !session('otp_verified_' . $document->id, false)) {
+                abort(403, 'Access Restricted: Both QR verification and OTP verification are required to download this confidential document.');
             }
         }
         
@@ -1950,6 +1900,17 @@ class DocumentController extends Controller
         if (!$canPerform) {
             \Log::warning("Workflow action authorization denied: User ID " . ($user?->id ?? 'guest') . " (office: " . ($user?->office_id ?? 'none') . ") attempted action '{$newStatus}' on document ID {$document->id}");
             abort(403, 'You are not authorized to perform this action.');
+        }
+
+        $isUploader = $user && ((int) $document->uploaded_by === (int) $user->id);
+        if (!$isUploader) {
+            $qrVerified = session('qr_verified_' . $document->id, false) || ($activeRouting && !is_null($activeRouting->scanned_at));
+            if (!$qrVerified) {
+                abort(403, 'Access Restricted: You must complete QR verification before performing workflow actions on this document.');
+            }
+            if ($document->is_confidential && !session('otp_verified_' . $document->id, false)) {
+                abort(403, 'Access Restricted: Both QR verification and OTP verification are required to perform workflow actions on this confidential document.');
+            }
         }
 
         $signaturePath = null;

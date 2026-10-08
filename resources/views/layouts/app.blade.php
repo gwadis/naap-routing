@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>NAAP Admin - @yield('title')</title>
     
@@ -675,10 +675,177 @@
         }
 
         @media (max-width: 992px) {
-            .sidebar { transform: translateX(-100%); }
-            .main-container { margin-left: 0; }
-            body.sidebar-open .sidebar { transform: translateX(0); }
-            body.sidebar-open #sidebarOverlay { display: block; }
+            .sidebar { 
+                transform: translateX(-100%); 
+                box-shadow: 0 0 25px rgba(0, 0, 0, 0.45) !important;
+            }
+            .main-container { 
+                margin-left: 0 !important; 
+                width: 100% !important;
+                max-width: 100vw !important;
+                min-width: 0 !important;
+                overflow-x: hidden !important;
+            }
+            body.sidebar-open { 
+                overflow: hidden !important; 
+            }
+            body.sidebar-open .sidebar { 
+                transform: translateX(0); 
+            }
+            body.sidebar-open #sidebarOverlay { 
+                display: block; 
+            }
+            
+            /* Responsive charts & grids */
+            .charts-main-grid {
+                grid-template-columns: 1fr !important;
+                gap: 16px !important;
+            }
+            .kpi-grid {
+                grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)) !important;
+                gap: 12px !important;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .charts-main-grid {
+                grid-template-columns: 1fr !important;
+                gap: 14px !important;
+            }
+            .kpi-grid {
+                grid-template-columns: repeat(2, 1fr) !important;
+                gap: 10px !important;
+            }
+            .card, .doc-card, .glass-card, .chart-card {
+                padding: 16px !important;
+                border-radius: 12px !important;
+                margin-bottom: 14px !important;
+            }
+            .canvas-container {
+                height: 220px !important;
+            }
+            .table th, .table td {
+                padding: 10px 12px !important;
+                font-size: 12.5px !important;
+            }
+            /* Step & tracking flow mobile responsiveness */
+            .track-steps {
+                display: flex !important;
+                overflow-x: auto !important;
+                padding-bottom: 10px !important;
+                justify-content: flex-start !important;
+                gap: 12px !important;
+                -webkit-overflow-scrolling: touch;
+            }
+            .track-step {
+                min-width: 130px !important;
+                flex: 0 0 auto !important;
+            }
+            .track-step::after {
+                display: none !important;
+            }
+            .tracker-container {
+                overflow-x: auto !important;
+                padding-bottom: 12px !important;
+                justify-content: flex-start !important;
+                gap: 16px !important;
+                -webkit-overflow-scrolling: touch;
+            }
+            .step-node {
+                flex-shrink: 0 !important;
+                width: 95px !important;
+            }
+            .routing-card {
+                padding: 16px !important;
+                border-radius: 16px !important;
+            }
+        }
+
+        @media (max-width: 576px) {
+            html, body {
+                overflow-x: hidden !important;
+                max-width: 100vw !important;
+            }
+            header {
+                padding-left: 14px !important;
+                padding-right: 14px !important;
+                height: 58px !important;
+            }
+            main.container-fluid {
+                padding-left: 12px !important;
+                padding-right: 12px !important;
+                padding-top: 14px !important;
+                padding-bottom: 24px !important;
+            }
+            .dashboard-title, .page-title {
+                font-size: 20px !important;
+            }
+            .section-title {
+                font-size: 16px !important;
+            }
+            .kpi-grid {
+                grid-template-columns: 1fr 1fr !important;
+                gap: 8px !important;
+            }
+            .kpi-card {
+                padding: 12px 14px !important;
+                min-height: 85px !important;
+            }
+            .kpi-card h3 {
+                font-size: 20px !important;
+            }
+            .kpi-card .label {
+                font-size: 10px !important;
+                margin-bottom: 4px !important;
+            }
+            .user-work-grid {
+                grid-template-columns: 1fr 1fr !important;
+                gap: 8px !important;
+            }
+            .user-work-card {
+                padding: 10px 12px !important;
+                min-height: 65px !important;
+            }
+            .user-work-card .uw-value {
+                font-size: 20px !important;
+            }
+            .btn {
+                font-size: 13px !important;
+                padding: 6px 12px !important;
+                height: 36px !important;
+            }
+            .btn-toolbar {
+                height: 36px !important;
+                font-size: 12.5px !important;
+                padding: 6px 12px !important;
+            }
+            .filter-input {
+                height: 36px !important;
+                font-size: 12.5px !important;
+            }
+            .table-responsive {
+                border-radius: 10px !important;
+                margin-bottom: 12px !important;
+            }
+            .modal-dialog {
+                margin: 8px !important;
+                max-width: calc(100vw - 16px) !important;
+            }
+            .modal-content {
+                border-radius: 12px !important;
+            }
+            #uploadModal .modal-dialog {
+                width: calc(100vw - 16px) !important;
+                margin: 8px auto !important;
+                height: calc(100vh - 16px) !important;
+                max-height: calc(100vh - 16px) !important;
+            }
+            #uploadModal .modal-body {
+                padding: 14px 12px !important;
+            }
+            #uploadModal .modal-header {
+                padding: 12px 16px !important;
+            }
         }
 
     </style>
@@ -791,11 +958,16 @@
 
     <div class="main-container">
         <header class="px-4 py-2 d-flex justify-content-between align-items-center">
-            <div class="d-flex align-items-center gap-3">
-                <button class="btn d-lg-none p-0 header-action-btn" id="hamburgerMenu">
+            <div class="d-flex align-items-center gap-2 gap-sm-3 min-w-0">
+                <button class="btn d-lg-none p-0 header-action-btn flex-shrink-0" id="hamburgerMenu" aria-label="Toggle navigation menu">
                     <i class="bi bi-list fs-4"></i>
                 </button>
                 
+                <!-- Mobile Page Title -->
+                <div class="d-md-none fw-bold text-dark text-truncate" style="font-size: 15px; max-width: 190px;">
+                    @yield('title')
+                </div>
+
                 <!-- Enterprise Breadcrumb -->
                 <div class="breadcrumb-container d-none d-md-flex align-items-center gap-2">
                     <span>NAAP Enterprise</span>
@@ -819,7 +991,7 @@
                         <i class="bi bi-bell"></i>
                         <span class="notif-badge" id="notifBadge">0</span>
                     </div>
-                    <ul class="dropdown-menu dropdown-menu-end shadow-lg border mt-2" aria-labelledby="notifDropdown" style="width: 320px; border-radius:var(--radius-lg); border-color:var(--panel-border); padding:0; overflow:hidden; background:var(--panel);" id="notifMenu">
+                    <ul class="dropdown-menu dropdown-menu-end shadow-lg border mt-2" aria-labelledby="notifDropdown" style="width: 320px; max-width: calc(100vw - 24px); border-radius:var(--radius-lg); border-color:var(--panel-border); padding:0; overflow:hidden; background:var(--panel);" id="notifMenu">
                         <li class="px-3 py-2" style="color:var(--text-dim); font-size:12px;">Loading notifications...</li>
                         <li><hr class="dropdown-divider m-0"></li>
                         <li>

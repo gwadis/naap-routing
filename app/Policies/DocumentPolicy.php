@@ -104,34 +104,6 @@ class DocumentPolicy
             return true;
         }
 
-        // 7. Role-Specific Evaluation: OFFICE HEAD (Elevated office-scoped oversight)
-        if ($user->office_id && $user->isOfficeHead()) {
-            $userOfficeId = (int) $user->office_id;
-
-            // - Documents routed to Office Head's office (origin, current, destination)
-            $associatedOffices = array_map('intval', array_filter([
-                $document->origin_office_id,
-                $document->current_office_id,
-                $document->destination_office_id,
-            ]));
-
-            if (in_array($userOfficeId, $associatedOffices, true)) {
-                return true;
-            }
-
-            // - Documents that previously passed through the Office Head's office
-            $officeInRouting = DocumentRouting::where('document_id', $document->id)
-                ->where(function ($q) use ($userOfficeId) {
-                    $q->where('to_office_id', $userOfficeId)
-                      ->orWhere('from_office_id', $userOfficeId);
-                })
-                ->exists();
-
-            if ($officeInRouting) {
-                return true;
-            }
-        }
-
         Log::warning("Workflow view authorization denied: User ID {$user->id} (office: {$user->office_id}, role: {$user->role}) not permitted to view document ID {$document->id}");
         return false;
     }

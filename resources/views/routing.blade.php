@@ -108,6 +108,25 @@
         transition: 0.15s ease;
     }
     .btn-route:hover { background: #1e40af; border-color: #1e40af; color: white; }
+
+    @media (max-width: 768px) {
+        .routing-card {
+            padding: 16px !important;
+            border-radius: 16px !important;
+            margin-bottom: 16px !important;
+        }
+        .tracker-container {
+            overflow-x: auto !important;
+            padding-bottom: 14px !important;
+            justify-content: flex-start !important;
+            gap: 16px !important;
+            -webkit-overflow-scrolling: touch;
+        }
+        .step-node {
+            flex-shrink: 0 !important;
+            width: 95px !important;
+        }
+    }
 </style>
 
 <div class="page-header">

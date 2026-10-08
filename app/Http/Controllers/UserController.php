@@ -392,7 +392,7 @@ class UserController extends Controller
                 'needs_password_change' => true, // Force password change on first login
             ]);
 
-            // Automatically send email with credentials and first-time setup instructions
+            // Automatically send email with credentials and first-time setup instructions synchronously
             Mail::to($user->email)->send(new \App\Mail\WelcomeUserMail($user, $temporaryPassword));
 
             AuditTrail::log("User Account Created: {$user->email}", "users/{$user->id}", null, $user->toArray());
@@ -936,6 +936,7 @@ class UserController extends Controller
             'user_name'     => $user->name,
             'user_email'    => $user->email,
             'user_role'     => $user->role,
+            'office_id'     => $user->office_id,
             'department_id' => $user->department_id,
         ]);
 

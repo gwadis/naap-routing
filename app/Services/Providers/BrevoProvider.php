@@ -14,16 +14,28 @@ class BrevoProvider implements EmailProviderInterface
 
     public function __construct()
     {
-        $this->apiKey = config('services.email.api_key');
-        $this->fromAddress = config('services.email.from_address');
-        $this->fromName = config('services.email.from_name');
+        $this->apiKey = config('services.email.api_key') 
+            ?: env('BREVO_API_KEY') 
+            ?: env('EMAIL_API_KEY');
+
+        $this->fromAddress = config('services.email.from_address') 
+            ?: env('EMAIL_FROM_ADDRESS') 
+            ?: env('MAIL_FROM_ADDRESS') 
+            ?: config('mail.from.address') 
+            ?: 'noreply@larable.dev';
+
+        $this->fromName = config('services.email.from_name') 
+            ?: env('EMAIL_FROM_NAME') 
+            ?: env('MAIL_FROM_NAME') 
+            ?: config('mail.from.name') 
+            ?: 'NAAP Document Routing';
 
         if (empty($this->apiKey)) {
-            throw new \InvalidArgumentException('Email API key is missing. Ensure EMAIL_API_KEY is configured in your .env file.');
+            throw new \InvalidArgumentException('Email API key is missing. Ensure BREVO_API_KEY or EMAIL_API_KEY is configured in your .env file.');
         }
 
         if (empty($this->fromAddress)) {
-            throw new \InvalidArgumentException('Sender email address is missing. Ensure EMAIL_FROM_ADDRESS is configured in your .env file.');
+            throw new \InvalidArgumentException('Sender email address is missing. Ensure EMAIL_FROM_ADDRESS or MAIL_FROM_ADDRESS is configured in your .env file.');
         }
     }
 

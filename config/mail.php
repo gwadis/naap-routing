@@ -14,7 +14,7 @@ return [
     |
     */
 
-    'default' => env('MAIL_MAILER', env('EMAIL_PROVIDER', 'log')),
+    'default' => env('MAIL_MAILER', env('EMAIL_PROVIDER', 'brevo')),
 
     /*
     |--------------------------------------------------------------------------
