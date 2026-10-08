@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Activity Logs')
+@section('title', 'My Activity')
 
 @section('content')
 <style>
@@ -154,16 +154,16 @@
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
-        <h1 class="page-title mb-1">Activity Logs</h1>
-        <p class="text-secondary small mb-0">Audit entries for system-wide user and document actions.</p>
+        <h1 class="page-title mb-1">My Activity</h1>
+        <p class="text-secondary small mb-0">Your personal operational audit trail and actions.</p>
     </div>
 </div>
 
 <div class="filter-panel">
-    <form method="GET" action="{{ route('activity.index') }}" class="row g-3 align-items-end">
+    <form method="GET" action="{{ route('activity.my') }}" class="row g-3 align-items-end">
         <div class="col-12 col-md-4 col-lg-3 text-start">
             <label class="form-label text-uppercase fw-bold" style="font-size: 11px; letter-spacing: 0.5px;">Search</label>
-            <input type="text" name="search" class="form-control filter-input" placeholder="Document or user..." value="{{ request('search') }}">
+            <input type="text" name="search" class="form-control filter-input" placeholder="Document title, user, or action..." value="{{ request('search') }}">
         </div>
         
         <div class="col-6 col-md-2 text-start">
@@ -192,7 +192,7 @@
             <button type="submit" class="btn btn-search">
                 <i class="bi bi-search me-1"></i>Search
             </button>
-            <a href="{{ route('activity.index') }}" class="btn btn-reset">
+            <a href="{{ route('activity.my') }}" class="btn btn-reset">
                 <i class="bi bi-arrow-clockwise me-1"></i>Reset
             </a>
         </div>

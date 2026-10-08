@@ -8,7 +8,7 @@ use App\Models\Department;
 use App\Models\Office;
 use App\Models\ActivityLog;
 use App\Models\AuditTrail;
-use Illuminate\Support\Facades\{Hash, Auth, Storage, DB, Mail, Log};
+use Illuminate\Support\Facades\{Hash, Auth, Storage, DB, Mail, Log, Password};
 use Illuminate\Support\Str;
 use App\Mail\SecurityMail;
 use App\Services\EmailService;
@@ -177,16 +177,13 @@ class UserController extends Controller
                 Log::channel('security')->critical("Account locked out for user {$user->email} due to consecutive failed attempts from IP {$ip}");
 
                 try {
+                    $timestamp = now()->format('Y-m-d H:i:s');
+                    $lockoutBody = view('emails.account_locked', compact('timestamp'))->render();
+
                     Mail::to($user->email)->send(new \App\Mail\SecurityMail(
                         "🛡️ Security Alert: Account Temporarily Locked",
                         $user->name,
-                        "<p>Your NAAP Routing account has been temporarily locked for 15 minutes due to 5 consecutive failed login attempts.</p>"
-                        . "<p><strong>Attempt details:</strong></p>"
-                        . "<ul>"
-                        . "<li><strong>IP Address:</strong> {$ip}</li>"
-                        . "<li><strong>Timestamp:</strong> " . now()->format('Y-m-d H:i:s') . "</li>"
-                        . "</ul>"
-                        . "<p>If this was not you, please contact your administrator immediately.</p>"
+                        $lockoutBody
                     ));
                 } catch (\Exception $e) {
                     Log::channel('email')->error("Failed to send lockout alert to {$user->email}: " . $e->getMessage());
@@ -258,6 +255,7 @@ class UserController extends Controller
                 'user_name'     => $user->name,
                 'user_email'    => $user->email,
                 'user_role'     => $user->role,
+                'office_id'     => $user->office_id,
                 'department_id' => $user->department_id,
             ]);
 
@@ -346,7 +344,7 @@ class UserController extends Controller
     }
 
     /**
-     * Store a newly created user.
+     * Store a newly created user with secure backend temporary password workflow.
      */
     public function store(Request $request)
     {
@@ -357,54 +355,66 @@ class UserController extends Controller
             'email'         => 'required|string|email|max:255|unique:users',
             'employee_id'   => 'nullable|string|max:255|unique:users,employee_id',
             'position'      => 'nullable|string|max:255',
-            'password'      => 'required|string|min:10|regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9])[a-zA-Z0-9!@#$%^&*()\-_+=\[\]{}:;<>,.?]+$/',
             'role'          => 'required|string',
             'department_id' => 'required|exists:departments,id',
             'office_id'     => 'nullable|exists:offices,id',
             'status'        => 'nullable|string|in:active,inactive',
             'phone'         => 'nullable|string|max:50',
-        ], [
-            'password.min' => 'Password must be at least 10 characters long.',
-            'password.regex' => 'Password must contain uppercase, lowercase, numbers, and a special character.',
         ]);
 
         $phone = !empty($validated['phone'])
             ? (\App\Services\SmsService::normalizePhoneNumber($validated['phone']) ?? $validated['phone'])
             : null;
 
-        $user = User::create([
-            'name'                  => $validated['name'],
-            'email'                 => $validated['email'],
-            'phone'                 => $phone,
-            'employee_id'           => $validated['employee_id'] ?? null,
-            'position'              => $validated['position'] ?? null,
-            'role'                  => $validated['role'],
-            'department_id'         => $validated['department_id'],
-            'office_id'             => $validated['office_id'] ?? null,
-            'status'                => $validated['status'] ?? 'active',
-            'password'              => Hash::make($validated['password']),
-            'needs_password_change' => true, // Enforce password reset on first login
-        ]);
+        // Generate a secure random temporary password (never chosen by admin)
+        $randomUpper = chr(random_int(65, 90));
+        $randomLower = chr(random_int(97, 122));
+        $randomDigit = chr(random_int(48, 57));
+        $specialChars = ['!', '@', '#', '$', '%', '&', '*'];
+        $randomSpecial = $specialChars[array_rand($specialChars)];
+        $randomExtra = Str::random(10);
+        $temporaryPassword = str_shuffle($randomUpper . $randomLower . $randomDigit . $randomSpecial . $randomExtra);
 
-        AuditTrail::log("User Account Created: {$user->email}", "users/{$user->id}", null, $user->toArray());
-        ActivityLog::log('New user created: ' . $user->name, null, [
-            'email' => $user->email,
-            'role' => $user->role,
-            'employee_id' => $user->employee_id
-        ]);
-
-        // Send welcome email
+        DB::beginTransaction();
         try {
-            Mail::to($user->email)->send(new \App\Mail\WelcomeUserMail($user, $validated['password']));
-            ActivityLog::log('Welcome Email Sent to ' . $user->email, null, ['email' => $user->email]);
-            Log::channel('email')->info("Welcome email sent to {$user->email}");
-        } catch (\Exception $e) {
-            \Log::error('Failed to send welcome email to ' . $user->email . ': ' . $e->getMessage());
-            ActivityLog::log('Welcome Email Sending Failed to ' . $user->email, null, ['error' => $e->getMessage()]);
-            Log::channel('email')->error("Failed to send welcome email to {$user->email}: " . $e->getMessage());
-        }
+            // Create user account with securely hashed temporary password (never plaintext)
+            $user = User::create([
+                'name'                  => $validated['name'],
+                'email'                 => $validated['email'],
+                'phone'                 => $phone,
+                'employee_id'           => $validated['employee_id'] ?? null,
+                'position'              => $validated['position'] ?? null,
+                'role'                  => $validated['role'],
+                'department_id'         => $validated['department_id'],
+                'office_id'             => $validated['office_id'] ?? null,
+                'status'                => $validated['status'] ?? 'active',
+                'password'              => Hash::make($temporaryPassword),
+                'needs_password_change' => true, // Force password change on first login
+            ]);
 
-        return redirect()->route('users.index')->with('success', 'User account created successfully!');
+            // Automatically send email with credentials and first-time setup instructions
+            Mail::to($user->email)->send(new \App\Mail\WelcomeUserMail($user, $temporaryPassword));
+
+            AuditTrail::log("User Account Created: {$user->email}", "users/{$user->id}", null, $user->toArray());
+            ActivityLog::log('New user created and temporary credentials sent: ' . $user->name, null, [
+                'email' => $user->email,
+                'role' => $user->role,
+                'employee_id' => $user->employee_id
+            ]);
+            Log::channel('email')->info("Account welcome email dispatched to {$user->email}");
+
+            DB::commit();
+
+            return redirect()->route('users.index')->with('success', 'User account created successfully! Temporary credentials and setup instructions have been sent to ' . $user->email . '.');
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::channel('email')->error("Failed to send welcome email to {$request->email}: " . $e->getMessage());
+            ActivityLog::log('Account creation failed (email delivery error): ' . $request->email, null, ['error' => $e->getMessage()]);
+
+            return back()
+                ->withInput($request->all())
+                ->with('error', 'Failed to send account credentials email to ' . $request->email . '. The user account was not created to prevent an inaccessible account. Please check your email configuration.');
+        }
     }
 
     /**
@@ -759,6 +769,7 @@ class UserController extends Controller
             'user_name'     => $user->name,
             'user_email'    => $user->email,
             'user_role'     => $user->role,
+            'office_id'     => $user->office_id,
             'department_id' => $user->department_id,
         ]);
 

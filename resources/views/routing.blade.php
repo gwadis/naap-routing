@@ -43,10 +43,9 @@
         position: absolute;
         top: 15px; left: 0;
         height: 4px;
-        background: linear-gradient(90deg, #a855f7, #22d3ee);
+        background: #1D4ED8;
         z-index: 2;
         border-radius: 10px;
-        box-shadow: 0 0 15px rgba(34, 211, 238, 0.3);
     }
 
     .step-node {
@@ -70,16 +69,16 @@
     }
 
     .step-node.completed .step-dot {
-        background: #a855f7;
-        border-color: #a855f7;
+        background: #059669;
+        border-color: #059669;
         color: white;
     }
 
     .step-node.active .step-dot {
-        background: #22d3ee;
-        border-color: #22d3ee;
-        color: #000;
-        box-shadow: 0 0 20px rgba(34, 211, 238, 0.4);
+        background: #1D4ED8;
+        border-color: #1D4ED8;
+        color: #ffffff;
+        box-shadow: 0 0 12px rgba(29, 78, 216, 0.3);
     }
 
     .step-label {
@@ -99,15 +98,16 @@
         color: var(--text-main) !important;
         padding: 12px 15px;
     }
-    .form-glass:focus { border-color: #22d3ee; box-shadow: none; }
+    .form-glass:focus { border-color: #1D4ED8; box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.15); }
 
     .btn-route {
-        background: linear-gradient(135deg, #22d3ee, #a855f7);
-        border: none; color: white; font-weight: 700;
-        padding: 12px 25px; border-radius: 12px;
-        transition: 0.2s;
+        background: #1D4ED8;
+        border: 1px solid #1D4ED8;
+        color: white; font-weight: 600;
+        padding: 10px 22px; border-radius: 8px;
+        transition: 0.15s ease;
     }
-    .btn-route:hover { opacity: 0.9; transform: scale(1.02); }
+    .btn-route:hover { background: #1e40af; border-color: #1e40af; color: white; }
 </style>
 
 <div class="page-header">
@@ -124,12 +124,20 @@
 @foreach($documents as $doc)
 <div class="routing-card">
     <div class="d-flex justify-content-between align-items-start mb-2">
-        <div>
-            <span class="badge mb-2" style="background: rgba(168, 85, 247, 0.1); color: #a855f7; border: 1px solid rgba(168, 85, 247, 0.2);">
+            @php
+                $priNorm = strtolower($doc->priority ?? 'normal');
+                $priBadgeClass = match($priNorm) {
+                    'urgent' => 'bg-danger text-white',
+                    'high' => 'bg-warning text-dark',
+                    'low' => 'bg-success text-white',
+                    default => 'bg-primary text-white'
+                };
+            @endphp
+            <span class="badge mb-2 {{ $priBadgeClass }}">
                 {{ $doc->priority }} Priority
             </span>
             <h4 class="mb-1">{{ $doc->title }}</h4>
-            <div class="text-muted small">Tracking ID: <span class="text-info">#{{ str_pad($doc->id, 6, '0', STR_PAD_LEFT) }}</span></div>
+            <div class="text-muted small">Tracking ID: <span class="text-primary font-monospace">#{{ str_pad($doc->id, 6, '0', STR_PAD_LEFT) }}</span></div>
         </div>
         <div class="text-end">
             <div class="small text-muted">Receiver</div>

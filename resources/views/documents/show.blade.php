@@ -647,7 +647,7 @@
         </div>
         <div class="col-md-6 col-xl-3">
             <div class="meta-item-box">
-                <span class="meta-item-label"><i class="bi bi-signpost-split text-info"></i> Next Destination</span>
+                <span class="meta-item-label"><i class="bi bi-signpost-split text-primary"></i> Next Destination</span>
                 <span class="meta-item-value">{{ $nextDestination }}</span>
                 <span class="meta-item-sub">Final: {{ $document->destinationOffice?->name ?? 'N/A' }}</span>
             </div>
@@ -998,7 +998,7 @@
                                             <div class="small text-muted" style="font-size: 10.5px;">{{ $route->receiverUser->department->name }}</div>
                                         @endif
                                         @if($route->forwardedFromUser)
-                                            <div class="small text-info" style="font-size: 10.5px;"><i class="bi bi-reply-fill"></i> Via {{ $route->forwardedFromUser->name }}</div>
+                                            <div class="small text-primary" style="font-size: 10.5px;"><i class="bi bi-reply-fill"></i> Via {{ $route->forwardedFromUser->name }}</div>
                                         @endif
                                     </td>
                                     <td>

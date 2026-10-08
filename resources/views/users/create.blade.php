@@ -118,15 +118,6 @@
             @error('status') <div class="invalid-feedback">{{ $message }}</div> @enderror
         </div>
 
-        <div class="mb-3">
-            <label class="form-label-custom">Password</label>
-            <input type="password" name="password" class="form-control form-control-custom @error('password') is-invalid @enderror" placeholder="••••••••••••" required>
-            <small class="text-muted mt-1" style="display: block;">
-                Min 12 chars • Uppercase • Lowercase • Number • Any special char (!@#$%^&* etc)
-            </small>
-            @error('password') <div class="invalid-feedback" style="display: block;">{{ $message }}</div> @enderror
-        </div>
-
         <button type="submit" class="btn btn-primary w-100 py-2">Create User</button>
     </form>
 </div>

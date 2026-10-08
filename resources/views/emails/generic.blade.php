@@ -47,6 +47,20 @@
             line-height: 1.6;
             margin-bottom: 25px;
         }
+        .msg p {
+            margin: 0 0 16px 0;
+        }
+        .msg p:last-child {
+            margin-bottom: 0;
+        }
+        .msg ul {
+            margin: 10px 0 20px 0;
+            padding-left: 20px;
+        }
+        .msg li {
+            margin-bottom: 6px;
+            line-height: 1.5;
+        }
         .action-container {
             text-align: center;
             margin-top: 30px;

@@ -20,12 +20,12 @@
             --bg-secondary: #F1F5F9;
             --sidebar-bg: #0F172A; /* Slate 900 */
             --sidebar-width: 240px;
+            --naap-blue: #1D4ED8; /* Royal Blue / Primary Accent */
             --accent-cyan: #1D4ED8; /* Royal Blue / Primary */
             --accent-navy: #0F172A; /* Slate 900 */
-            --accent-purple: #4F46E5;
-            --text-main: #0F172A; /* Slate 900 */
+            --text-main: #0F172A; /* Slate 900 / Dark Navy */
             --text-primary: #0F172A;
-            --text-dim: #64748B; /* Slate 500 */
+            --text-dim: #64748B; /* Slate 500 / Muted Gray */
             --text-secondary: #64748B;
             --text-muted: #94A3B8;
             --panel: #FFFFFF;
@@ -33,9 +33,9 @@
             --panel-border: #E2E8F0; /* Slate 200 */
             --border-color: #E2E8F0;
             --input-bg: #FFFFFF;
-            --success: #10B981; /* Emerald 500 */
-            --warning: #F59E0B; /* Amber 500 */
-            --danger: #F43F5E; /* Rose 500 */
+            --success: #059669; /* Emerald 600 - Semantic Success */
+            --warning: #D97706; /* Amber 600 - Semantic Warning / Pending */
+            --danger: #DC2626; /* Red 600 - Semantic Danger / Overdue */
             --radius-sm: 6px;
             --radius-md: 8px;
             --radius-lg: 12px;
@@ -132,11 +132,11 @@
             display: flex; 
             align-items: center; 
             gap: 10px;
-            padding: 8px 12px;
+            padding: 7px 11px !important;
             border-radius: var(--radius-md) !important;
-            margin-bottom: 4px !important;
+            margin-bottom: 2px !important;
             transition: all var(--transition-speed) ease; 
-            font-size: 13.5px;
+            font-size: 13px !important;
             font-weight: 500;
         }
 
@@ -175,6 +175,27 @@
             position: fixed; inset: 0;
             background: rgba(0, 0, 0, 0.4);
             z-index: 2500; display: none;
+        }
+
+        /* MODALS & BACKDROP STACKING - Layer above sticky header (2000) & sidebar (3000) */
+        .modal {
+            z-index: 3500 !important;
+        }
+        @media (min-width: 993px) {
+            .modal {
+                left: var(--sidebar-width) !important;
+                width: calc(100vw - var(--sidebar-width)) !important;
+            }
+        }
+        .modal-backdrop {
+            z-index: 3490 !important;
+        }
+        .modal-backdrop.show {
+            opacity: 0.65 !important;
+            background-color: #0F172A !important;
+        }
+        body.modal-open {
+            overflow: hidden !important;
         }
 
         /* HEADER */
@@ -285,9 +306,14 @@
             color: #FFFFFF !important;
         }
 
+        .btn-primary, .btn-primary * {
+            color: #FFFFFF !important;
+        }
+
         .btn-primary:hover {
             background-color: #1D4ED8 !important;
             border-color: #1D4ED8 !important;
+            color: #FFFFFF !important;
             transform: translateY(-0.5px);
         }
 
@@ -308,9 +334,21 @@
             color: #FFFFFF !important;
         }
 
+        .btn-danger, .btn-danger * {
+            color: #FFFFFF !important;
+        }
+
         .btn-success {
             background-color: var(--success) !important;
             border: 1px solid var(--success) !important;
+            color: #FFFFFF !important;
+        }
+
+        .btn-success, .btn-success * {
+            color: #FFFFFF !important;
+        }
+
+        .btn-dark, .btn-dark * {
             color: #FFFFFF !important;
         }
 
@@ -441,42 +479,65 @@
             background-color: rgba(59, 130, 246, 0.03) !important;
         }
 
-        /* STATUS BADGES - Pastel Soft */
+        /* UNIFIED ENTERPRISE STATUS COLOR SYSTEM */
         .badge {
             display: inline-flex;
             align-items: center;
             padding: 4px 10px !important;
             font-size: 12px !important;
             font-weight: 600 !important;
-            border-radius: var(--radius-sm) !important; /* Flat pill */
+            border-radius: var(--radius-sm) !important;
             text-transform: capitalize;
             letter-spacing: normal;
             border: 1px solid transparent;
         }
 
-        .bg-warning, .badge-pending {
-            background-color: rgba(245, 158, 11, 0.08) !important;
-            color: #B45309 !important;
-            border: 1px solid rgba(245, 158, 11, 0.15) !important;
-        }
-
-        .bg-info, .badge-info {
-            background-color: rgba(59, 130, 246, 0.08) !important;
+        /* 1. PRIMARY BLUE: In Process, In Transit, Processing, Active Neutral */
+        .bg-info, .badge-info, .badge-in-transit, .badge-in-process, .badge-processing {
+            background-color: rgba(29, 78, 216, 0.08) !important;
             color: #1D4ED8 !important;
-            border: 1px solid rgba(59, 130, 246, 0.15) !important;
+            border: 1px solid rgba(29, 78, 216, 0.2) !important;
+        }
+        .badge-primary, .bg-primary-subtle {
+            background-color: rgba(29, 78, 216, 0.08) !important;
+            color: #1D4ED8 !important;
+            border: 1px solid rgba(29, 78, 216, 0.2) !important;
         }
 
-        .bg-success, .badge-success, .badge-completed {
+        /* 2. GREEN: Completed, Successful, Within SLA, Positive states */
+        .bg-success, .badge-success, .badge-completed, .badge-approved, .badge-successful {
             background-color: rgba(16, 185, 129, 0.08) !important;
             color: #047857 !important;
-            border: 1px solid rgba(16, 185, 129, 0.15) !important;
+            border: 1px solid rgba(16, 185, 129, 0.2) !important;
         }
 
-        .bg-danger, .badge-danger {
-            background-color: rgba(244, 63, 94, 0.08) !important;
-            color: #BE123C !important;
-            border: 1px solid rgba(244, 63, 94, 0.15) !important;
+        /* 3. AMBER/ORANGE: Pending, Awaiting Approval, Due Soon, Awaiting Receipt, Awaiting Signature, Warnings */
+        .bg-warning, .badge-warning, .badge-pending, .badge-for-approval, .badge-awaiting-receipt, .badge-awaiting-signature, .badge-due-soon {
+            background-color: rgba(245, 158, 11, 0.08) !important;
+            color: #B45309 !important;
+            border: 1px solid rgba(245, 158, 11, 0.2) !important;
         }
+
+        /* 4. RED: Overdue, Failed, Urgent, Action Required, Security Warnings */
+        .bg-danger, .badge-danger, .badge-overdue, .badge-failed, .badge-rejected, .badge-urgent {
+            background-color: rgba(220, 38, 38, 0.08) !important;
+            color: #B91C1C !important;
+            border: 1px solid rgba(220, 38, 38, 0.2) !important;
+        }
+
+        /* 5. MUTED GRAY / NEUTRAL: Archived, System, N/A */
+        .bg-secondary, .badge-secondary, .badge-neutral {
+            background-color: rgba(100, 116, 139, 0.08) !important;
+            color: #475569 !important;
+            border: 1px solid rgba(100, 116, 139, 0.2) !important;
+        }
+
+        /* Enterprise Text Utilities */
+        .text-primary { color: #1D4ED8 !important; }
+        .text-success { color: #059669 !important; }
+        .text-warning { color: #D97706 !important; }
+        .text-danger  { color: #DC2626 !important; }
+        .text-navy    { color: #0F172A !important; }
 
         /* PROGRESS BAR */
         .progress {
@@ -583,6 +644,36 @@
             font-weight: 500;
         }
 
+        /* Sidebar Navigation Scroll & Section Labels */
+        .sidebar-nav-scroll {
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+            padding-bottom: 16px;
+        }
+        .sidebar-nav-scroll::-webkit-scrollbar {
+            width: 4px;
+        }
+        .sidebar-nav-scroll::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 4px;
+        }
+        .sidebar-section-label {
+            font-size: 9.5px !important;
+            font-weight: 700 !important;
+            letter-spacing: 0.8px !important;
+            color: #64748B !important;
+            text-transform: uppercase !important;
+            margin-top: 10px !important;
+            margin-bottom: 3px !important;
+            padding: 0 10px !important;
+            opacity: 0.75;
+        }
+
+        /* Dropdown Stacking Fix */
+        .dropdown-menu {
+            z-index: 2500 !important;
+        }
+
         @media (max-width: 992px) {
             .sidebar { transform: translateX(-100%); }
             .main-container { margin-left: 0; }
@@ -645,7 +736,7 @@
             </div>
         </div>
 
-        <nav class="flex-grow-1">
+        <nav class="flex-grow-1 sidebar-nav-scroll">
             <a href="{{ route('dashboard') }}" class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}">
                 <i class="bi bi-grid-1x2-fill"></i> Dashboard
             </a>
@@ -660,7 +751,7 @@
             </a>
 
             @if($isAdmin)
-                <div class="text-uppercase text-slate-500 fw-bold mt-2 mb-1 px-3" style="font-size: 10px; letter-spacing: 0.8px; opacity: 0.6;">Management</div>
+                <div class="sidebar-section-label">Management</div>
                 <a href="{{ route('offices.index') }}" class="nav-link {{ request()->routeIs('offices.*') ? 'active' : '' }}">
                     <i class="bi bi-building-fill"></i> Offices
                 </a>
@@ -673,15 +764,19 @@
                 <a href="{{ route('security.dashboard') }}" class="nav-link {{ request()->routeIs('security.dashboard') ? 'active' : '' }}">
                     <i class="bi bi-shield-fill-check"></i> Security Console
                 </a>
-                <a href="{{ route('activity.index') }}" class="nav-link {{ request()->routeIs('activity.*') ? 'active' : '' }}">
+                <a href="{{ route('activity.index') }}" class="nav-link {{ request()->routeIs('activity.index') ? 'active' : '' }}">
                     <i class="bi bi-clock-history"></i> Audit Logs
                 </a>
                 <a href="{{ route('settings.index') }}" class="nav-link {{ request()->routeIs('settings.*') ? 'active' : '' }}">
                     <i class="bi bi-gear-fill"></i> System Settings
                 </a>
+            @else
+                <a href="{{ route('activity.my') }}" class="nav-link {{ request()->routeIs('activity.my') ? 'active' : '' }}">
+                    <i class="bi bi-clock-history"></i> My Activity
+                </a>
             @endif
 
-            <div class="text-uppercase text-slate-500 fw-bold mt-2 mb-1 px-3" style="font-size: 10px; letter-spacing: 0.8px; opacity: 0.6;">Profile</div>
+            <div class="sidebar-section-label">Profile</div>
             <a href="{{ route('profile') }}" class="nav-link {{ request()->routeIs('profile') ? 'active' : '' }}">
                 <i class="bi bi-person-circle"></i> My Profile
             </a>

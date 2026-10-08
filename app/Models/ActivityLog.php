@@ -10,6 +10,7 @@ class ActivityLog extends Model
     use HasFactory;
 
     protected $fillable = [
+        'user_id',
         'user',
         'action',
         'document_id',
@@ -23,23 +24,63 @@ class ActivityLog extends Model
         'meta' => 'array',
     ];
 
-    public static function log($action, $documentId = null, array $meta = [])
+    protected static function booted()
     {
-        try {
-            $request = request();
-            $userAgent = $request->header('User-Agent');
-            [$browser, $os] = self::parseUserAgent($userAgent);
-
-            $userId = session('user_id') ?? auth()->id();
-            if ($userId) {
-                $userModel = User::find($userId);
-                if ($userModel) {
-                    $meta['department'] = $userModel->department?->name ?? 'System';
+        static::creating(function ($log) {
+            // Automatically resolve user_id if not explicitly provided
+            if (empty($log->user_id)) {
+                $resolvedId = session('user_id') ?? auth()->id();
+                if ($resolvedId) {
+                    $log->user_id = $resolvedId;
                 }
             }
 
+            // Resolve authoritative user name
+            if (empty($log->user)) {
+                $userModel = !empty($log->user_id) ? User::find($log->user_id) : null;
+                $log->user = session('user_name') ?? ($userModel?->name ?? (auth()->user()?->name ?? 'System'));
+            }
+
+            // Standardize meta payload with server-side actor info and timestamp
+            $meta = is_array($log->meta) ? $log->meta : (json_decode($log->meta, true) ?? []);
+            if (!isset($meta['actor_user_id'])) {
+                $meta['actor_user_id'] = $log->user_id;
+            }
+            if (!isset($meta['actor_type'])) {
+                $actorUser = !empty($log->user_id) ? User::find($log->user_id) : null;
+                $meta['actor_type'] = $actorUser ? ($actorUser->isAdmin() ? 'admin' : 'user') : ($log->user_id ? 'user' : 'system');
+            }
+            if (!isset($meta['timestamp'])) {
+                $meta['timestamp'] = now()->toIso8601String();
+            }
+            $log->meta = $meta;
+        });
+    }
+
+    public static function log($action, $documentId = null, array $meta = [], $userId = null)
+    {
+        try {
+            $request = request();
+            $userAgent = $request ? $request->header('User-Agent') : null;
+            [$browser, $os] = self::parseUserAgent($userAgent);
+
+            $resolvedUserId = $userId ?? (session('user_id') ?? auth()->id());
+            $userModel = $resolvedUserId ? User::find($resolvedUserId) : null;
+
+            if ($userModel && !isset($meta['department'])) {
+                $meta['department'] = $userModel->department?->name ?? 'System';
+            }
+            if ($userModel && !isset($meta['office'])) {
+                $meta['office'] = $userModel->office?->name ?? null;
+            }
+
+            $meta['actor_user_id'] = $resolvedUserId;
+            $meta['actor_type'] = $userModel ? ($userModel->isAdmin() ? 'admin' : 'user') : ($resolvedUserId ? 'user' : 'system');
+            $meta['timestamp'] = now()->toIso8601String();
+
             $logData = [
-                'user' => session('user_name') ?? (auth()->user()?->name ?? 'Guest'),
+                'user_id' => $resolvedUserId,
+                'user' => session('user_name') ?? ($userModel?->name ?? (auth()->user()?->name ?? 'System')),
                 'action' => $action,
                 'document_id' => $documentId,
                 'ip' => 'REDACTED',
@@ -99,5 +140,28 @@ class ActivityLog extends Model
         return [$browser, $os];
     }
 
-    public function document() { return $this->belongsTo(Document::class); }
+    public function document()
+    {
+        return $this->belongsTo(Document::class);
+    }
+
+    public function actor()
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function getUserAttribute($value)
+    {
+        return $value ?? $this->actor?->name ?? 'System';
+    }
+
+    public function getActorUserIdAttribute()
+    {
+        return $this->user_id;
+    }
+
+    public function setActorUserIdAttribute($value)
+    {
+        $this->attributes['user_id'] = $value;
+    }
 }

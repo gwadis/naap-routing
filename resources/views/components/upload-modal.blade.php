@@ -4,21 +4,44 @@
 @endphp
 
 <style>
-    /* Fixed scrollable layout for modal */
+    /* Centered Viewport Overlay Layout */
+    #uploadModal {
+        z-index: 3500 !important;
+        position: fixed !important;
+        inset: 0 !important;
+    }
+    @media (min-width: 993px) {
+        #uploadModal {
+            left: var(--sidebar-width) !important;
+            width: calc(100vw - var(--sidebar-width)) !important;
+        }
+    }
+    @media (max-width: 992px) {
+        #uploadModal {
+            left: 0 !important;
+            width: 100vw !important;
+        }
+    }
     #uploadModal .modal-dialog {
-        max-width: 1100px !important;
-        width: 95% !important;
-        margin: 1.75rem auto !important;
+        max-width: 1080px !important;
+        width: min(1080px, calc(100% - 48px)) !important;
+        margin: 20px auto !important;
+        height: calc(100vh - 40px) !important;
+        max-height: calc(100vh - 40px) !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
     }
     #uploadModal .modal-content {
-        max-height: 90vh !important;
-        height: 90vh !important;
+        max-height: calc(100vh - 40px) !important;
+        height: 100% !important;
         display: flex !important;
         flex-direction: column !important;
         border-radius: var(--radius-xl) !important;
         border: 1px solid var(--panel-border) !important;
         background: var(--panel) !important;
         overflow: hidden !important;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35) !important;
     }
     #uploadModal .modal-header {
         flex-shrink: 0 !important;
@@ -26,12 +49,13 @@
         top: 0 !important;
         background: var(--panel) !important;
         border-bottom: 1px solid var(--panel-border) !important;
-        z-index: 1060 !important;
+        z-index: 10 !important;
         padding: 16px 24px !important;
     }
     #uploadModal .modal-body {
         overflow-y: auto !important;
-        flex-grow: 1 !important;
+        flex: 1 1 auto !important;
+        max-height: calc(100vh - 175px) !important;
         background: var(--bg) !important;
         padding: 24px !important;
     }
@@ -41,8 +65,8 @@
         bottom: 0 !important;
         background: var(--panel) !important;
         border-top: 1px solid var(--panel-border) !important;
-        z-index: 1060 !important;
-        padding: 16px 24px !important;
+        z-index: 10 !important;
+        padding: 14px 24px !important;
         display: flex !important;
         justify-content: flex-end !important;
         align-items: center !important;

@@ -89,6 +89,7 @@ class DocumentSeeder extends Seeder
 
             // Add some activity logs
             ActivityLog::create([
+                'user_id' => $user->id,
                 'user' => $user->name,
                 'action' => 'Document created',
                 'document_id' => $doc->id,
@@ -99,6 +100,7 @@ class DocumentSeeder extends Seeder
 
             if ($status === 'in_transit') {
                 ActivityLog::create([
+                    'user_id' => $user->id,
                     'user' => $user->name,
                     'action' => 'Document routed',
                     'document_id' => $doc->id,
@@ -110,6 +112,7 @@ class DocumentSeeder extends Seeder
 
             if ($status === 'completed') {
                 ActivityLog::create([
+                    'user_id' => null,
                     'user' => 'system',
                     'action' => 'Document completed',
                     'document_id' => $doc->id,

@@ -140,18 +140,25 @@
         display: none !important;
     }
     .pagination .page-link {
-        background: rgba(255, 255, 255, 0.08);
-        border: 1px solid rgba(0, 215, 255, 0.2);
-        color: #00d7ff;
+        background: var(--panel) !important;
+        border: 1px solid var(--panel-border) !important;
+        color: var(--text-dim) !important;
+        border-radius: var(--radius-md) !important;
+        margin: 0 2px;
+        padding: 6px 12px;
+        font-size: 13px;
+        font-weight: 500;
+        transition: 0.2s;
     }
     .pagination .page-link:hover {
-        background: rgba(0, 215, 255, 0.1);
-        border-color: #00d7ff;
+        background: var(--bg) !important;
+        border-color: var(--panel-border) !important;
+        color: var(--text-main) !important;
     }
     .pagination .page-item.active .page-link {
-        background: #00d7ff;
-        border-color: #00d7ff;
-        color: #0b1228;
+        background: var(--accent-cyan) !important;
+        border-color: var(--accent-cyan) !important;
+        color: #FFFFFF !important;
     }
 
     /* Form validation styling */

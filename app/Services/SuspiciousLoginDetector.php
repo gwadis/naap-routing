@@ -75,12 +75,11 @@ class SuspiciousLoginDetector
                 // Notify User
                 try {
                     Mail::to($user->email)->send(new SecurityMail(
-                        "⚠️ Security Alert: Login from New Device or IP",
+                        "⚠️ Security Alert: Login from New Device",
                         $user->name,
-                        "<p>A login was detected on your NAAP Routing account from a new location or device.</p>"
+                        "<p>A login was detected on your NAAP Routing account from a new device.</p>"
                         . "<p><strong>Details:</strong></p>"
                         . "<ul>"
-                        . "<li><strong>IP Address:</strong> {$ip}</li>"
                         . "<li><strong>Device:</strong> {$device} ({$os})</li>"
                         . "<li><strong>Time:</strong> " . now()->format('Y-m-d H:i:s') . "</li>"
                         . "</ul>"
@@ -93,7 +92,7 @@ class SuspiciousLoginDetector
                 // Trigger website system notification
                 $user->notify(new \App\Notifications\SystemNotification(
                     'Security',
-                    "Suspicious login detected for your account from IP {$ip} / device {$device}."
+                    "Suspicious login detected for your account from device {$device}."
                 ));
             }
         }

@@ -6,6 +6,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use App\Models\Department;
 
 class User extends Authenticatable
@@ -188,6 +189,47 @@ class User extends Authenticatable
     }
 
     /**
+     * Check if user is an Office Head.
+     * Evaluates role, position, or explicit head assignment.
+     */
+    public function isOfficeHead(): bool
+    {
+        if ($this->isAdmin()) {
+            return false;
+        }
+
+        $role = strtoupper(trim(str_replace(['_', '-'], ' ', (string) ($this->role ?? session('user_role')))));
+        if ($role === 'OFFICE HEAD' || str_contains($role, 'OFFICE HEAD') || str_contains($role, 'HEAD')) {
+            return true;
+        }
+
+        $pos = strtoupper(trim(str_replace(['_', '-'], ' ', (string) ($this->position ?? ''))));
+        if ($pos && (
+            str_contains($pos, 'HEAD') ||
+            str_contains($pos, 'DIRECTOR') ||
+            str_contains($pos, 'CHAIR') ||
+            str_contains($pos, 'DEAN') ||
+            str_contains($pos, 'CHIEF')
+        )) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if user is Staff or regular Office Personnel / Employee.
+     */
+    public function isStaff(): bool
+    {
+        if ($this->isAdmin() || $this->isOfficeHead()) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
      * Define the relationship to the Department model.
      */
     public function department(): BelongsTo
@@ -201,5 +243,41 @@ class User extends Authenticatable
     public function office(): BelongsTo
     {
         return $this->belongsTo(Office::class, 'office_id');
+    }
+
+    /**
+     * Determine if the user has a valid signature file or data.
+     */
+    public function hasValidSignature(): bool
+    {
+        if (empty($this->signature)) {
+            return false;
+        }
+
+        if (str_starts_with((string) $this->signature, 'data:image')) {
+            return true;
+        }
+
+        $cleanPath = ltrim(str_replace(['public/', 'storage/'], '', (string) $this->signature), '/');
+
+        return Storage::disk('public')->exists($cleanPath);
+    }
+
+    /**
+     * Get the accessible public URL or base64 data for the digital signature.
+     */
+    public function getSignatureUrlAttribute(): ?string
+    {
+        if (!$this->hasValidSignature()) {
+            return null;
+        }
+
+        if (str_starts_with((string) $this->signature, 'data:image')) {
+            return $this->signature;
+        }
+
+        $cleanPath = ltrim(str_replace(['public/', 'storage/'], '', (string) $this->signature), '/');
+
+        return asset('storage/' . $cleanPath);
     }
 }

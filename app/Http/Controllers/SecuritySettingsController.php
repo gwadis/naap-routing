@@ -186,7 +186,7 @@ class SecuritySettingsController extends Controller
     {
         $user = Auth::user() ?? User::find(session('user_id'));
         if (!$user) {
-            abort(403);
+            abort(403, "You don't have permission to access this resource.");
         }
 
         $logs = DB::table('audit_trails')

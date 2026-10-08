@@ -79,22 +79,28 @@
         letter-spacing: 0.03em;
     }
 
-    .status-completed {
-        background: rgba(16, 185, 129, 0.1);
+    .status-completed, .status-approved, .status-successful {
+        background: rgba(16, 185, 129, 0.08);
         color: #059669;
         border: 1px solid rgba(16, 185, 129, 0.2);
     }
 
-    .status-in-transit {
-        background: rgba(59, 130, 246, 0.1);
-        color: #2563EB;
-        border: 1px solid rgba(59, 130, 246, 0.2);
+    .status-in-transit, .status-in-process, .status-under-review, .status-received {
+        background: rgba(29, 78, 216, 0.08);
+        color: #1D4ED8;
+        border: 1px solid rgba(29, 78, 216, 0.2);
     }
 
-    .status-pending {
-        background: rgba(245, 158, 11, 0.1);
-        color: #D97706;
+    .status-pending, .status-for-approval, .status-awaiting-receipt, .status-awaiting-signature {
+        background: rgba(245, 158, 11, 0.08);
+        color: #B45309;
         border: 1px solid rgba(245, 158, 11, 0.2);
+    }
+
+    .status-overdue, .status-rejected, .status-failed, .status-cancelled {
+        background: rgba(220, 38, 38, 0.08);
+        color: #B91C1C;
+        border: 1px solid rgba(220, 38, 38, 0.2);
     }
 
     .timeline-section {
@@ -371,7 +377,7 @@
                     <div class="timeline-timestamp">
                         Routed: {{ $routing->created_at->format('M j, Y \a\t H:i:s') }}
                         @if($routing->scanned_at)
-                            <br><span style="color: #00d7ff;">Scanned: {{ $routing->scanned_at->format('M j, Y \a\t H:i:s') }}</span>
+                            <br><span style="color: var(--accent-cyan, #1D4ED8); font-weight: 500;">Scanned: {{ $routing->scanned_at->format('M j, Y \a\t H:i:s') }}</span>
                         @endif
                         @if($routing->received_at)
                             <br><span style="color: #10b981;">Received: {{ $routing->received_at->format('M j, Y \a\t H:i:s') }}</span>

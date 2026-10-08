@@ -105,7 +105,7 @@
     
     <div class="content">
         <p class="welcome-msg">Hello <strong>{{ $user->name }}</strong>,</p>
-        <p class="welcome-msg">An administrator has created a new account for you in the NAAP Document Routing System. Below are your account and login credentials:</p>
+        <p class="welcome-msg">An administrator has created a new account for you in the NAAP Document Routing System. Below are your account details and temporary login credentials:</p>
         
         <table class="details-table">
             <tr>
@@ -121,20 +121,25 @@
                 <td class="value">{{ $user->role }}</td>
             </tr>
             <tr>
-                <td class="label">Username</td>
+                <td class="label">Official Email / Username</td>
                 <td class="value"><strong>{{ $user->username ?? $user->email }}</strong></td>
             </tr>
             <tr>
-                <td class="label">Password</td>
-                <td class="value"><code>{{ $password }}</code></td>
+                <td class="label">Temporary Password</td>
+                <td class="value"><code style="background: #e2e8f0; padding: 4px 8px; border-radius: 4px; font-weight: 700; color: #1e3a8a; font-size: 15px;">{{ $temporaryPassword ?? $password }}</code></td>
             </tr>
         </table>
         
         <div class="action-container">
-            <a href="{{ $loginUrl }}" class="btn" target="_blank">Login to System</a>
+            <a href="{{ $loginUrl ?? route('login') }}" class="btn" target="_blank">Sign In to NAAP Routing</a>
         </div>
         
-        <p class="welcome-msg" style="font-size: 13px; color: #ef4444; margin-top: 25px;"><strong>Note:</strong> This is a temporary password. We highly recommend changing your password after your first successful login.</p>
+        <div style="background: #eff6ff; border-left: 4px solid #1D4ED8; padding: 14px 18px; border-radius: 6px; margin-top: 25px;">
+            <p style="margin: 0 0 6px 0; font-size: 14px; font-weight: 700; color: #1e3a8a;">Important First-Time Login Instructions:</p>
+            <p style="margin: 0; font-size: 13px; line-height: 1.5; color: #334155;">
+                This temporary password was generated automatically by the system. Upon your first login, the system will require you to immediately change this temporary password and set your own official, private password before you can access the system. Once updated, this temporary password will no longer work.
+            </p>
+        </div>
     </div>
     
     <div class="footer">

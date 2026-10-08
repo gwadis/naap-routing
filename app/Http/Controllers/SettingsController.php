@@ -45,12 +45,17 @@ class SettingsController extends Controller
             );
         }
 
+        $actorId = session('user_id') ?? auth()->id();
         ActivityLog::create([
-            'user' => session('user_name') ?? 'Admin User',
+            'user_id' => $actorId,
+            'user' => session('user_name') ?? (auth()->user()?->name ?? 'Admin User'),
             'action' => 'System settings updated',
             'document_id' => null,
             'ip' => 'REDACTED',
-            'meta' => json_encode($request->only($settingKeys)),
+            'meta' => array_merge($request->only($settingKeys), [
+                'actor_user_id' => $actorId,
+                'timestamp'     => now()->toIso8601String(),
+            ]),
         ]);
 
         return back()->with('success', 'System settings updated successfully!');

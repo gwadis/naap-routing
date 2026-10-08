@@ -120,6 +120,7 @@ Route::middleware([\App\Http\Middleware\EnsureAuthenticated::class, \App\Http\Mi
     Route::get('/track/{id}', [DocumentController::class, 'show'])->name('track.detail');
     Route::get('/api/documents/{id}/status', [DocumentController::class, 'checkStatus'])->name('documents.status');
     Route::get('/activity', [DocumentController::class, 'activityIndex'])->name('activity.index');
+    Route::get('/my-activity', [DocumentController::class, 'myActivityIndex'])->name('activity.my');
 
     // --- Notifications ---
     Route::get('/notifications', [DashboardController::class, 'notificationsPage'])->name('notifications.index');

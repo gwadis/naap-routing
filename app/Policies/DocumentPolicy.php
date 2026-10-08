@@ -47,19 +47,21 @@ class DocumentPolicy
             return true;
         }
 
+        $userId = (int) $user->id;
+
         // 2. Document creator (uploader)
-        if ($document->uploaded_by && $document->uploaded_by == $user->id) {
+        if ($document->uploaded_by && (int) $document->uploaded_by === $userId) {
             return true;
         }
 
         // 3. Current receiver on the document itself
-        if ($document->receiver_user_id && $document->receiver_user_id == $user->id) {
+        if ($document->receiver_user_id && (int) $document->receiver_user_id === $userId) {
             return true;
         }
 
         // 4. Assigned receiver on any pending or historical routing step
         $isReceiverInRouting = DocumentRouting::where('document_id', $document->id)
-            ->where('receiver_user_id', $user->id)
+            ->where('receiver_user_id', $userId)
             ->exists();
         if ($isReceiverInRouting) {
             return true;
@@ -67,55 +69,67 @@ class DocumentPolicy
 
         // 5. Participants in routing history (sender or forwarder)
         $isSenderInRouting = DocumentRouting::where('document_id', $document->id)
-            ->where(function ($q) use ($user) {
-                $q->where('sender_user_id', $user->id)
-                  ->orWhere('forwarded_from_user_id', $user->id);
+            ->where(function ($q) use ($userId) {
+                $q->where('sender_user_id', $userId)
+                  ->orWhere('forwarded_from_user_id', $userId);
             })
             ->exists();
         if ($isSenderInRouting) {
             return true;
         }
 
+        // 5b. Legitimate unassigned office-level pending routing dispatched to the user's office
+        if ($user->office_id) {
+            $isOfficePending = DocumentRouting::where('document_id', $document->id)
+                ->where('to_office_id', $user->office_id)
+                ->whereNull('receiver_user_id')
+                ->whereIn(DB::raw('LOWER(status)'), ['pending', 'in transit', 'in_transit', 'received', 'under review', 'under_review', 'waiting', 'processing', 'on process', 'on_process'])
+                ->exists();
+            if ($isOfficePending) {
+                return true;
+            }
+        }
+
         // 6. Authorized recipient of Confidential PIN or notification
         $isPinRecipient = \App\Models\DocumentPin::where('document_id', $document->id)
-            ->where(function($q) use ($user) {
-                $q->where('recipient_id', $user->id)
-                  ->orWhere('user_id', $user->id)
-                  ->orWhere('email', $user->email);
+            ->where(function($q) use ($user, $userId) {
+                $q->where('recipient_id', $userId)
+                  ->orWhere('user_id', $userId);
+                if (!empty($user->email)) {
+                    $q->orWhere('email', $user->email);
+                }
             })
             ->exists();
         if ($isPinRecipient) {
             return true;
         }
 
-        // 6. Current office members
-        if ($user->office_id) {
-            $associatedOffices = array_filter([
+        // 7. Role-Specific Evaluation: OFFICE HEAD (Elevated office-scoped oversight)
+        if ($user->office_id && $user->isOfficeHead()) {
+            $userOfficeId = (int) $user->office_id;
+
+            // - Documents routed to Office Head's office (origin, current, destination)
+            $associatedOffices = array_map('intval', array_filter([
                 $document->origin_office_id,
                 $document->current_office_id,
                 $document->destination_office_id,
-            ]);
+            ]));
 
-            if (in_array($user->office_id, $associatedOffices)) {
+            if (in_array($userOfficeId, $associatedOffices, true)) {
                 return true;
             }
 
-            // User's office appears anywhere in document routing hops
+            // - Documents that previously passed through the Office Head's office
             $officeInRouting = DocumentRouting::where('document_id', $document->id)
-                ->where(function ($q) use ($user) {
-                    $q->where('to_office_id', $user->office_id)
-                      ->orWhere('from_office_id', $user->office_id);
+                ->where(function ($q) use ($userOfficeId) {
+                    $q->where('to_office_id', $userOfficeId)
+                      ->orWhere('from_office_id', $userOfficeId);
                 })
                 ->exists();
 
             if ($officeInRouting) {
                 return true;
             }
-        }
-
-        // 7. QR Code verified in current session allows viewing document details
-        if (session('qr_verified_' . $document->id)) {
-            return true;
         }
 
         Log::warning("Workflow view authorization denied: User ID {$user->id} (office: {$user->office_id}, role: {$user->role}) not permitted to view document ID {$document->id}");
@@ -145,10 +159,12 @@ class DocumentPolicy
             return false;
         }
 
-        // 1. Admin can always perform workflow actions
+        // 1. Admin can perform workflow actions according to system-level access
         if ($this->isUserAdmin($user)) {
             return true;
         }
+
+        $userId = (int) $user->id;
 
         // Non-admins cannot perform actions on terminal statuses (case-insensitive)
         $docStatus = strtolower(trim((string) $document->status));
@@ -157,13 +173,22 @@ class DocumentPolicy
             return false;
         }
 
-        // 2. Document creator / owner is authorized to perform workflow actions (e.g. forward, recall, cancel)
-        if ($document->uploaded_by && $document->uploaded_by == $user->id) {
-            return true;
+        // 2. Document creator / owner is authorized to perform workflow actions unless currently assigned to someone else
+        if ($document->uploaded_by && (int) $document->uploaded_by === $userId) {
+            $isAssignedToOther = false;
+            if ($document->receiver_user_id && (int) $document->receiver_user_id !== $userId) {
+                $isAssignedToOther = true;
+            }
+            if ($activeRouting && $activeRouting->receiver_user_id && (int) $activeRouting->receiver_user_id !== $userId) {
+                $isAssignedToOther = true;
+            }
+            if (!$isAssignedToOther) {
+                return true;
+            }
         }
 
         // 3. Direct document receiver is always authorized
-        if ($document->receiver_user_id && $document->receiver_user_id == $user->id) {
+        if ($document->receiver_user_id && (int) $document->receiver_user_id === $userId) {
             return true;
         }
 
@@ -171,7 +196,7 @@ class DocumentPolicy
 
         // 4. Assigned receiver on any active, pending, or sequential routing step for this document
         $isAssignedInRouting = DocumentRouting::where('document_id', $document->id)
-            ->where('receiver_user_id', $user->id)
+            ->where('receiver_user_id', $userId)
             ->whereIn(DB::raw('LOWER(status)'), $activeStatuses)
             ->exists();
         if ($isAssignedInRouting) {
@@ -180,10 +205,12 @@ class DocumentPolicy
 
         // 5. Authorized recipient who was issued or verified a Confidential PIN / Notification
         $isPinRecipient = \App\Models\DocumentPin::where('document_id', $document->id)
-            ->where(function($q) use ($user) {
-                $q->where('recipient_id', $user->id)
-                  ->orWhere('user_id', $user->id)
-                  ->orWhere('email', $user->email);
+            ->where(function($q) use ($user, $userId) {
+                $q->where('recipient_id', $userId)
+                  ->orWhere('user_id', $userId);
+                if (!empty($user->email)) {
+                    $q->orWhere('email', $user->email);
+                }
             })
             ->exists();
         if ($isPinRecipient) {
@@ -200,26 +227,29 @@ class DocumentPolicy
             $routingStatus = strtolower(trim((string) $activeRouting->status));
             if (in_array($routingStatus, $activeStatuses)) {
                 // Case A: Step is explicitly assigned to this user
-                if ($activeRouting->receiver_user_id && $activeRouting->receiver_user_id == $user->id) {
+                if ($activeRouting->receiver_user_id && (int) $activeRouting->receiver_user_id === $userId) {
                     return true;
                 }
 
                 // Case B: Destination office matches user's office
-                if ($user->office_id && $activeRouting->to_office_id == $user->office_id) {
-                    return true;
+                if ($user->office_id && (int) $activeRouting->to_office_id === (int) $user->office_id) {
+                    if ($user->isOfficeHead()) {
+                        return true;
+                    }
+                    // For Staff: authorized if receiver is unassigned or assigned to staff
+                    if (is_null($activeRouting->receiver_user_id) || (int) $activeRouting->receiver_user_id === $userId) {
+                        return true;
+                    }
                 }
 
-                // Case C: Office Head or department match for destination office
-                if ($user->department_id && $activeRouting->toOffice && $activeRouting->toOffice->department_id == $user->department_id) {
-                    return true;
-                }
+
 
                 // Case D: Parallel approval steps at the same sort order
                 $isParallelApprover = DocumentRouting::where('document_id', $document->id)
                     ->where('sort_order', $activeRouting->sort_order)
                     ->whereIn(DB::raw('LOWER(status)'), $activeStatuses)
-                    ->where(function ($q) use ($user) {
-                        $q->where('receiver_user_id', $user->id)
+                    ->where(function ($q) use ($user, $userId) {
+                        $q->where('receiver_user_id', $userId)
                           ->orWhere(function ($sub) use ($user) {
                               $sub->whereNull('receiver_user_id')
                                   ->where('to_office_id', $user->office_id);
@@ -233,42 +263,19 @@ class DocumentPolicy
             }
         }
 
-        // 8. Office-level matching: document's current or destination office matches user's office
-        if ($user->office_id) {
-            if ($document->current_office_id == $user->office_id || $document->destination_office_id == $user->office_id) {
+        // 8. Office-level matching for Office Head
+        if ($user->office_id && $user->isOfficeHead()) {
+            if ((int) $document->current_office_id === (int) $user->office_id || (int) $document->destination_office_id === (int) $user->office_id) {
                 return true;
             }
         }
 
-        // 9. Department-level / Office Head matching
-        if ($user->department_id) {
-            $currentOffice = $document->currentOffice;
-            $destOffice = $document->destinationOffice;
-            if (($currentOffice && $currentOffice->department_id == $user->department_id) || ($destOffice && $destOffice->department_id == $user->department_id)) {
-                $roleNorm = strtoupper(trim((string)$user->role));
-                if (str_contains($roleNorm, 'HEAD') || $roleNorm === 'OFFICE HEAD') {
-                    return true;
-                }
-            }
-        }
 
-        // 10. Legitimate QR code verification in current session for associated office staff
-        if (session('qr_verified_' . $document->id)) {
-            $associatedOffices = array_filter([
-                $document->origin_office_id,
-                $document->current_office_id,
-                $document->destination_office_id,
-            ]);
-            $routingOffices = DocumentRouting::where('document_id', $document->id)->pluck('to_office_id')->toArray();
-            $allAssociated = array_unique(array_merge($associatedOffices, $routingOffices));
-            if ($user->office_id && in_array($user->office_id, $allAssociated)) {
-                return true;
-            }
-        }
 
         Log::info("Workflow action authorization denied: User ID {$user->id} (office: {$user->office_id}) is not active receiver or approver for document ID {$document->id} (status: {$document->status})");
         return false;
     }
+
 
     /**
      * Resolve the most relevant routing record for the user and document.

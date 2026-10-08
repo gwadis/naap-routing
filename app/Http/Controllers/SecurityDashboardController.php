@@ -17,7 +17,7 @@ class SecurityDashboardController extends Controller
         $isAdmin = ($user && $user->isAdmin()) || User::isRoleAdmin($role);
 
         if (!$isAdmin) {
-            abort(403, 'Unauthorized.');
+            abort(403, 'Administrator privileges are required to access this page.');
         }
 
         $today = now()->toDateString();

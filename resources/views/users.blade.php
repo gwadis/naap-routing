@@ -449,24 +449,27 @@
 
     /* Enterprise Add User Button */
     .btn-add-user {
-        background: #0F172A;
-        color: #FFFFFF;
-        border: 1px solid #0F172A;
+        background: var(--accent-cyan, #1D4ED8) !important;
+        color: #FFFFFF !important;
+        border: 1px solid var(--accent-cyan, #1D4ED8) !important;
         font-weight: 600;
         font-size: 0.875rem;
         padding: 0.5rem 1.15rem;
-        border-radius: 8px;
+        border-radius: var(--radius-md, 8px);
         display: inline-flex;
         align-items: center;
         gap: 0.5rem;
         transition: all 0.15s ease;
         box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
     }
+    .btn-add-user * {
+        color: #FFFFFF !important;
+    }
     .btn-add-user:hover {
-        background: #1D4ED8;
-        border-color: #1D4ED8;
-        color: #FFFFFF;
-        box-shadow: 0 4px 10px rgba(29, 78, 216, 0.2);
+        background: #1e40af !important;
+        border-color: #1e40af !important;
+        color: #FFFFFF !important;
+        box-shadow: 0 4px 10px rgba(29, 78, 216, 0.25);
     }
 
     /* Mobile Cards View */
@@ -587,27 +590,6 @@
         border: 1px dashed var(--panel-border);
     }
 </style>
-
-{{-- ALERT NOTIFICATIONS --}}
-@if(session('success'))
-    <div class="alert alert-success d-flex align-items-center justify-content-between mb-4 border-0 shadow-sm" style="background: rgba(16, 185, 129, 0.12); color: #065F46; border-radius: 10px; padding: 0.85rem 1.25rem;">
-        <div class="d-flex align-items-center gap-2">
-            <i class="bi bi-check-circle-fill text-success fs-5"></i>
-            <span class="fw-medium">{{ session('success') }}</span>
-        </div>
-        <button type="button" class="btn-close btn-close-sm" data-bs-dismiss="alert" aria-label="Close"></button>
-    </div>
-@endif
-
-@if(session('error'))
-    <div class="alert alert-danger d-flex align-items-center justify-content-between mb-4 border-0 shadow-sm" style="background: rgba(244, 63, 94, 0.12); color: #9F1239; border-radius: 10px; padding: 0.85rem 1.25rem;">
-        <div class="d-flex align-items-center gap-2">
-            <i class="bi bi-exclamation-triangle-fill text-danger fs-5"></i>
-            <span class="fw-medium">{{ session('error') }}</span>
-        </div>
-        <button type="button" class="btn-close btn-close-sm" data-bs-dismiss="alert" aria-label="Close"></button>
-    </div>
-@endif
 
 {{-- PAGE HEADER --}}
 <div class="mgmt-header">
@@ -853,7 +835,7 @@
                                     </li>
                                     <li>
                                         <button class="dropdown-item d-flex align-items-center gap-2 py-2" type="button" onclick="openEditUserModal({{ json_encode($userSafeJson) }})">
-                                            <i class="bi bi-pencil text-info"></i> Edit User
+                                            <i class="bi bi-pencil text-primary"></i> Edit User
                                         </button>
                                     </li>
                                     <li>
@@ -960,7 +942,7 @@
                             </li>
                             <li>
                                 <button class="dropdown-item d-flex align-items-center gap-2 py-2" type="button" onclick="openEditUserModal({{ json_encode($userSafeJson) }})">
-                                    <i class="bi bi-pencil text-info"></i> Edit User
+                                    <i class="bi bi-pencil text-primary"></i> Edit User
                                 </button>
                             </li>
                             <li>
@@ -1161,30 +1143,32 @@
                         </div>
                     </div>
 
-                    {{-- SECTION 3: CREDENTIALS --}}
-                    <div class="form-section-title">
-                        <i class="bi bi-key"></i> Security Credentials
-                    </div>
-                    <div class="row g-3">
-                        <div class="col-12">
-                            <label class="form-label" id="modalPasswordLabel">Account Password *</label>
-                            <div class="input-group">
-                                <input type="password" name="password" id="modalInputPassword" class="form-control @error('password') is-invalid @enderror" placeholder="••••••••••••" required>
-                                <button class="btn btn-outline-secondary" type="button" id="togglePasswordVisibility" title="Show/Hide Password">
-                                    <i class="bi bi-eye" id="passwordEyeIcon"></i>
-                                </button>
+                    {{-- SECTION 3: CREDENTIALS (Shown ONLY for Edit User mode, never for Add New User) --}}
+                    <div id="modalPasswordSection" style="display: none;">
+                        <div class="form-section-title">
+                            <i class="bi bi-key"></i> Security Credentials
+                        </div>
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label" id="modalPasswordLabel">Account Password <span class="text-muted fw-normal">(Optional)</span></label>
+                                <div class="input-group">
+                                    <input type="password" name="password" id="modalInputPassword" class="form-control @error('password') is-invalid @enderror" placeholder="Leave blank to preserve existing password" disabled>
+                                    <button class="btn btn-outline-secondary" type="button" id="togglePasswordVisibility" title="Show/Hide Password">
+                                        <i class="bi bi-eye" id="passwordEyeIcon"></i>
+                                    </button>
+                                </div>
+                                <small class="text-dim mt-1 d-block" id="passwordHelpText">
+                                    Leave empty unless you wish to overwrite the current password.
+                                </small>
+                                @error('password') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
                             </div>
-                            <small class="text-dim mt-1 d-block" id="passwordHelpText">
-                                Min 10 characters • Uppercase • Lowercase • Number • Special character (!@#$%^&* etc.)
-                            </small>
-                            @error('password') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
                         </div>
                     </div>
                 </div>
 
                 <div class="modal-footer modal-footer-enterprise">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary px-4 fw-semibold" id="modalSubmitBtn" style="background:#0F172A; border-color:#0F172A;">
+                    <button type="submit" class="btn btn-primary px-4 fw-semibold" id="modalSubmitBtn" style="background: var(--accent-cyan, #1D4ED8) !important; border-color: var(--accent-cyan, #1D4ED8) !important; color: #FFFFFF !important;">
                         <i class="bi bi-check-lg me-1"></i> Create User Account
                     </button>
                 </div>
@@ -1460,13 +1444,19 @@
         document.getElementById('userModalTitle').innerHTML = '<i class="bi bi-person-plus text-primary me-2"></i> Add New User';
         document.getElementById('userModalSubtitle').innerText = 'Configure user identity, system role, and organizational assignment.';
         document.getElementById('modalSubmitBtn').innerHTML = '<i class="bi bi-check-lg me-1"></i> Create User Account';
-        document.getElementById('modalSubmitBtn').style.background = '#0F172A';
-        document.getElementById('modalSubmitBtn').style.borderColor = '#0F172A';
+        document.getElementById('modalSubmitBtn').style.background = 'var(--accent-cyan, #1D4ED8)';
+        document.getElementById('modalSubmitBtn').style.borderColor = 'var(--accent-cyan, #1D4ED8)';
+        document.getElementById('modalSubmitBtn').style.color = '#FFFFFF';
 
-        document.getElementById('modalPasswordLabel').innerHTML = 'Account Password <span class="text-danger">*</span>';
-        document.getElementById('modalInputPassword').required = true;
-        document.getElementById('modalInputPassword').placeholder = '••••••••••••';
-        document.getElementById('passwordHelpText').innerText = 'Min 10 characters • Uppercase • Lowercase • Number • Special character (!@#$%^&* etc.)';
+        // Password section is completely removed/hidden for Add New User
+        const pwdSection = document.getElementById('modalPasswordSection');
+        if (pwdSection) pwdSection.style.display = 'none';
+        const pwdInput = document.getElementById('modalInputPassword');
+        if (pwdInput) {
+            pwdInput.required = false;
+            pwdInput.disabled = true;
+            pwdInput.value = '';
+        }
 
         const modalEl = document.getElementById('userModal');
         const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
@@ -1482,11 +1472,12 @@
         document.getElementById('formModeInput').value = 'edit';
         document.getElementById('editUserIdInput').value = user.id;
 
-        document.getElementById('userModalTitle').innerHTML = '<i class="bi bi-pencil-square text-info me-2"></i> Edit User Account';
+        document.getElementById('userModalTitle').innerHTML = '<i class="bi bi-pencil-square text-primary me-2"></i> Edit User Account';
         document.getElementById('userModalSubtitle').innerText = `Editing user profile and privileges for ${user.name}`;
         document.getElementById('modalSubmitBtn').innerHTML = '<i class="bi bi-check-lg me-1"></i> Save Changes';
-        document.getElementById('modalSubmitBtn').style.background = '#1D4ED8';
-        document.getElementById('modalSubmitBtn').style.borderColor = '#1D4ED8';
+        document.getElementById('modalSubmitBtn').style.background = 'var(--accent-cyan, #1D4ED8)';
+        document.getElementById('modalSubmitBtn').style.borderColor = 'var(--accent-cyan, #1D4ED8)';
+        document.getElementById('modalSubmitBtn').style.color = '#FFFFFF';
 
         // Prepopulate inputs
         document.getElementById('modalInputName').value = user.name || '';
@@ -1499,11 +1490,17 @@
         document.getElementById('modalInputOffice').value = user.office_id || '';
         document.getElementById('modalInputStatus').value = user.status || 'active';
 
-        // Password optional on edit
+        // Password field available optionally when editing
+        const editPwdSection = document.getElementById('modalPasswordSection');
+        if (editPwdSection) editPwdSection.style.display = 'block';
+        const editPwdInput = document.getElementById('modalInputPassword');
+        if (editPwdInput) {
+            editPwdInput.required = false;
+            editPwdInput.disabled = false;
+            editPwdInput.value = '';
+            editPwdInput.placeholder = 'Leave blank to preserve existing password';
+        }
         document.getElementById('modalPasswordLabel').innerHTML = 'Account Password <span class="text-muted fw-normal">(Optional)</span>';
-        document.getElementById('modalInputPassword').required = false;
-        document.getElementById('modalInputPassword').value = '';
-        document.getElementById('modalInputPassword').placeholder = 'Leave blank to preserve existing password';
         document.getElementById('passwordHelpText').innerText = 'Leave empty unless you wish to overwrite the current password.';
 
         // Close details modal if open
@@ -1640,7 +1637,7 @@
                     const form = document.getElementById('userForm');
                     form.action = `/users/${editId}`;
                     document.getElementById('methodSpoofContainer').innerHTML = `@method('PUT')`;
-                    document.getElementById('userModalTitle').innerHTML = '<i class="bi bi-pencil-square text-info me-2"></i> Edit User Account';
+                    document.getElementById('userModalTitle').innerHTML = '<i class="bi bi-pencil-square text-primary me-2"></i> Edit User Account';
                     document.getElementById('modalSubmitBtn').innerHTML = '<i class="bi bi-check-lg me-1"></i> Save Changes';
                 }
                 const modal = bootstrap.Modal.getOrCreateInstance(modalEl);

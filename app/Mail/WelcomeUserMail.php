@@ -15,16 +15,20 @@ class WelcomeUserMail extends Mailable implements ShouldQueue
     use Queueable, SerializesModels;
 
     public $user;
+    public $temporaryPassword;
     public $password;
+    public $activationUrl;
     public $loginUrl;
 
     /**
      * Create a new message instance.
      */
-    public function __construct(User $user, $password)
+    public function __construct(User $user, ?string $temporaryPassword = null, ?string $activationUrl = null)
     {
         $this->user = $user;
-        $this->password = $password;
+        $this->temporaryPassword = $temporaryPassword;
+        $this->password = $temporaryPassword; // For backwards compatibility
+        $this->activationUrl = $activationUrl;
         $this->loginUrl = route('login');
     }
 
@@ -34,7 +38,7 @@ class WelcomeUserMail extends Mailable implements ShouldQueue
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Welcome to NAAP Document Routing System - Account Created',
+            subject: 'Welcome to NAAP Document Routing - Your Account Credentials',
         );
     }
 

@@ -551,12 +551,12 @@
                         <p class="enterprise-card-desc">Your digital signature is verified and applied during electronic document routing and approvals.</p>
                     </div>
                     <div>
-                        @if($user->signature)
-                            <span class="badge" style="background: rgba(16, 185, 129, 0.1); color: #047857; font-weight: 600; padding: 5px 10px; border-radius: 6px; font-size: 11.5px; border: 1px solid rgba(16, 185, 129, 0.2);">
+                        @if($user->hasValidSignature())
+                            <span class="badge" id="sigConfiguredBadge" style="background: rgba(16, 185, 129, 0.1); color: #047857; font-weight: 600; padding: 5px 10px; border-radius: 6px; font-size: 11.5px; border: 1px solid rgba(16, 185, 129, 0.2);">
                                 <i class="bi bi-check2-circle me-1"></i> Signature Configured
                             </span>
                         @else
-                            <span class="badge" style="background: rgba(148, 163, 184, 0.12); color: #475569; font-weight: 600; padding: 5px 10px; border-radius: 6px; font-size: 11.5px; border: 1px solid #CBD5E1;">
+                            <span class="badge" id="sigConfiguredBadge" style="background: rgba(148, 163, 184, 0.12); color: #475569; font-weight: 600; padding: 5px 10px; border-radius: 6px; font-size: 11.5px; border: 1px solid #CBD5E1;">
                                 <i class="bi bi-circle me-1"></i> Not Configured
                             </span>
                         @endif
@@ -564,27 +564,30 @@
                 </div>
 
                 {{-- Signature Display / Empty State --}}
-                @if($user->signature)
-                    <div class="mb-3">
-                        <label class="form-group-label mb-2">Current Active Signature</label>
+                @if($user->hasValidSignature())
+                    <div class="mb-3" id="sigDisplayActive">
+                        <label class="form-group-label mb-2 text-uppercase" style="letter-spacing: 0.5px; font-size: 11.5px; font-weight: 700; color: #475569;">Current Active Signature</label>
                         <div class="sig-preview-card">
-                            <img src="{{ asset('storage/' . $user->signature) }}" alt="Current Signature" class="img-fluid">
+                            <img src="{{ $user->signature_url }}" alt="Current Signature" class="img-fluid" onerror="handleSigImgError(this)">
                         </div>
-                        <div class="d-flex align-items-center justify-content-between mt-2">
+                        <div class="d-flex align-items-center justify-content-between mt-2 flex-wrap gap-2">
                             <span class="text-muted small">Saved signature on file. Applied automatically when completing workflow actions.</span>
-                            <button type="button" class="btn btn-outline-primary btn-sm fw-semibold" id="btnOpenSigEditor" style="font-size: 12.5px; height: 34px;">
+                            <button type="button" class="btn btn-outline-primary btn-sm fw-semibold btn-open-sig-editor" id="btnOpenSigEditor" style="font-size: 12.5px; height: 34px;">
                                 <i class="bi bi-pencil-square me-1"></i> Replace Signature
                             </button>
                         </div>
                     </div>
                 @else
-                    <div class="sig-empty-state mb-3">
-                        <i class="bi bi-pen text-secondary fs-2 mb-2 d-block"></i>
-                        <h6 class="fw-bold text-dark mb-1">No Digital Signature Configured</h6>
-                        <p class="text-secondary small mb-3">You must configure a digital signature to electronically approve, endorse, or sign routed documents.</p>
-                        <button type="button" class="btn btn-primary btn-sm px-3 fw-bold" id="btnOpenSigEditor" style="font-size: 12.5px; height: 34px;">
-                            <i class="bi bi-plus-lg me-1"></i> Configure Signature Now
-                        </button>
+                    <div class="mb-3" id="sigDisplayEmpty">
+                        <label class="form-group-label mb-2 text-uppercase" style="letter-spacing: 0.5px; font-size: 11.5px; font-weight: 700; color: #475569;">Current Active Signature</label>
+                        <div class="sig-empty-state mb-2">
+                            <i class="bi bi-pen text-secondary fs-3 mb-2 d-block opacity-75"></i>
+                            <h6 class="fw-bold text-dark mb-1" style="font-size: 14px;">No digital signature uploaded</h6>
+                            <p class="text-secondary small mb-3" style="max-width: 440px; margin: 0 auto;">Upload a signature to use it during electronic document routing and approvals.</p>
+                            <button type="button" class="btn btn-primary btn-sm px-3 fw-semibold btn-open-sig-editor" id="btnOpenSigEditor" style="font-size: 12.5px; height: 34px;">
+                                <i class="bi bi-plus-lg me-1"></i> Add Signature
+                            </button>
+                        </div>
                     </div>
                 @endif
 
@@ -909,19 +912,47 @@
         }
     }
 
-    if (btnOpenSigEditor && sigEditorContainer) {
-        btnOpenSigEditor.addEventListener('click', function() {
-            sigEditorContainer.style.display = 'block';
-            setTimeout(resizeCanvas, 80);
-            sigEditorContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        });
+    function openSignatureEditor() {
+        if (!sigEditorContainer) return;
+        sigEditorContainer.style.display = 'block';
+        setTimeout(resizeCanvas, 80);
+        sigEditorContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
+
+    document.querySelectorAll('#btnOpenSigEditor, .btn-open-sig-editor').forEach(btn => {
+        btn.addEventListener('click', openSignatureEditor);
+    });
 
     if (btnCloseSigEditor && sigEditorContainer) {
         btnCloseSigEditor.addEventListener('click', function() {
             sigEditorContainer.style.display = 'none';
         });
     }
+
+    window.handleSigImgError = function(img) {
+        const container = document.getElementById('sigDisplayActive');
+        if (container) {
+            const emptyTitle = ['No digital', 'signature uploaded'].join(' ');
+            container.innerHTML = `
+                <label class="form-group-label mb-2 text-uppercase" style="letter-spacing: 0.5px; font-size: 11.5px; font-weight: 700; color: #475569;">Current Active Signature</label>
+                <div class="sig-empty-state mb-2">
+                    <i class="bi bi-pen text-secondary fs-3 mb-2 d-block opacity-75"></i>
+                    <h6 class="fw-bold text-dark mb-1" style="font-size: 14px;">${emptyTitle}</h6>
+                    <p class="text-secondary small mb-3" style="max-width: 440px; margin: 0 auto;">Upload a signature to use it during electronic document routing and approvals.</p>
+                    <button type="button" class="btn btn-primary btn-sm px-3 fw-semibold btn-open-sig-editor" onclick="openSignatureEditor()" style="font-size: 12.5px; height: 34px;">
+                        <i class="bi bi-plus-lg me-1"></i> Add Signature
+                    </button>
+                </div>
+            `;
+        }
+        const badge = document.getElementById('sigConfiguredBadge');
+        if (badge) {
+            badge.style.background = 'rgba(148, 163, 184, 0.12)';
+            badge.style.color = '#475569';
+            badge.style.border = '1px solid #CBD5E1';
+            badge.innerHTML = '<i class="bi bi-circle me-1"></i> Not Configured';
+        }
+    };
 
     const pillsDrawTab = document.getElementById('pillsDrawTab');
     if (pillsDrawTab) {

@@ -17,10 +17,12 @@ class RoutingController extends Controller
      */
     public function index()
     {
+        $user = auth()->user() ?? User::find(session('user_id'));
         $offices = Office::orderBy('name', 'asc')->get();
         $users   = User::with('department')->orderBy('name', 'asc')->get();
 
-        $documents = Document::with(['originOffice', 'currentOffice', 'destinationOffice', 'receiverUser.department'])
+        $documents = Document::accessibleBy($user)
+            ->with(['originOffice', 'currentOffice', 'destinationOffice', 'receiverUser.department'])
             ->latest()
             ->paginate(10);
 
@@ -39,15 +41,23 @@ class RoutingController extends Controller
             'notes'              => 'nullable|string|max:500',
         ]);
 
+        $document = Document::findOrFail($id);
+        $user = auth()->user() ?? User::find(session('user_id'));
+        $policy = app(\App\Policies\DocumentPolicy::class);
+
+        if (!$policy->performWorkflow($user, $document)) {
+            abort(403, 'You are not authorized to perform this action.');
+        }
+
         // Custom check: make sure every receiver in receiver_user_ids belongs to office_id
         $officeId = $request->input('office_id');
         $receiverUserIds = $request->input('receiver_user_ids', []);
         foreach ($receiverUserIds as $userId) {
             if ($userId) {
-                $user = User::find($userId);
-                if (!$user || $user->office_id != $officeId) {
+                $targetReceiver = User::find($userId);
+                if (!$targetReceiver || $targetReceiver->office_id != $officeId) {
                     $officeName = Office::find($officeId)?->name ?? 'Selected Office';
-                    $userName = $user?->name ?? 'Selected User';
+                    $userName = $targetReceiver?->name ?? 'Selected User';
                     return back()->withErrors([
                         'receiver_user_ids' => "Routing validation failed: Receiver '{$userName}' does not belong to the office '{$officeName}'."
                     ])->withInput();
@@ -56,8 +66,7 @@ class RoutingController extends Controller
         }
 
         try {
-            DB::transaction(function () use ($request, $id) {
-                $document      = Document::findOrFail($id);
+            DB::transaction(function () use ($request, $id, $document, $user) {
                 $fromOfficeId  = $document->current_office_id ?? $document->origin_office_id;
                 $targetOffice  = Office::findOrFail($request->office_id);
                 $oldOfficeName = $document->currentOffice->name ?? 'Unknown';
@@ -134,21 +143,24 @@ class RoutingController extends Controller
 
                 // 3. Activity log (ARTA-enriched)
                 $receiverNames = User::whereIn('id', $receiverUserIds)->pluck('name')->toArray();
+                $actorId = session('user_id') ?? auth()->id();
                 ActivityLog::create([
-                    'user'        => session('user_name') ?? 'System',
+                    'user_id'     => $actorId,
+                    'user'        => session('user_name') ?? (auth()->user()?->name ?? 'System'),
                     'action'      => 'Document Routed',
                     'document_id' => $document->id,
                     'ip'          => $request->ip(),
-                    'meta'        => json_encode([
+                    'meta'        => [
                         'from_office'     => $oldOfficeName,
                         'to_office'       => $targetOffice->name,
                         'status'          => $newStatus,
                         'timestamp'       => now()->toIso8601String(),
-                        'routed_by'       => session('user_name') ?? 'System',
+                        'actor_user_id'   => $actorId,
+                        'routed_by'       => session('user_name') ?? (auth()->user()?->name ?? 'System'),
                         'receivers_count' => count($receiverUserIds),
                         'receivers'       => implode(', ', $receiverNames),
                         'sla_due_at'      => now()->addHours($slaHours)->toIso8601String(),
-                    ]),
+                    ],
                 ]);
 
                 // 4. Notify ALL receivers (not just first, not request-conditional)

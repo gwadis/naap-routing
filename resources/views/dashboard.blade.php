@@ -116,18 +116,18 @@
         margin-top: 4px;
     }
     .user-work-card.prominent-action {
-        border-color: #fca5a5;
-        background: #fff5f5;
+        border-color: #fde68a;
+        background: #fffbeb;
     }
     .user-work-card.prominent-action .uw-value {
-        color: #dc2626 !important;
+        color: #d97706 !important;
     }
     .user-work-card.prominent-overdue {
         border-color: #fecaca;
         background: #fef2f2;
     }
     .user-work-card.prominent-overdue .uw-value {
-        color: #b91c1c !important;
+        color: #dc2626 !important;
     }
     
     /* Charts main grid */
@@ -186,7 +186,7 @@
     .activity-time {
         font-size: 11px;
         font-weight: 600;
-        color: var(--accent-cyan);
+        color: var(--text-dim);
         min-width: 75px;
         flex-shrink: 0;
     }
@@ -273,18 +273,18 @@
         color: var(--text-main);
     }
     .user-work-card.prominent-action {
-        border-color: rgba(220, 38, 38, 0.35);
-        background: linear-gradient(180deg, #ffffff 0%, rgba(254, 242, 242, 0.6) 100%);
+        border-color: rgba(245, 158, 11, 0.35);
+        background: linear-gradient(180deg, #ffffff 0%, rgba(254, 243, 199, 0.35) 100%);
     }
     .user-work-card.prominent-action .user-work-value {
-        color: #dc2626 !important;
+        color: #d97706 !important;
     }
     .user-work-card.prominent-overdue {
-        border-color: rgba(185, 28, 28, 0.35);
-        background: linear-gradient(180deg, #ffffff 0%, rgba(254, 242, 242, 0.6) 100%);
+        border-color: rgba(220, 38, 38, 0.35);
+        background: linear-gradient(180deg, #ffffff 0%, rgba(254, 242, 242, 0.5) 100%);
     }
     .user-work-card.prominent-overdue .user-work-value {
-        color: #b91c1c !important;
+        color: #dc2626 !important;
     }
 
     /* Calendar Widget Styling */
@@ -365,9 +365,9 @@
     .border-bottom-dashed {
         border-bottom: 1px dashed rgba(0,0,0,0.08);
     }
-    .bg-teal { background-color: #0d9488 !important; }
-    .bg-purple { background-color: #a855f7 !important; }
-    .bg-indigo { background-color: #6366f1 !important; }
+    .bg-teal { background-color: #059669 !important; }
+    .bg-purple { background-color: #d97706 !important; }
+    .bg-indigo { background-color: #1d4ed8 !important; }
 
     /* SLA Badges matching Documents module */
     .sla-badge {
@@ -465,7 +465,7 @@
             <a href="{{ route('documents.index', ['status' => 'in_process']) }}" class="kpi-card text-decoration-none">
                 <div>
                     <div class="label">In Process</div>
-                    <h3 style="color: #2563EB !important;">{{ $inProcessDocs }}</h3>
+                    <h3 style="color: #1D4ED8 !important;">{{ $inProcessDocs }}</h3>
                 </div>
                 <div class="kpi-trend trend-neutral">
                     <i class="bi bi-arrow-repeat"></i> In transit & routing
@@ -474,7 +474,7 @@
             <a href="{{ route('documents.index', ['status' => 'for_approval']) }}" class="kpi-card text-decoration-none">
                 <div>
                     <div class="label">For Approval</div>
-                    <h3 style="color: #D97706 !important;">{{ $forApprovalDocs }}</h3>
+                    <h3 style="color: {{ $forApprovalDocs > 0 ? '#D97706' : 'var(--text-main)' }} !important;">{{ $forApprovalDocs }}</h3>
                 </div>
                 <div class="kpi-trend trend-neutral">
                     <i class="bi bi-clock-history"></i> Awaiting review / signatures
@@ -492,16 +492,16 @@
             <a href="{{ route('documents.index', ['status' => 'overdue']) }}" class="kpi-card text-decoration-none">
                 <div>
                     <div class="label">Overdue Items</div>
-                    <h3 style="color: #DC2626 !important;">{{ $overdueDocs }}</h3>
+                    <h3 style="color: {{ $overdueDocs > 0 ? '#DC2626' : 'var(--text-main)' }} !important;">{{ $overdueDocs }}</h3>
                 </div>
-                <div class="kpi-trend trend-down">
-                    <i class="bi bi-exclamation-circle"></i> Action required
+                <div class="kpi-trend {{ $overdueDocs > 0 ? 'trend-down' : 'trend-neutral' }}">
+                    <i class="bi bi-exclamation-circle"></i> {{ $overdueDocs > 0 ? 'Action required' : 'No overdue items' }}
                 </div>
             </a>
             <div class="kpi-card">
                 <div>
                     <div class="label">Average Processing Time / SLA</div>
-                    <h3 style="color: #4F46E5 !important;">{{ $avgProcessingHours !== 'N/A' && is_numeric($avgProcessingHours) ? $avgProcessingHours . 'h' : 'N/A' }}</h3>
+                    <h3 style="color: var(--text-main) !important;">{{ $avgProcessingHours !== 'N/A' && is_numeric($avgProcessingHours) ? $avgProcessingHours . 'h' : 'N/A' }}</h3>
                 </div>
                 <div class="kpi-trend trend-neutral">
                     <i class="bi bi-lightning-charge"></i> Median: {{ $medianProcessingHours !== 'N/A' && is_numeric($medianProcessingHours) ? $medianProcessingHours . 'h' : 'N/A' }}
@@ -510,7 +510,7 @@
             <div class="kpi-card">
                 <div>
                     <div class="label">Completed SLA Compliance</div>
-                    <h3 style="color: #0D9488 !important;">{{ $completedSlaComplianceRate !== 'N/A' ? $completedSlaComplianceRate . '%' : 'N/A' }}</h3>
+                    <h3 style="color: #059669 !important;">{{ $completedSlaComplianceRate !== 'N/A' ? $completedSlaComplianceRate . '%' : 'N/A' }}</h3>
                 </div>
                 <div class="kpi-trend trend-up">
                     <i class="bi bi-shield-check"></i> Overall (incl. overdue): {{ $overallSlaComplianceRate !== 'N/A' ? $overallSlaComplianceRate . '%' : 'N/A' }}
@@ -545,9 +545,9 @@
                                 <div class="d-flex align-items-center justify-content-between">
                                     <div class="text-truncate">
                                         <div class="action-req-label">Awaiting Receipt</div>
-                                        <div class="action-req-count text-info">{{ $actionRequired['awaiting_receipt'] }}</div>
+                                        <div class="action-req-count text-warning">{{ $actionRequired['awaiting_receipt'] }}</div>
                                     </div>
-                                    <i class="bi bi-inbox fs-4 text-info opacity-75"></i>
+                                    <i class="bi bi-inbox fs-4 text-warning opacity-75"></i>
                                 </div>
                             </a>
                         </div>
@@ -559,9 +559,9 @@
                                 <div class="d-flex align-items-center justify-content-between">
                                     <div class="text-truncate">
                                         <div class="action-req-label">Awaiting Processing</div>
-                                        <div class="action-req-count text-primary">{{ $actionRequired['awaiting_processing'] }}</div>
+                                        <div class="action-req-count text-warning">{{ $actionRequired['awaiting_processing'] }}</div>
                                     </div>
-                                    <i class="bi bi-gear fs-4 text-primary opacity-75"></i>
+                                    <i class="bi bi-gear fs-4 text-warning opacity-75"></i>
                                 </div>
                             </a>
                         </div>
@@ -587,9 +587,9 @@
                                 <div class="d-flex align-items-center justify-content-between">
                                     <div class="text-truncate">
                                         <div class="action-req-label">Awaiting Signature</div>
-                                        <div class="action-req-count" style="color: #a855f7 !important;">{{ $actionRequired['awaiting_signature'] }}</div>
+                                        <div class="action-req-count text-warning">{{ $actionRequired['awaiting_signature'] }}</div>
                                     </div>
-                                    <i class="bi bi-pen fs-4 opacity-75" style="color: #a855f7;"></i>
+                                    <i class="bi bi-pen fs-4 text-warning opacity-75"></i>
                                 </div>
                             </a>
                         </div>
@@ -800,7 +800,7 @@
                 <div class="chart-card h-100 d-flex flex-column">
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <h6 class="fw-bold mb-0 text-truncate" style="color: var(--text-main) !important;">
-                            <i class="bi bi-calendar-check me-2 text-info"></i>Activity for <span id="selectedDateTitle" class="text-primary">{{ $selectedDateEventsData['formatted_date'] ?? now()->format('M d, Y') }}</span>
+                            <i class="bi bi-calendar-check me-2 text-primary"></i>Activity for <span id="selectedDateTitle" class="text-primary">{{ $selectedDateEventsData['formatted_date'] ?? now()->format('M d, Y') }}</span>
                         </h6>
                         <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1 flex-shrink-0" id="selectedDateBadge" style="font-size: 11px;">
                             {{ $selectedDateEventsData['total_events'] ?? 0 }} Document Events
@@ -811,23 +811,23 @@
                     <div class="d-flex flex-wrap gap-2 mb-3">
                         <div class="stat-metric-pill">
                             <span class="text-muted">Uploaded:</span>
-                            <span class="badge bg-primary rounded-pill font-monospace" id="statUploadedDocs">{{ $selectedDateEventsData['stats']['uploaded'] ?? 0 }}</span>
+                            <span class="badge bg-secondary text-white rounded-pill font-monospace" id="statUploadedDocs">{{ $selectedDateEventsData['stats']['uploaded'] ?? 0 }}</span>
                         </div>
                         <div class="stat-metric-pill">
                             <span class="text-muted">Routed:</span>
-                            <span class="badge rounded-pill font-monospace text-white" style="background:#a855f7;" id="statRoutedDocs">{{ $selectedDateEventsData['stats']['routed'] ?? 0 }}</span>
+                            <span class="badge bg-primary text-white rounded-pill font-monospace" id="statRoutedDocs">{{ $selectedDateEventsData['stats']['routed'] ?? 0 }}</span>
                         </div>
                         <div class="stat-metric-pill">
                             <span class="text-muted">Received:</span>
-                            <span class="badge bg-info text-dark rounded-pill font-monospace" id="statReceivedDocs">{{ $selectedDateEventsData['stats']['received'] ?? 0 }}</span>
+                            <span class="badge bg-warning text-dark rounded-pill font-monospace" id="statReceivedDocs">{{ $selectedDateEventsData['stats']['received'] ?? 0 }}</span>
                         </div>
                         <div class="stat-metric-pill">
                             <span class="text-muted">Approved:</span>
-                            <span class="badge bg-success rounded-pill font-monospace" id="statApprovedDocs">{{ $selectedDateEventsData['stats']['approved'] ?? 0 }}</span>
+                            <span class="badge bg-success text-white rounded-pill font-monospace" id="statApprovedDocs">{{ $selectedDateEventsData['stats']['approved'] ?? 0 }}</span>
                         </div>
                         <div class="stat-metric-pill">
                             <span class="text-muted">Completed:</span>
-                            <span class="badge rounded-pill font-monospace text-white" style="background:#0d9488;" id="statCompletedDocs">{{ $selectedDateEventsData['stats']['completed'] ?? 0 }}</span>
+                            <span class="badge bg-success text-white rounded-pill font-monospace" id="statCompletedDocs">{{ $selectedDateEventsData['stats']['completed'] ?? 0 }}</span>
                         </div>
                     </div>
 
@@ -893,7 +893,7 @@
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h5 class="mb-0"><i class="bi bi-clock-history"></i> Recent Activity Logs</h5>
                 <a href="{{ route('activity.index') }}" class="btn btn-sm btn-outline-primary py-0 px-2" style="font-size: 11px; border-radius: 6px;">
-                    View All
+                    View All Logs ➔
                 </a>
             </div>
             <div class="activity-feed" style="max-height: 280px; overflow-y: auto;">
@@ -939,12 +939,12 @@
                     <div class="user-work-value">{{ $myDocumentsCount }}</div>
                 </a>
                 <a href="#actionRequiredSection" class="user-work-card prominent-action">
-                    <div class="user-work-label text-danger">For My Action</div>
+                    <div class="user-work-label text-warning" style="color: #b45309 !important;">For My Action</div>
                     <div class="user-work-value">{{ $forMyActionCount }}</div>
                 </a>
                 <a href="{{ route('documents.index', ['status' => 'in_process']) }}" class="user-work-card">
                     <div class="user-work-label">In Process</div>
-                    <div class="user-work-value" style="color: #2563eb;">{{ $userInProcessCount }}</div>
+                    <div class="user-work-value" style="color: #1d4ed8;">{{ $userInProcessCount }}</div>
                 </a>
                 <a href="{{ route('documents.index', ['status' => 'completed']) }}" class="user-work-card">
                     <div class="user-work-label">Completed <span class="d-none">by Me</span></div>
@@ -970,7 +970,7 @@
                     </h5>
                     <span class="text-muted small" style="font-size: 11px;">Documents that need your attention</span>
                 </div>
-                <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1" style="font-size: 11px;">
+                <span class="badge bg-warning text-dark border px-2 py-1" style="font-size: 11px;">
                     {{ $forMyActionCount }} Pending Action(s)
                 </span>
             </div>
@@ -1078,7 +1078,16 @@
                                             <div class="text-muted font-monospace" style="font-size: 9.5px;">{{ $loc['last_event_time'] }}</div>
                                         </td>
                                         <td>
-                                            <span class="badge bg-secondary" style="font-size: 10px;">{{ $loc['status'] }}</span>
+                                            @php
+                                                $locStatusNorm = strtolower($loc['status'] ?? '');
+                                                $locBadge = match(true) {
+                                                    in_array($locStatusNorm, ['completed', 'approved']) => 'bg-success',
+                                                    in_array($locStatusNorm, ['overdue', 'rejected', 'failed']) => 'bg-danger',
+                                                    in_array($locStatusNorm, ['in_transit', 'in transit', 'in_process', 'in process', 'received', 'under review', 'processing']) => 'bg-info',
+                                                    default => 'bg-warning text-dark'
+                                                };
+                                            @endphp
+                                            <span class="badge {{ $locBadge }}" style="font-size: 10px;">{{ $loc['status'] }}</span>
                                         </td>
                                         <td class="text-end">
                                             <a href="{{ route('track.index', ['tracking_number' => $loc['tracking_number']]) }}" class="btn btn-sm btn-outline-primary py-0 px-2" style="font-size: 10.5px; border-radius: 6px;">
@@ -1192,8 +1201,8 @@
                     </h5>
                     <span class="text-muted small" style="font-size: 11px;">Your personal operational history</span>
                 </div>
-                <a href="{{ route('activity.index') }}" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: 11px; border-radius: 6px;">
-                    View All Logs ➔
+                <a href="{{ route('activity.my') }}" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: 11px; border-radius: 6px;">
+                    View My Activity ➔
                 </a>
             </div>
 
@@ -1235,7 +1244,16 @@
                                     </td>
                                     <td>
                                         @if($log->document)
-                                            <span class="badge bg-secondary text-white" style="font-size: 10px;">{{ $log->document->status }}</span>
+                                            @php
+                                                $logDocStatus = strtolower($log->document->status ?? '');
+                                                $logStatusBadge = match(true) {
+                                                    in_array($logDocStatus, ['completed', 'approved', 'archived']) => 'bg-success',
+                                                    in_array($logDocStatus, ['overdue', 'rejected', 'failed', 'cancelled']) => 'bg-danger',
+                                                    in_array($logDocStatus, ['in_transit', 'in transit', 'in_process', 'in process', 'received', 'under review', 'processing']) => 'bg-info',
+                                                    default => 'bg-warning text-dark'
+                                                };
+                                            @endphp
+                                            <span class="badge {{ $logStatusBadge }}" style="font-size: 10px;">{{ $log->document->status }}</span>
                                         @else
                                             <span class="text-muted">&mdash;</span>
                                         @endif

@@ -416,14 +416,14 @@
         <div class="col-6 col-md-4 col-lg-2">
             <div class="glass-card text-center h-100 d-flex flex-column justify-content-center p-3">
                 <div class="stat-label">Avg Processing Time</div>
-                <div class="stat-value" style="color: #4F46E5;">{{ is_numeric($summary['avg_time']) ? $summary['avg_time'] . 'h' : 'N/A' }}</div>
+                <div class="stat-value" style="color: var(--text-main);">{{ is_numeric($summary['avg_time']) ? $summary['avg_time'] . 'h' : 'N/A' }}</div>
                 <small class="text-muted" style="font-size: 11px;">Median: {{ is_numeric($summary['median_time']) ? $summary['median_time'] . 'h' : 'N/A' }}</small>
             </div>
         </div>
         <div class="col-6 col-md-4 col-lg-2">
             <div class="glass-card text-center h-100 d-flex flex-column justify-content-center p-3">
                 <div class="stat-label">Completed SLA Rate</div>
-                <div class="stat-value" style="color: #0D9488;">{{ $summary['sla_compliance'] !== 'N/A' ? $summary['sla_compliance'] . '%' : 'N/A' }}</div>
+                <div class="stat-value" style="color: #059669;">{{ $summary['sla_compliance'] !== 'N/A' ? $summary['sla_compliance'] . '%' : 'N/A' }}</div>
                 <small class="text-muted" style="font-size: 11px;">Overall: {{ $summary['overall_sla'] !== 'N/A' ? $summary['overall_sla'] . '%' : 'N/A' }}</small>
             </div>
         </div>
@@ -552,7 +552,7 @@
             <div class="glass-card h-100 d-flex flex-column text-start">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h5 class="fw-bold mb-0" style="color: var(--accent-navy) !important;">
-                        <i class="bi bi-clock-history text-info me-2"></i>Processing Time Velocity
+                        <i class="bi bi-clock-history text-primary me-2"></i>Processing Time Velocity
                     </h5>
                     <span class="badge bg-light text-secondary border">Strict Chronological Validation</span>
                 </div>
@@ -739,7 +739,7 @@
             <div class="col-6 col-md-4 col-lg-2">
                 <div class="p-3 border rounded text-center bg-light">
                     <div class="stat-label">QR Accessed Docs</div>
-                    <div class="fs-4 fw-bold text-info">{{ number_format($qrDocumentsAccessed) }}</div>
+                    <div class="fs-4 fw-bold text-primary">{{ number_format($qrDocumentsAccessed) }}</div>
                 </div>
             </div>
         </div>
@@ -1029,7 +1029,7 @@
             <div class="glass-card h-100">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h6 class="fw-bold mb-0" style="color: var(--accent-navy) !important;">
-                        <i class="bi bi-calendar-check me-2 text-info"></i>Activity for <span id="selectedDateTitle" class="text-primary">{{ now()->format('M d, Y') }}</span>
+                        <i class="bi bi-calendar-check me-2 text-primary"></i>Activity for <span id="selectedDateTitle" class="text-primary">{{ now()->format('M d, Y') }}</span>
                     </h6>
                     <span class="badge bg-light text-secondary border px-2 py-1" id="selectedDateStatusBadge" style="font-size: 11px;">Selected Date</span>
                 </div>
@@ -1043,12 +1043,12 @@
                         <span class="badge bg-primary fs-6 px-3 py-1 font-monospace" id="statUploadedDocs">{{ $selectedDateStats['uploaded'] ?? 0 }}</span>
                     </div>
 
-                    <div class="stat-metric-row" style="background: rgba(168, 85, 247, 0.06); border: 1px solid rgba(168, 85, 247, 0.15);">
+                    <div class="stat-metric-row" style="background: rgba(37, 99, 235, 0.06); border: 1px solid rgba(37, 99, 235, 0.15);">
                         <div class="d-flex align-items-center gap-2">
-                            <i class="bi bi-arrow-left-right fs-5" style="color: #a855f7;"></i>
+                            <i class="bi bi-arrow-left-right text-primary fs-5"></i>
                             <span style="font-size: 13px; font-weight: 600; color: var(--text-main);">Total Routed Documents</span>
                         </div>
-                        <span class="badge fs-6 px-3 py-1 font-monospace text-white" style="background: #a855f7;" id="statRoutedDocs">{{ $selectedDateStats['routed'] ?? 0 }}</span>
+                        <span class="badge bg-primary fs-6 px-3 py-1 font-monospace text-white" id="statRoutedDocs">{{ $selectedDateStats['routed'] ?? 0 }}</span>
                     </div>
 
                     <div class="stat-metric-row" style="background: rgba(16, 185, 129, 0.06); border: 1px solid rgba(16, 185, 129, 0.15);">
@@ -1059,12 +1059,12 @@
                         <span class="badge bg-success fs-6 px-3 py-1 font-monospace" id="statApprovedDocs">{{ $selectedDateStats['approved'] ?? 0 }}</span>
                     </div>
 
-                    <div class="stat-metric-row" style="background: rgba(13, 148, 136, 0.06); border: 1px solid rgba(13, 148, 136, 0.15);">
+                    <div class="stat-metric-row" style="background: rgba(16, 185, 129, 0.06); border: 1px solid rgba(16, 185, 129, 0.15);">
                         <div class="d-flex align-items-center gap-2">
-                            <i class="bi bi-patch-check fs-5" style="color: #0d9488;"></i>
+                            <i class="bi bi-patch-check text-success fs-5"></i>
                             <span style="font-size: 13px; font-weight: 600; color: var(--text-main);">Total Completed Documents</span>
                         </div>
-                        <span class="badge fs-6 px-3 py-1 font-monospace text-white" style="background: #0d9488;" id="statCompletedDocs">{{ $selectedDateStats['completed'] ?? 0 }}</span>
+                        <span class="badge bg-success fs-6 px-3 py-1 font-monospace text-white" id="statCompletedDocs">{{ $selectedDateStats['completed'] ?? 0 }}</span>
                     </div>
 
                     <div class="stat-metric-row" style="background: rgba(245, 158, 11, 0.06); border: 1px solid rgba(245, 158, 11, 0.15);">

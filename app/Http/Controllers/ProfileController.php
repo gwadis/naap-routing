@@ -12,10 +12,21 @@ class ProfileController extends Controller
     public function index()
     {
         try {
-            $user = User::with(['department', 'office'])->where('email', session('user_email'))->first();
+            $user = auth()->user() ?? (session('user_id')
+                ? User::with(['department', 'office'])->find(session('user_id'))
+                : User::with(['department', 'office'])->where('email', session('user_email'))->first());
 
             if (!$user) {
                 return redirect()->route('home')->with('error', 'Please log in again.');
+            }
+
+            // Ensure public storage link exists
+            if (!file_exists(public_path('storage'))) {
+                try {
+                    \Illuminate\Support\Facades\Artisan::call('storage:link');
+                } catch (\Throwable $linkEx) {
+                    Log::warning('Storage link check failed: ' . $linkEx->getMessage());
+                }
             }
 
             $departments = \App\Models\Department::all();
@@ -168,56 +179,105 @@ class ProfileController extends Controller
     public function updateSignature(Request $request)
     {
         try {
-            $user = User::where('email', session('user_email'))->first();
+            $user = auth()->user() ?? (session('user_id')
+                ? User::find(session('user_id'))
+                : User::where('email', session('user_email'))->first());
 
             if (!$user) {
-                return back()->with('error', 'Session expired.');
+                return back()->with('error', 'Session expired. Please log in again.');
             }
+
+            // Ensure public storage link exists
+            if (!file_exists(public_path('storage'))) {
+                try {
+                    \Illuminate\Support\Facades\Artisan::call('storage:link');
+                } catch (\Throwable $linkEx) {
+                    Log::warning('Storage link generation attempt failed: ' . $linkEx->getMessage());
+                }
+            }
+
+            // Image validation
+            $request->validate([
+                'sig_file' => 'nullable|file|image|mimes:png,jpg,jpeg|max:2048',
+                'signature_data' => 'nullable|string',
+            ], [
+                'sig_file.image' => 'The uploaded signature must be a valid image file.',
+                'sig_file.mimes' => 'Only PNG, JPG, or JPEG signature images are supported.',
+                'sig_file.max' => 'The signature file size must not exceed 2MB.',
+            ]);
 
             $path = null;
 
-            // FILE UPLOAD
+            // 1. FILE UPLOAD
             if ($request->hasFile('sig_file')) {
-                $path = $request->file('sig_file')->store('signatures', 'public');
+                $file = $request->file('sig_file');
+                if (!$file->isValid()) {
+                    return back()->with('error', 'Uploaded signature file is not valid.');
+                }
+
+                $imageInfo = @getimagesize($file->getRealPath());
+                if ($imageInfo === false) {
+                    return back()->with('error', 'The uploaded file is not a valid or readable image.');
+                }
+
+                $ext = strtolower($file->getClientOriginalExtension() ?: 'png');
+                if (!in_array($ext, ['png', 'jpg', 'jpeg'])) {
+                    $ext = 'png';
+                }
+
+                $filename = 'sig_' . Str::random(24) . '.' . $ext;
+                $path = $file->storeAs('signatures', $filename, 'public');
             }
 
-            // BASE64 SIGNATURE
-            elseif ($request->signature_data) {
+            // 2. CANVAS DRAWN SIGNATURE (Base64)
+            elseif ($request->filled('signature_data')) {
+                $data = (string) $request->signature_data;
+                if (!preg_match('/^data:image\/(png|jpeg|jpg);base64,/', $data)) {
+                    return back()->with('error', 'Invalid signature format.');
+                }
 
-                $imageName = 'sig_' . Str::random(10) . '.png';
+                $base64Data = preg_replace('/^data:image\/(png|jpeg|jpg);base64,/', '', $data);
+                $base64Data = str_replace(' ', '+', $base64Data);
+                $decoded = base64_decode($base64Data, true);
 
-                $data = $request->signature_data;
-                $data = str_replace('data:image/png;base64,', '', $data);
-                $data = str_replace(' ', '+', $data);
+                if ($decoded === false || strlen($decoded) < 10) {
+                    return back()->with('error', 'Corrupted or empty signature drawing.');
+                }
 
-                Storage::disk('public')->put(
-                    'signatures/' . $imageName,
-                    base64_decode($data)
-                );
+                $imageInfo = @getimagesizefromstring($decoded);
+                if ($imageInfo === false) {
+                    return back()->with('error', 'The drawn signature could not be verified as a valid image.');
+                }
 
-                $path = 'signatures/' . $imageName;
+                $filename = 'sig_' . Str::random(24) . '.png';
+                $path = 'signatures/' . $filename;
+
+                Storage::disk('public')->put($path, $decoded);
             }
 
-            if ($path) {
+            if ($path && Storage::disk('public')->exists($path)) {
                 $oldValues = $user->toArray();
+                $oldSignature = $user->signature;
 
-                // delete old signature safely
-                if ($user->signature) {
-                    Storage::disk('public')->delete($user->signature);
+                // Safely delete previous physical signature file if it exists
+                if ($oldSignature && !str_starts_with($oldSignature, 'data:') && Storage::disk('public')->exists($oldSignature)) {
+                    Storage::disk('public')->delete($oldSignature);
                 }
 
                 $user->update(['signature' => $path]);
 
-                \App\Models\AuditTrail::log("Signature Updated via Profile", "users/{$user->id}", $oldValues, $user->toArray());
+                \App\Models\AuditTrail::log("Signature Updated via Profile", "users/{$user->id}", $oldValues, $user->fresh()->toArray());
 
-                return back()->with('success', 'Digital signature updated!');
+                return back()->with('success', 'Digital signature updated successfully!');
             }
 
-            return back()->with('error', 'No signature data received.');
+            return back()->with('error', 'No signature data received or image could not be processed.');
 
+        } catch (\Illuminate\Validation\ValidationException $ve) {
+            return back()->withErrors($ve->errors())->withInput()->with('error', $ve->validator->errors()->first());
         } catch (\Exception $e) {
             Log::error('Signature Update Error: ' . $e->getMessage());
-            return back()->with('error', 'Failed to update signature.');
+            return back()->with('error', 'Failed to update signature: ' . $e->getMessage());
         }
     }
 }

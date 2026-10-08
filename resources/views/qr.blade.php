@@ -19,11 +19,11 @@
     body.dark-mode {
         --glass-bg: rgba(30, 41, 59, 0.7);
         --panel-border: rgba(255, 255, 255, 0.08);
-        --accent-cyan: #22d3ee;
-        --accent-purple: #a855f7;
-        --accent-green: #10b981;
-        --accent-red: #ef4444;
-        --accent-orange: #f59e0b;
+        --accent-cyan: #3b82f6;
+        --accent-purple: #1d4ed8;
+        --accent-green: #059669;
+        --accent-red: #dc2626;
+        --accent-orange: #d97706;
     }
 
     .glass-card {
@@ -123,7 +123,7 @@
         <div class="col-lg-8">
             <div class="glass-card p-4 mb-4">
                 <h5 class="mb-4 d-flex align-items-center gap-2">
-                    <i class="bi bi-qr-code-scan text-info"></i> Scan Document QR
+                    <i class="bi bi-qr-code-scan text-primary"></i> Scan Document QR
                 </h5>
                 <p class="text-secondary mb-0">Use this page to scan a document QR code and open the corresponding document details. No uploading or routing is required here.</p>
             </div>

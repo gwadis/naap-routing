@@ -19,11 +19,14 @@ class QRController extends Controller
      */
     public function index()
     {
+        $user = auth()->user() ?? User::find(session('user_id'));
+
         // Fetch real offices for the dropdowns
         $offices = Office::orderBy('name', 'asc')->get();
         
-        // Fetch recent documents to show status in the scanner UI
-        $documents = Document::with('receiverUser', 'currentOffice', 'destinationOffice')
+        // Fetch recent documents scoped by user RBAC permissions
+        $documents = Document::accessibleBy($user)
+            ->with('receiverUser', 'currentOffice', 'destinationOffice')
             ->latest()
             ->take(10)
             ->get();
@@ -90,13 +93,15 @@ class QRController extends Controller
                 if (!$document) {
                     $currentUser = auth()->user() ?? User::find(session('user_id'));
                     ActivityLog::create([
+                        'user_id'     => $currentUser?->id,
                         'user'        => $currentUser?->name ?? 'Guest',
                         'action'      => 'QR Verification Failed',
                         'document_id' => null,
                         'ip'          => 'REDACTED',
                         'meta'        => [
-                            'reason'    => 'Invalid QR Code / Document not found',
-                            'timestamp' => now()->toIso8601String(),
+                            'reason'        => 'Invalid QR Code / Document not found',
+                            'actor_user_id' => $currentUser?->id,
+                            'timestamp'     => now()->toIso8601String(),
                         ]
                     ]);
 
@@ -111,13 +116,15 @@ class QRController extends Controller
                 if (in_array(strtolower($document->status ?? ''), ['cancelled'])) {
                     $currentUser = auth()->user() ?? User::find(session('user_id'));
                     ActivityLog::create([
+                        'user_id'     => $currentUser?->id,
                         'user'        => $currentUser?->name ?? 'Guest',
                         'action'      => 'QR Verification Failed',
                         'document_id' => $document->id,
                         'ip'          => 'REDACTED',
                         'meta'        => [
-                            'reason'    => 'Document cancelled',
-                            'timestamp' => now()->toIso8601String(),
+                            'reason'        => 'Document cancelled',
+                            'actor_user_id' => $currentUser?->id,
+                            'timestamp'     => now()->toIso8601String(),
                         ]
                     ]);
 
@@ -141,14 +148,16 @@ class QRController extends Controller
                     if ((int) $document->id !== $targetId) {
                         $currentUser = auth()->user() ?? User::find(session('user_id'));
                         ActivityLog::create([
+                            'user_id'     => $currentUser?->id,
                             'user'        => $currentUser?->name ?? 'Guest',
                             'action'      => 'QR Verification Failed',
                             'document_id' => $document->id,
                             'ip'          => 'REDACTED',
                             'meta'        => [
-                                'reason'    => 'QR Code mismatch',
-                                'target_id' => $targetId,
-                                'timestamp' => now()->toIso8601String(),
+                                'reason'        => 'QR Code mismatch',
+                                'target_id'     => $targetId,
+                                'actor_user_id' => $currentUser?->id,
+                                'timestamp'     => now()->toIso8601String(),
                             ]
                         ]);
 
@@ -160,8 +169,35 @@ class QRController extends Controller
                     }
                 }
 
-                // Resolve the authenticated user
+                // Resolve the authenticated user and policy
                 $user = auth()->user() ?? User::find(session('user_id'));
+                $policy = app(\App\Policies\DocumentPolicy::class);
+
+                // --- STRICT RBAC EVALUATION: ROLE + OFFICE/SCOPE + DOCUMENT RELATIONSHIP ---
+                if (!$user || !$policy->viewWorkflow($user, $document)) {
+                    ActivityLog::create([
+                        'user_id'     => $user?->id,
+                        'user'        => $user?->name ?? 'Guest',
+                        'action'      => 'QR Scan Access Denied',
+                        'document_id' => $document->id,
+                        'ip'          => 'REDACTED',
+                        'meta'        => [
+                            'reason'        => 'Unauthorized RBAC access attempt',
+                            'role'          => $user?->role ?? 'None',
+                            'office_id'     => $user?->office_id ?? null,
+                            'actor_user_id' => $user?->id,
+                            'timestamp'     => now()->toIso8601String(),
+                        ]
+                    ]);
+
+                    return response()->json([
+                        'success'      => false,
+                        'error'        => true,
+                        'unauthorized' => true,
+                        'title'        => 'Access Restricted',
+                        'message'      => 'You are not authorized to access this document.',
+                    ], 403);
+                }
 
                 // Locate active routing step if present (for updating scanned_at or tracking)
                 $activeRoutingStatuses = ['Pending', 'pending', 'In Transit', 'in_transit', 'Under Review', 'under_review', 'Processing', 'processing', 'On Process', 'on_process', 'For Approval', 'for_approval'];
@@ -273,16 +309,18 @@ class QRController extends Controller
 
                         // Log successful QR scan (recorded once upon valid scan)
                         ActivityLog::create([
+                            'user_id'     => $user?->id,
                             'user'        => $user?->name ?? 'System User',
                             'action'      => 'QR Scanned',
                             'document_id' => $document->id,
                             'ip'          => 'REDACTED',
-                            'meta'        => json_encode([
-                                'receiver'     => $user?->name ?? 'Unknown',
-                                'office'       => $user?->department?->name ?? 'Unknown',
-                                'confidential' => true,
-                                'timestamp'    => now()->toIso8601String(),
-                            ])
+                            'meta'        => [
+                                'receiver'      => $user?->name ?? 'Unknown',
+                                'office'        => $user?->department?->name ?? 'Unknown',
+                                'confidential'  => true,
+                                'actor_user_id' => $user?->id,
+                                'timestamp'     => now()->toIso8601String(),
+                            ]
                         ]);
 
                         if ($userToNotify) {
@@ -501,14 +539,16 @@ class QRController extends Controller
 
                         // * Timeline Entry = Created (ActivityLog)
                         ActivityLog::create([
-                            'user' => $user?->name ?? 'System User',
-                            'action' => 'Confidential PIN Verified',
+                            'user_id'     => $user?->id,
+                            'user'        => $user?->name ?? 'System User',
+                            'action'      => 'Confidential PIN Verified',
                             'document_id' => $document->id,
-                            'ip' => 'REDACTED',
-                            'meta' => json_encode([
-                                'user' => $user?->name ?? 'Unknown',
-                                'timestamp' => now()->toIso8601String(),
-                            ])
+                            'ip'          => 'REDACTED',
+                            'meta'        => [
+                                'user'          => $user?->name ?? 'Unknown',
+                                'actor_user_id' => $user?->id,
+                                'timestamp'     => now()->toIso8601String(),
+                            ]
                         ]);
 
                         // * Notification = Created
@@ -572,8 +612,16 @@ class QRController extends Controller
                     \App\Models\AuditTrail::log("QR Verified & Document Opened", $document->id);
                 }
 
-                // If signature is provided, mark as received
+                // If signature is provided, verify perform authorization first
                 if ($request->filled('signature')) {
+                    if (!$policy->performWorkflow($user, $document, $activeRouting)) {
+                        return response()->json([
+                            'success' => false,
+                            'error'   => true,
+                            'message' => 'Access Restricted: You are not authorized to sign or receive this document.',
+                        ], 403);
+                    }
+
                     if ($activeRouting) {
                         $activeRouting->update([
                             'status' => 'Completed',
@@ -615,15 +663,17 @@ class QRController extends Controller
 
                         // Log progression activity
                         ActivityLog::create([
-                            'user' => $user?->name ?? 'System User',
-                            'action' => 'QR Scanned - Forwarded',
+                            'user_id'     => $user?->id,
+                            'user'        => $user?->name ?? 'System User',
+                            'action'      => 'QR Scanned - Forwarded',
                             'document_id' => $document->id,
-                            'ip' => 'REDACTED',
-                            'meta' => json_encode([
-                                'completed_by' => $user?->name ?? 'Unknown',
+                            'ip'          => 'REDACTED',
+                            'meta'        => [
+                                'completed_by'  => $user?->name ?? 'Unknown',
                                 'next_receiver' => $nextReceiver->name ?? 'Unknown',
-                                'timestamp' => now()->toIso8601String(),
-                            ])
+                                'actor_user_id' => $user?->id,
+                                'timestamp'     => now()->toIso8601String(),
+                            ]
                         ]);
 
                     } else {
@@ -636,15 +686,17 @@ class QRController extends Controller
 
                         // Log final completion activity
                         ActivityLog::create([
-                            'user' => $user?->name ?? 'System User',
-                            'action' => 'QR Scanned - Signed',
+                            'user_id'     => $user?->id,
+                            'user'        => $user?->name ?? 'System User',
+                            'action'      => 'QR Scanned - Signed',
                             'document_id' => $document->id,
-                            'ip' => 'REDACTED',
-                            'meta' => json_encode([
-                                'receiver' => $user?->name ?? 'Unknown',
+                            'ip'          => 'REDACTED',
+                            'meta'        => [
+                                'receiver'          => $user?->name ?? 'Unknown',
                                 'proof_of_delivery' => true,
-                                'timestamp' => now()->toIso8601String(),
-                            ])
+                                'actor_user_id'     => $user?->id,
+                                'timestamp'         => now()->toIso8601String(),
+                            ]
                         ]);
 
                         // Notify uploader
@@ -897,6 +949,25 @@ class QRController extends Controller
             ->orderBy('sort_order', 'asc')
             ->first();
 
+        // Strict RBAC authorization check using DocumentPolicy
+        $policy = app(\App\Policies\DocumentPolicy::class);
+        if (!$policy->viewWorkflow($user, $document)) {
+            ActivityLog::create([
+                'user'        => $user?->name ?? 'Guest',
+                'action'      => 'External QR Verification Denied',
+                'document_id' => $document->id,
+                'ip'          => $request->ip() ?? '127.0.0.1',
+                'meta'        => [
+                    'reason'    => 'Unauthorized RBAC access attempt',
+                    'role'      => $user?->role ?? 'None',
+                    'office_id' => $user?->office_id ?? null,
+                    'timestamp' => now()->toIso8601String(),
+                ]
+            ]);
+
+            abort(403, 'You are not authorized to access this document.');
+        }
+
         if ($activeRouting && is_null($activeRouting->scanned_at)) {
             $activeRouting->update(['scanned_at' => now()]);
         }
@@ -904,14 +975,8 @@ class QRController extends Controller
             $document->update(['qr_scanned_at' => now(), 'qr_status' => 'Verified']);
         }
 
-        // Mark QR verified in current session
+        // Mark QR verified in current session for authorized user
         session(['qr_verified_' . $document->id => true]);
-
-        // Authorization check using existing DocumentPolicy
-        $policy = app(\App\Policies\DocumentPolicy::class);
-        if (!$policy->viewWorkflow($user, $document)) {
-            return redirect()->route('track.index')->with('error', 'You are not authorized to view this document.');
-        }
 
         // Confidential protection & OTP check
         if ($document->is_confidential) {

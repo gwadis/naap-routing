@@ -240,9 +240,9 @@
             @php
                 $status = strtolower($doc->status);
                 $badgeClass = 'badge-pending';
-                if($status == 'completed' || $status == 'approved') $badgeClass = 'badge-success';
-                if(in_array($status, ['in_transit', 'in transit', 'under review', 'received'])) $badgeClass = 'badge-info';
-                if($status == 'rejected' || $status == 'cancelled') $badgeClass = 'badge-danger';
+                if(in_array($status, ['completed', 'approved', 'successful'])) $badgeClass = 'badge-success';
+                if(in_array($status, ['in_transit', 'in transit', 'under review', 'received', 'in_process', 'in process'])) $badgeClass = 'badge-info';
+                if(in_array($status, ['rejected', 'cancelled', 'overdue', 'failed'])) $badgeClass = 'badge-danger';
                 
                 $progress = 20;
                 if(in_array($status, ['received', 'under review'])) $progress = 50;

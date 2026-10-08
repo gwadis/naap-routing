@@ -22,7 +22,10 @@ class DocumentController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Document::with([
+        $user = auth()->user() ?? User::find(session('user_id'));
+        $role = session('user_role') ?? $user?->role;
+        $isAdmin = ($user && $user->isAdmin()) || User::isRoleAdmin($role);
+        $query = Document::accessibleBy($user)->with([
             'currentOffice',
             'originOffice',
             'destinationOffice',
@@ -33,32 +36,6 @@ class DocumentController extends Controller
                 $rq->with(['toOffice', 'fromOffice', 'receiverUser.department'])->orderBy('sort_order', 'asc');
             }
         ]);
-
-        $user = auth()->user() ?? User::find(session('user_id'));
-        $isAdmin = ($user && $user->isAdmin()) || User::isRoleAdmin(session('user_role'));
-        if (!$isAdmin) {
-            $userId = (int) ($user?->id ?? session('user_id'));
-            $officeId = $user?->office_id;
-            // Include documents uploaded by user, receiver, routing participant, or member of associated office
-            $query->where(function ($q) use ($userId, $officeId) {
-                $q->where('uploaded_by', $userId)
-                  ->orWhere('receiver_user_id', $userId)
-                  ->orWhereHas('routings', function ($rq) use ($userId, $officeId) {
-                      $rq->where('receiver_user_id', $userId)
-                        ->orWhere('sender_user_id', $userId)
-                        ->orWhere('forwarded_from_user_id', $userId);
-                      if ($officeId) {
-                          $rq->orWhere('to_office_id', $officeId)
-                             ->orWhere('from_office_id', $officeId);
-                      }
-                  });
-                if ($officeId) {
-                    $q->orWhere('current_office_id', $officeId)
-                      ->orWhere('origin_office_id', $officeId)
-                      ->orWhere('destination_office_id', $officeId);
-                }
-            });
-        }
 
         // 1. Comprehensive Server-Side Search (Case-Insensitive across relevant fields)
         if ($request->filled('search') || $request->filled('q')) {
@@ -852,6 +829,9 @@ class DocumentController extends Controller
         
         if (!$canViewWorkflow) {
             \Log::warning("Workflow view authorization denied: User ID " . ($user?->id ?? 'guest') . " attempted to view document ID {$document->id}");
+            if (request()->routeIs('track.*') || request()->is('track*')) {
+                abort(403, 'You are not authorized to view the tracking information for this document.');
+            }
             abort(403, 'You are not authorized to view this document.');
         }
 
@@ -961,23 +941,10 @@ class DocumentController extends Controller
             ->findOrFail($id);
 
         $user = auth()->user() ?? User::find(session('user_id'));
-        $role = strtoupper($user?->role ?? '');
-        $isAdmin = in_array($role, ['ADMIN', 'ADMINISTRATOR', 'SUPER ADMINISTRATOR']);
-        $isUploader = $document->uploaded_by === $user?->id;
-        $inHistory = DocumentRouting::where('document_id', $document->id)
-            ->where(function($q) use ($user) {
-                $q->where('receiver_user_id', $user?->id)
-                  ->orWhere('sender_user_id', $user?->id);
-            })
-            ->exists();
-        $isRelatedOffice = $user && in_array($user->office_id, array_filter([
-            $document->origin_office_id,
-            $document->destination_office_id,
-            $document->current_office_id
-        ]));
+        $policy = $this->getDocumentPolicy();
 
-        if (!$isAdmin && !$isUploader && !$inHistory && !$isRelatedOffice) {
-            abort(403, 'You are not authorized to view this label.');
+        if (!$policy->viewWorkflow($user, $document)) {
+            abort(403, 'You are not authorized to view this document.');
         }
 
         return view('documents.qr_label', compact('document'));
@@ -1012,7 +979,7 @@ class DocumentController extends Controller
 
         // 1. Authorization: Document creator, current receiver, office members, admin, history participants
         if (!$policy->viewWorkflow($user, $document)) {
-            abort(403, 'You are not authorized to view this Document Passport.');
+            abort(403, 'You are not authorized to view this document.');
         }
 
         // 2. Confidential check: If confidential, must be admin/uploader or verified in session
@@ -1250,15 +1217,8 @@ class DocumentController extends Controller
         $document = Document::findOrFail($id);
         $user = auth()->user() ?? User::find(session('user_id'));
         
-        $inRoutingHistory = DocumentRouting::where('document_id', $document->id)
-            ->where('receiver_user_id', $user?->id)
-            ->exists();
-            
-        $isUploader = $document->uploaded_by === $user?->id;
-        $isAdmin = ($user && $user->isAdmin()) || User::isRoleAdmin($user?->role ?? session('user_role'));
-        $isVpaa = $user?->username === 'vpaa' || $user?->email === 'vpaa@naap.org';
-        
-        if (!$isAdmin && !$isVpaa && !$isUploader && !$inRoutingHistory) {
+        $policy = $this->getDocumentPolicy();
+        if (!$policy->viewWorkflow($user, $document)) {
             abort(403, 'You are not authorized to download this document.');
         }
         
@@ -1345,33 +1305,8 @@ class DocumentController extends Controller
      */
     public function trackIndex(Request $request)
     {
-        $query = Document::with(['originOffice', 'currentOffice', 'destinationOffice', 'uploader', 'receiverUser.department', 'views.user']);
-
         $user = auth()->user() ?? User::find(session('user_id'));
-        $isAdmin = ($user && $user->isAdmin()) || User::isRoleAdmin(session('user_role'));
-
-        if (!$isAdmin) {
-            $userId = (int) ($user?->id ?? session('user_id'));
-            $officeId = $user?->office_id;
-            $query->where(function ($q) use ($userId, $officeId) {
-                $q->where('uploaded_by', $userId)
-                  ->orWhere('receiver_user_id', $userId)
-                  ->orWhereHas('routings', function ($rq) use ($userId, $officeId) {
-                      $rq->where('receiver_user_id', $userId)
-                        ->orWhere('sender_user_id', $userId)
-                        ->orWhere('forwarded_from_user_id', $userId);
-                      if ($officeId) {
-                          $rq->orWhere('to_office_id', $officeId)
-                             ->orWhere('from_office_id', $officeId);
-                      }
-                  });
-                if ($officeId) {
-                    $q->orWhere('current_office_id', $officeId)
-                      ->orWhere('origin_office_id', $officeId)
-                      ->orWhere('destination_office_id', $officeId);
-                }
-            });
-        }
+        $query = Document::accessibleBy($user)->with(['originOffice', 'currentOffice', 'destinationOffice', 'uploader', 'receiverUser.department', 'views.user']);
 
         // Search logic for Title, Tracking ID, Category, Tags
         if ($request->filled('search')) {
@@ -1488,6 +1423,64 @@ class DocumentController extends Controller
         return view('activity', compact('logs'));
     }
 
+    /**
+     * Handle personal user activity history (Route: activity.my).
+     * Scoped strictly to the authenticated user's actions and accessible documents under RBAC.
+     */
+    public function myActivityIndex(Request $request)
+    {
+        $user = auth()->user() ?? User::find(session('user_id'));
+        if (!$user) {
+            return redirect()->route('login');
+        }
+
+        $query = ActivityLog::with(['document.originOffice', 'document.destinationOffice'])
+            ->where(function($q) use ($user) {
+                $q->where('user_id', $user->id)
+                  ->orWhere(function($legacy) use ($user) {
+                      $legacy->whereNull('user_id')
+                             ->where(function($nq) use ($user) {
+                                 $nq->where('user', $user->name);
+                                 if (!empty($user->username)) {
+                                     $nq->orWhere('user', $user->username);
+                                 }
+                             })
+                             ->where('created_at', '>=', $user->created_at);
+                  });
+            });
+
+        // Search by document title or user action
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->whereHas('document', function($d) use ($search) {
+                    $d->where('title', 'like', "%$search%");
+                })->orWhere('action', 'like', "%$search%");
+            });
+        }
+
+        // Date range filtering
+        if ($request->filled('from_date')) {
+            $fromDate = \Carbon\Carbon::parse($request->from_date)->startOfDay();
+            $query->whereDate('created_at', '>=', $fromDate);
+        }
+
+        if ($request->filled('to_date')) {
+            $toDate = \Carbon\Carbon::parse($request->to_date)->endOfDay();
+            $query->whereDate('created_at', '<=', $toDate);
+        }
+
+        // Action filter
+        if ($request->filled('action')) {
+            $action = $request->action;
+            $query->whereRaw('LOWER(action) LIKE ?', ["%$action%"]);
+        }
+
+        $logs = $query->latest()->paginate(15);
+
+        return view('my_activity', compact('logs'));
+    }
+
     protected function authorizeAdmin()
     {
         $role = session('user_role') ?? auth()->user()?->role;
@@ -1528,7 +1521,7 @@ class DocumentController extends Controller
 
         // 1. Bulk Export (CSV) - Supports selected documents OR current search/filter criteria
         if ($action === 'export') {
-            $exportQuery = Document::with(['originOffice', 'destinationOffice', 'uploader', 'receiverUser']);
+            $exportQuery = Document::accessibleBy($user)->with(['originOffice', 'destinationOffice', 'uploader', 'receiverUser']);
 
             if (!empty($ids)) {
                 $exportQuery->whereIn('id', $ids);
@@ -1842,6 +1835,13 @@ class DocumentController extends Controller
             $query->latest()->limit(1);
         }])->findOrFail($id);
 
+        $user = auth()->user() ?? User::find(session('user_id'));
+        $policy = $this->getDocumentPolicy();
+
+        if (!$policy->viewWorkflow($user, $document)) {
+            abort(403, 'You are not authorized to view this document.');
+        }
+
         // Get the last routing update
         $lastRouting = $document->routings()->latest()->first();
         
@@ -1949,7 +1949,7 @@ class DocumentController extends Controller
 
         if (!$canPerform) {
             \Log::warning("Workflow action authorization denied: User ID " . ($user?->id ?? 'guest') . " (office: " . ($user?->office_id ?? 'none') . ") attempted action '{$newStatus}' on document ID {$document->id}");
-            abort(403, 'You are not the active receiver or authorized to perform workflow actions.');
+            abort(403, 'You are not authorized to perform this action.');
         }
 
         $signaturePath = null;
@@ -2437,7 +2437,7 @@ class DocumentController extends Controller
 
         if (!$canPerform) {
             \Log::warning("Forward document authorization denied: User ID " . ($user?->id ?? 'guest') . " attempted to forward document ID {$document->id}");
-            abort(403, 'You are not authorized to forward this document.');
+            abort(403, 'You are not authorized to perform this action.');
         }
 
         $newReceiver = User::findOrFail($request->new_receiver_user_id);

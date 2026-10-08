@@ -25,42 +25,11 @@ class DashboardController extends Controller
 
             $departmentName = $deptId ? Department::find($deptId)?->name : 'My Department';
 
-            // 1. Base query scope
-            $docScope = Document::query();
-            $routeScope = DocumentRouting::query();
-
-            if (!$isAdmin) {
-                $officeId = $user?->office_id;
-                $docScope->where(function ($q) use ($userId, $officeId) {
-                    $q->where('uploaded_by', $userId)
-                      ->orWhere('receiver_user_id', $userId)
-                      ->orWhereHas('routings', function ($rq) use ($userId, $officeId) {
-                          $rq->where('receiver_user_id', $userId)
-                            ->orWhere('sender_user_id', $userId);
-                          if ($officeId) {
-                              $rq->orWhere('to_office_id', $officeId)
-                                 ->orWhere('from_office_id', $officeId);
-                          }
-                      });
-                    if ($officeId) {
-                        $q->orWhere('current_office_id', $officeId)
-                          ->orWhere('destination_office_id', $officeId);
-                    }
-                });
-
-                $routeScope->where(function ($q) use ($userId, $officeId) {
-                    $q->where('receiver_user_id', $userId)
-                      ->orWhereHas('document', function ($dq) use ($userId, $officeId) {
-                          $dq->where('uploaded_by', $userId);
-                          if ($officeId) {
-                              $dq->orWhere('current_office_id', $officeId);
-                          }
-                      });
-                    if ($officeId) {
-                        $q->orWhere('to_office_id', $officeId);
-                    }
-                });
-            }
+            // 1. Base query scope enforcing RBAC
+            $docScope = Document::accessibleBy($user);
+            $routeScope = DocumentRouting::whereHas('document', function ($dq) use ($user) {
+                $dq->accessibleBy($user);
+            });
 
             // Global Filter Support (Dashboard and Reports consistency)
             if ($request->filled('from_date')) {
@@ -369,19 +338,8 @@ class DashboardController extends Controller
             if ($user) {
                 $officeId = $user->office_id;
 
-                // 1. User Scoped Documents Query
-                $userDocsQuery = Document::where(function($q) use ($userId, $officeId) {
-                    $q->where('uploaded_by', $userId)
-                      ->orWhere('receiver_user_id', $userId)
-                      ->orWhereHas('routings', function($rq) use ($userId) {
-                          $rq->where('receiver_user_id', $userId)
-                            ->orWhere('sender_user_id', $userId)
-                            ->orWhere('forwarded_from_user_id', $userId);
-                      });
-                    if ($officeId) {
-                        $q->orWhere('current_office_id', $officeId);
-                    }
-                });
+                // 1. User Scoped Documents Query enforcing RBAC
+                $userDocsQuery = Document::accessibleBy($user);
 
                 $myDocumentsCount = (clone $userDocsQuery)->count();
 
@@ -684,13 +642,18 @@ class DashboardController extends Controller
                     ? round(($userSlaMonitoring['completed_within_sla'] / $userTotalSlaEvaluated) * 100, 1)
                     : 'N/A';
 
-                // 13. Recent Activity (User-scoped)
-                $userNames = array_values(array_filter([$user->name, $user->username]));
-                $userRecentActivities = ActivityLog::where(function($q) use ($userId, $userNames) {
-                    $q->whereIn('user', $userNames)
-                      ->orWhereHas('document', function($dq) use ($userId) {
-                          $dq->where('uploaded_by', $userId)
-                            ->orWhere('receiver_user_id', $userId);
+                // 13. Recent Activity (User-scoped: strictly authenticated user's own operational actions)
+                $userRecentActivities = ActivityLog::where(function($q) use ($user) {
+                    $q->where('user_id', $user->id)
+                      ->orWhere(function($legacy) use ($user) {
+                          $legacy->whereNull('user_id')
+                                 ->where(function($nq) use ($user) {
+                                     $nq->where('user', $user->name);
+                                     if (!empty($user->username)) {
+                                         $nq->orWhere('user', $user->username);
+                                     }
+                                 })
+                                 ->where('created_at', '>=', $user->created_at);
                       });
                 })
                 ->with(['document.currentOffice'])
@@ -705,9 +668,19 @@ class DashboardController extends Controller
                     ->take(6)
                     ->get();
 
-                // 15. User QR Analytics
-                $userQrQuery = ActivityLog::where(function($q) use ($userNames) {
-                    $q->whereIn('user', $userNames);
+                // 15. User QR Analytics (Strictly authenticated user's own scans)
+                $userQrQuery = ActivityLog::where(function($q) use ($user) {
+                    $q->where('user_id', $user->id)
+                      ->orWhere(function($legacy) use ($user) {
+                          $legacy->whereNull('user_id')
+                                 ->where(function($nq) use ($user) {
+                                     $nq->where('user', $user->name);
+                                     if (!empty($user->username)) {
+                                         $nq->orWhere('user', $user->username);
+                                     }
+                                 })
+                                 ->where('created_at', '>=', $user->created_at);
+                      });
                 })->where(function($q) {
                     $q->where('action', 'like', '%QR%')
                       ->orWhere('action', 'like', '%Scan%');
@@ -1010,25 +983,11 @@ class DashboardController extends Controller
         $startOfMonth = \Carbon\Carbon::create($year, $month, 1)->startOfMonth();
         $endOfMonth = \Carbon\Carbon::create($year, $month, 1)->endOfMonth();
 
-        $docScope = Document::query();
-        $routeScope = DocumentRouting::query();
-
-        if (!$isAdmin) {
-            $docScope->where(function ($q) use ($userId) {
-                $q->where('uploaded_by', $userId)
-                  ->orWhere('receiver_user_id', $userId)
-                  ->orWhereHas('routings', function ($rq) use ($userId) {
-                      $rq->where('receiver_user_id', $userId);
-                  });
-            });
-
-            $routeScope->where(function ($q) use ($userId) {
-                $q->where('receiver_user_id', $userId)
-                  ->orWhereHas('document', function ($dq) use ($userId) {
-                      $dq->where('uploaded_by', $userId);
-                  });
-            });
-        }
+        $targetUser = $userId ? User::find($userId) : null;
+        $docScope = Document::accessibleBy($targetUser);
+        $routeScope = DocumentRouting::whereHas('document', function ($dq) use ($targetUser) {
+            $dq->accessibleBy($targetUser);
+        });
 
         $startStr = $startOfMonth->copy()->startOfDay()->toDateTimeString();
         $endStr = $endOfMonth->copy()->endOfDay()->toDateTimeString();
@@ -1205,20 +1164,11 @@ class DashboardController extends Controller
         $groupedDocs = [];
         $seenEvents = [];
 
-        // Helper to check user access
-        $canAccess = function ($doc) use ($isAdmin, $userId, $officeId) {
+        // Helper to check user access strictly according to DocumentPolicy
+        $policy = app(\App\Policies\DocumentPolicy::class);
+        $canAccess = function ($doc) use ($policy, $user, $isAdmin) {
             if ($isAdmin || !$doc) return true;
-            if ($doc->uploaded_by == $userId || $doc->receiver_user_id == $userId) return true;
-            if ($officeId && ($doc->current_office_id == $officeId || $doc->origin_office_id == $officeId || $doc->destination_office_id == $officeId)) return true;
-            if ($doc->routings()->where(function($rq) use ($userId, $officeId) {
-                $rq->where('receiver_user_id', $userId)->orWhere('sender_user_id', $userId);
-                if ($officeId) {
-                    $rq->orWhere('to_office_id', $officeId)->orWhere('from_office_id', $officeId);
-                }
-            })->exists()) {
-                return true;
-            }
-            return false;
+            return $policy->viewWorkflow($user, $doc);
         };
 
         // Helper to register document
